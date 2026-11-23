@@ -65,17 +65,21 @@ make test BOARD=raspi0
 
 See [docs/TESTING.md](docs/TESTING.md).
 
-## Docs
+## Documentation
 
-- [docs/BUILD.md](docs/BUILD.md): tools, make targets, card layout.
+- [docs/USER_MANUAL.md](docs/USER_MANUAL.md): how to use the device, tab by tab, with troubleshooting.
+- [docs/BUILD.md](docs/BUILD.md): tools, make targets and variables, building and writing a card.
 - [docs/CONTENT.md](docs/CONTENT.md): content files, tunes, PCM tracks and saves.
+- [docs/ASSETS.md](docs/ASSETS.md): every asset, where it comes from and its licence.
+- [docs/CULVERT.md](docs/CULVERT.md): the Culvert holotape, how to play it.
 - [docs/TESTING.md](docs/TESTING.md): test layers, goldens.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): source layout and main loop.
-- [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md).
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute.
+- [CHANGELOG.md](CHANGELOG.md): what changed.
 
 ## Assets
 
-All artwork, fonts, sounds, music, maps and text in this repo are original. Nothing is copied from the Fallout games.
+All artwork, sounds, music, maps and text in this repo are original. Nothing is copied from the Fallout games. The text font comes from Pip-OS: see [docs/ASSETS.md](docs/ASSETS.md).
 
 ## Licence
 
