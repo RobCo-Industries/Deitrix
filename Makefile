@@ -151,13 +151,15 @@ gallery-card: all card-tree
 .PHONY: test test-target check-pins check-pins-test pbm2c-test sdimage-test venv
 .PHONY: check-content tools-test
 
+# RobCo-Core's scripts: the CI pins, then the doc links once per pinned
+# repository, Pip-OS and the RobCo-Core inside it.
 check-pins:
 	$(ROBCO_CORE)/tools/check_pins.sh .github/workflows/ci.yml
-	ROBCO_CORE=$(ROBCO_CORE) $(PIP_OS)/tools/check_doc_links.sh $(CURDIR)
-	tools/check_pipos_links.sh
+	$(ROBCO_CORE)/tools/check_doc_links.sh --repo RobCo-Industries/Pip-OS . $(PIP_OS)
+	$(ROBCO_CORE)/tools/check_doc_links.sh . $(ROBCO_CORE)
 
 check-pins-test:
-	tests/host/check_pipos_links_test.sh
+	tests/host/check_pins_test.sh
 
 pbm2c-test:
 	$(PYTHON) tests/host/test_pbm2c.py
