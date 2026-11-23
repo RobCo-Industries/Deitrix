@@ -128,6 +128,7 @@ typedef struct fake_platform {
     int seq_count;       /* play_seq calls */
     uint32_t seq_ms;     /* the length of the last sequence */
     dx_sysinfo_t sysinfo;
+    int sysinfo_fail;    /* dx_plat_sysinfo fails while set */
 } fake_platform_t;
 
 extern fake_platform_t fake;
