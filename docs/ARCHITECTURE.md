@@ -30,7 +30,7 @@ The icons, as plain PBM files. `tools/pbm2c.py` turns them into `build/gen/icons
 
 ### `content/`
 
-The sample content of the card: `PIPBOY/DATA/` with the profile, items, notes, maps, stations and tunes. `make` copies it to `build/card/` and adds the two PCM tracks from `tools/mkpcm.py`. `make sdimage` and `make bootdir` copy `build/card/` to the card root. The formats are in [CONTENT.md](CONTENT.md).
+The sample content of the card: `PIPBOY/DATA/` with the profile, items, notes, maps, stations and tunes. `make card-tree` copies it to `build/card/` and adds the two PCM tracks from `tools/mkpcm.py`. `make sdimage` and `make bootdir` copy `build/card/` to the card root. The formats are in [CONTENT.md](CONTENT.md).
 
 ### `tests/`
 

@@ -19,7 +19,7 @@ Deitrix reads its content from the SD card and keeps changes in saves. This docu
 
 ## Where the files live
 
-All content lives in `/PIPBOY/DATA/` on the card. In this repository the source is `content/PIPBOY/DATA/`. `make` builds the card tree `build/card/`: a copy of `content/` plus the two PCM tracks that `tools/mkpcm.py` generates. `make sdimage` and `make bootdir` copy that tree to the card root.
+All content lives in `/PIPBOY/DATA/` on the card. In this repository the source is `content/PIPBOY/DATA/`. `make card-tree` builds the card tree `build/card/`: a copy of `content/` plus the two PCM tracks that `tools/mkpcm.py` generates. `make sdimage` and `make bootdir` copy that tree to the card root.
 
 | Path on the card | Tab | Limit |
 |---|---|---|
@@ -333,7 +333,7 @@ Two equal notes in a row sound as one long note, since `play_seq` leaves no gap.
 - The ROM streams the file in chunks of at most 65536 bytes: it plays the first with `sample`, then reads the next into a second buffer and hands it to `sample_queue` while the first plays.
 - A track with `loop = yes` must end where it starts: the last byte and the first byte differ by at most 16. Then the joint sounds like any other pair of samples, with no click.
 
-The sample tracks `HEARTH.PCM` and `DRIFT.PCM` are 256000 bytes each, 32 seconds. They are not in git: `make` builds them into `build/card/PIPBOY/DATA/RADIO/`.
+The sample tracks `HEARTH.PCM` and `DRIFT.PCM` are 256000 bytes each, 32 seconds. They are not in git: `tools/mkpcm.py` writes them into `build/pcm/`, and `make card-tree` copies them to `build/card/PIPBOY/DATA/RADIO/`.
 
 ## Saves
 
@@ -399,7 +399,7 @@ A save is 1036 bytes at most, well below the 64 KiB limit of Pip-OS. The ROM wri
 | `tools/tun2notes.py <file.TUN>` | Prints the notes the ROM sends to `play_seq`, one `freq_hz duration_ms` per line. `--wav <out.wav>` renders them with a square wave. |
 | `tools/mkpcm.py <dir>` | Writes `HEARTH.PCM` and `DRIFT.PCM` into `<dir>`. `--wav` also writes WAV files. `--only <NAME>` writes one track. |
 
-Run the checker on `content/` alone and it reports the two PCM files as missing, since `make` generates them.
+Run the checker on `content/` alone and it reports the two PCM files as missing, since `tools/mkpcm.py` generates them.
 
 ## Making your own content
 

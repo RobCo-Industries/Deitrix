@@ -21,6 +21,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 - Short UI tones for moves, selections and refused keys.
 - `docs/CONTENT.md`: the formats of PROFILE.INI, ITEMS.INI, the notes, MAP.INI, RADIO.INI, `.TUN` tunes, `.PCM` tracks and the two saves, with every limit.
 - Sample content in `content/PIPBOY/DATA/`: a profile, 14 items, 4 notes, two maps, three tunes and five stations. `content/PIPBOY/DATA/README.TXT` is gone.
-- `tools/check_content.py`, run by `make check-content`; `tools/tun2notes.py`; `tools/mkpcm.py`, which generates the two PCM tracks into `build/card/` at build time.
+- `tools/check_content.py`, run by `make check-content`; `tools/tun2notes.py`; `tools/mkpcm.py`, which generates the two PCM tracks at build time. `make card-tree` puts them with `content/` in `build/card/`, the tree that goes to the card.
 - Tests for the content tools in `tests/tools/`, run by `make tools-test`.
 - `make gallery`: a test-only ROM that shows every widget, with QEMU goldens and scripted runs.

@@ -20,7 +20,7 @@ The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its gu
 |---|---|
 | `make`, `make all` | Builds `build/ROM1.ROM` with the SDK |
 | `make test-host` | Host unit tests, `check-pins`, the pin script test, the `pbm2c.py` test, `check-content`, `tools-test` and the card check |
-| `make card-tree` | `build/card/`: a copy of `content/` plus the PCM tracks from `tools/mkpcm.py` |
+| `make card-tree` | `build/card/`: a fresh copy of `content/` plus the PCM tracks from `tools/mkpcm.py`, kept in `build/pcm/`. `sdimage`, `run`, `bootdir` and `check-content` run it first. |
 | `make check-content` | `tools/check_content.py` on `build/card/`, see [CONTENT.md](CONTENT.md) |
 | `make tools-test` | The tests in `tests/tools/`, with Python's `unittest` |
 | `make test` | `test-host`, then `test-target` |
@@ -65,4 +65,4 @@ The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its gu
 | `PIPBOY/HOLO/` | Empty |
 | everything else | `build/card/`, copied to the card root |
 
-`build/card/` is `content/` plus `PIPBOY/DATA/RADIO/HEARTH.PCM` and `DRIFT.PCM`. `tools/mkpcm.py` generates the two tracks at build time, about 250 KiB each, so git does not hold them. To put a file on the card, add it under `content/` at the path it should have. [CONTENT.md](CONTENT.md) lists the files Deitrix reads and their formats.
+`build/card/` is `content/` plus `PIPBOY/DATA/RADIO/HEARTH.PCM` and `DRIFT.PCM`. `tools/mkpcm.py` generates the two tracks into `build/pcm/`, 250 KiB each, so git does not hold them. It runs again only when `tools/mkpcm.py` changes. The copy of `content/` runs every time. To put a file on the card, add it under `content/` at the path it should have. [CONTENT.md](CONTENT.md) lists the files Deitrix reads and their formats.
