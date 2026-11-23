@@ -63,10 +63,12 @@ int dx_items_toggle_marked(dx_items_t *it, int index);
 
 /* Totals of a category for the screens: its entries, and the sum of the
  * weights the file gives, in grams. Items without a weight add nothing.
- * The weight is the item's as written: a changed count does not scale it. */
+ * The weight is the item's as written: a changed count does not scale it.
+ * `weighed` is 1 when at least one item of the category has a weight. */
 typedef struct dx_cat_total {
     int entries;
     uint32_t grams;
+    int weighed;
 } dx_cat_total_t;
 dx_cat_total_t dx_items_total(const dx_items_t *it, int cat);
 

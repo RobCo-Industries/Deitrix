@@ -54,19 +54,12 @@ void dx_inv_fmt_weight(dx_sb_t *sb, uint32_t grams)
 
 void dx_inv_fmt_summary(dx_sb_t *sb, const dx_items_t *it, int cat)
 {
-    int entries = dx_inv_cat_entries(it, cat);
-    int weighed = 0;
-    int i;
+    dx_cat_total_t t = dx_items_total(it, cat);
 
-    for (i = 0; i < it->item_count; i++) {
-        if (it->items[i].cat == cat && it->items[i].weight != DX_WEIGHT_NONE) {
-            weighed = 1;
-        }
-    }
-    dx_sb_uint(sb, (uint32_t)entries);
-    dx_sb_str(sb, entries == 1 ? " entry" : " entries");
-    if (weighed) {
+    dx_sb_uint(sb, (uint32_t)t.entries);
+    dx_sb_str(sb, t.entries == 1 ? " entry" : " entries");
+    if (t.weighed) {
         dx_sb_str(sb, ", ");
-        dx_inv_fmt_weight(sb, dx_items_total(it, cat).grams);
+        dx_inv_fmt_weight(sb, t.grams);
     }
 }
