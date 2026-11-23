@@ -101,7 +101,7 @@ static void list_enter(void *st)
     }
 }
 
-/* One level down: the detail of a row. LEFT goes back up. */
+/* One level down: the detail of a row. BACK or LEFT goes back up. */
 static unsigned detail_event(const dx_ui_event_t *ev)
 {
     if (dx_ui_is_back(ev)) {
@@ -180,7 +180,7 @@ static void list_draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
 static const char *list_hint(void *st)
 {
     (void)st;
-    return detail >= 0 ? "LEFT: back to the list" : "UP/DOWN: select  LEFT/RIGHT: tab";
+    return detail >= 0 ? "BACK/LEFT: back to the list" : "UP/DOWN: select  LEFT/RIGHT: tab";
 }
 
 static const dx_screen_t s_list = {

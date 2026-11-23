@@ -6,16 +6,21 @@ Each test builds into its own BUILD folder, so build/ is not touched.
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# RobCo-Core's minimal_env: subprocesses get an allowlisted environment,
+# never a copy of the host one.
+sys.path.insert(0, os.path.join(ROOT, "external", "pip-os", "external", "robco-core", "tests"))
+from harness.env import minimal_env  # noqa: E402
 RADIO = os.path.join("card", "PIPBOY", "DATA", "RADIO")
 
 
 def make(build, *args):
     return subprocess.run(["make", "--no-print-directory", "-C", ROOT, "BUILD=" + build,
-                           "card-tree", *args], capture_output=True, text=True)
+                           "card-tree", *args], capture_output=True, env=minimal_env(), text=True)
 
 
 class CardTree(unittest.TestCase):

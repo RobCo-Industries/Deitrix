@@ -16,7 +16,8 @@
 #   make run                  boot the card in QEMU on this terminal
 #                             (BOARD=<name>, WINDOW=1 opens the display)
 #   make bootdir DIR=<path>   the files of a real card (FIRMWARE=0 leaves
-#                             the Raspberry Pi firmware out)
+#                             the Raspberry Pi firmware out, CLEAN=1
+#                             removes files an earlier run wrote)
 #   make clean
 
 PIP_OS     := external/pip-os
@@ -104,18 +105,20 @@ card-tree: $(PCM_FILES)
 
 # ---- Pip-OS: kernel, card, QEMU, real card --------------------------------
 
-# Pip-OS's own Makefile, building into build/pipos. ROM and TAPE pick the
-# card's ROM and holotape. SDIMAGE_DIR is RobCo-Core's sdimage input: a
-# tree copied to the card root before the ROM.
+# Pip-OS's own Makefile, building into build/pipos, through the interface
+# of its ROM_DEVELOPMENT.md, "Using Pip-OS from another repository". ROM
+# and TAPE pick the card's ROM and holotape. CARD_DIR is the card tree,
+# copied to the card root after the standard files. Pip-OS checks the
+# staged card: a case clash stops the build, a name longer than 8.3 warns.
 PIPOS_BUILD := $(abspath $(BUILD))/pipos
 PIPOS_MAKE  := $(MAKE) --no-print-directory -C $(PIP_OS) BUILD=$(PIPOS_BUILD) PYTHON=$(PYTHON)
-CARD_VARS   := ROM=$(abspath $(PIP_OUT)) TAPE=none SDIMAGE_DIR=$(abspath $(CARD_TREE))
+CARD_VARS   := ROM=$(abspath $(PIP_OUT)) TAPE=none CARD_DIR=$(abspath $(CARD_TREE))
 KERNEL      := $(PIPOS_BUILD)/pipos.img
 CARD        := $(PIPOS_BUILD)/sd.img
 
 .PHONY: kernel sdimage run bootdir
 kernel:
-	$(PIPOS_MAKE) $(KERNEL)
+	$(PIPOS_MAKE) kernel
 
 sdimage: all card-tree
 	$(PIPOS_MAKE) sdimage $(CARD_VARS)
@@ -123,13 +126,11 @@ sdimage: all card-tree
 run: all card-tree
 	$(PIPOS_MAKE) run $(CARD_VARS) BOARD=$(BOARD) WINDOW=$(WINDOW)
 
-# Pip-OS's bootdir builds all of Pip-OS first, then writes the kernel,
-# config.txt, the firmware and a sample PIPOS.CFG. Deitrix adds its files.
+# The same files as the card, firmware included. FIRMWARE=0 leaves the
+# firmware out, CLEAN=1 removes files an earlier run wrote.
 bootdir: all card-tree
 	$(if $(strip $(DIR)),,$(error DIR is not set: make bootdir DIR=<path>))
-	$(PIPOS_MAKE) bootdir DIR=$(abspath $(DIR)) $(if $(FIRMWARE),FIRMWARE=$(FIRMWARE))
-	cp -R $(CARD_TREE)/. $(DIR)/
-	cp $(PIP_OUT) $(DIR)/PIPBOY/ROM1.ROM
+	$(PIPOS_MAKE) bootdir $(CARD_VARS) DIR=$(abspath $(DIR)) FIRMWARE=$(FIRMWARE) CLEAN=$(CLEAN)
 
 # ---- The widget gallery: a second ROM and card, for tests only ----------
 
@@ -150,13 +151,15 @@ gallery-card: all card-tree
 .PHONY: test test-target check-pins check-pins-test pbm2c-test sdimage-test venv
 .PHONY: check-content tools-test
 
+# RobCo-Core's scripts: the CI pins, then the doc links once per pinned
+# repository, Pip-OS and the RobCo-Core inside it.
 check-pins:
 	$(ROBCO_CORE)/tools/check_pins.sh .github/workflows/ci.yml
-	ROBCO_CORE=$(ROBCO_CORE) $(PIP_OS)/tools/check_doc_links.sh $(CURDIR)
-	tools/check_pipos_links.sh
+	$(ROBCO_CORE)/tools/check_doc_links.sh --repo RobCo-Industries/Pip-OS . $(PIP_OS)
+	$(ROBCO_CORE)/tools/check_doc_links.sh . $(ROBCO_CORE)
 
 check-pins-test:
-	tests/host/check_pipos_links_test.sh
+	tests/host/check_pins_test.sh
 
 pbm2c-test:
 	$(PYTHON) tests/host/test_pbm2c.py

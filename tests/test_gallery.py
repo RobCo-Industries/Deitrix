@@ -11,8 +11,8 @@ waits for its line: the shell draws before it takes the next event.
 import re
 import time
 
-from test_deitrix import booted, check_golden, send, tabs, wait_ready, wait_tabs
-from pipos_helpers import TIMEOUT, no_exception, screenshot
+from test_deitrix import boot_rom, golden, tabs, wait_ready, wait_tabs
+from pipos_testing import TIMEOUT, no_exception, press, screenshot, script
 
 SEL = re.compile(r"^gallery: list sel=(\d+) top=(\d+)\r?$", re.M)
 LIST_END = re.compile(r"^gallery: list end=(\d+)\r?$", re.M)
@@ -38,39 +38,39 @@ def wait_count(vm, pattern, count):
 def key(vm, name, pattern):
     """Taps a key and waits for one more line of pattern. Returns the last."""
     before = len(pattern.findall(vm.serial))
-    send(vm, f"key {name}")
+    press(vm, name)
     return wait_count(vm, pattern, before + 1)[-1]
 
 
 def test_gallery_screens(board, kernel_image, gallery_card, tmp_path, need_mtools):
-    with booted(kernel_image, board, sd=gallery_card) as vm:
+    with boot_rom(kernel_image, board, sd=gallery_card) as vm:
         wait_ready(vm)
-        check_golden(screenshot(vm, tmp_path), "gallery_list")
+        golden(screenshot(vm, tmp_path), "gallery_list")
         order = ["TEXT", "BAR", "KV", "TABS"]
         for i, name in enumerate(order, start=1):
-            send(vm, "key right")
+            press(vm, "right")
             assert wait_tabs(vm, i)[-1] == name, vm.serial
-            check_golden(screenshot(vm, tmp_path), f"gallery_{name.lower()}")
+            golden(screenshot(vm, tmp_path), f"gallery_{name.lower()}")
         # TABS keeps RIGHT for its sub-tabs until the last one.
         for sub in range(1, 4):
             assert key(vm, "right", SUB) == str(sub)
         assert tabs(vm)[-1] == "TABS", vm.serial
         for i, name in enumerate(["ICON", "FONT"], start=len(order) + 1):
-            send(vm, "key right")
+            press(vm, "right")
             assert wait_tabs(vm, i)[-1] == name, vm.serial
-            check_golden(screenshot(vm, tmp_path), f"gallery_{name.lower()}")
+            golden(screenshot(vm, tmp_path), f"gallery_{name.lower()}")
         # FONT is the last: RIGHT wraps to LIST, LEFT comes back past
         # the sub-tabs, which stay on the last.
-        send(vm, "key right")
+        press(vm, "right")
         assert wait_tabs(vm, 7)[-1] == "LIST", vm.serial
-        send(vm, "dial -3")
+        script(vm, "dial -3")
         assert wait_tabs(vm, 8)[-1] == "TABS", vm.serial
         assert key(vm, "left", SUB) == "2"
         no_exception(vm)
 
 
 def test_gallery_list_and_text(board, kernel_image, gallery_card, tmp_path, need_mtools):
-    with booted(kernel_image, board, sd=gallery_card) as vm:
+    with boot_rom(kernel_image, board, sd=gallery_card) as vm:
         wait_ready(vm)
         # Down to the last row: the window follows one row at a time.
         for row in range(1, LIST_ROWS):
@@ -79,21 +79,21 @@ def test_gallery_list_and_text(board, kernel_image, gallery_card, tmp_path, need
             assert int(top) == max(0, row - LIST_WINDOW + 1)
         # DOWN at the end: no move, no wrap.
         assert key(vm, "down", LIST_END) == str(LIST_ROWS - 1)
-        check_golden(screenshot(vm, tmp_path), "gallery_list_end")
+        golden(screenshot(vm, tmp_path), "gallery_list_end")
         # And back to the top, where the window starts again at 0.
         for row in range(LIST_ROWS - 2, -1, -1):
             sel, top = key(vm, "up", SEL)
             assert int(sel) == row
             assert int(top) == min(row, LIST_ROWS - LIST_WINDOW)
         assert key(vm, "up", LIST_END) == "0"
-        check_golden(screenshot(vm, tmp_path), "gallery_list")
+        golden(screenshot(vm, tmp_path), "gallery_list")
 
         # The text block: down to its end, a golden, then back up.
-        send(vm, "key right")
+        press(vm, "right")
         assert wait_tabs(vm, 1) == ["TEXT"], vm.serial
         steps = 0
         while not TEXT_END.findall(vm.serial):
-            send(vm, "key down")
+            press(vm, "down")
             steps += 1
             assert steps < 60, vm.serial
             time.sleep(0.05)
@@ -104,30 +104,30 @@ def test_gallery_list_and_text(board, kernel_image, gallery_card, tmp_path, need
         ends = len(TEXT_END.findall(vm.serial))
         assert key(vm, "down", TEXT_END) == str(last)
         assert len(TEXT_END.findall(vm.serial)) == ends + 1
-        check_golden(screenshot(vm, tmp_path), "gallery_text_end")
+        golden(screenshot(vm, tmp_path), "gallery_text_end")
         for line in range(last - 1, -1, -1):
             assert key(vm, "up", TEXT_TOP) == str(line)
         assert key(vm, "up", TEXT_END) == "0"
-        check_golden(screenshot(vm, tmp_path), "gallery_text")
+        golden(screenshot(vm, tmp_path), "gallery_text")
 
         # Back to LIST: it kept its state.
-        send(vm, "key left")
+        press(vm, "left")
         assert wait_tabs(vm, 2)[-1] == "LIST", vm.serial
         assert key(vm, "up", LIST_END) == "0"
-        check_golden(screenshot(vm, tmp_path), "gallery_list")
+        golden(screenshot(vm, tmp_path), "gallery_list")
         no_exception(vm)
 
 
 def test_gallery_detail(board, kernel_image, gallery_card, tmp_path, need_mtools):
     """SELECT on a list row opens one level down, LEFT comes back."""
-    with booted(kernel_image, board, sd=gallery_card) as vm:
+    with boot_rom(kernel_image, board, sd=gallery_card) as vm:
         wait_ready(vm)
         for row in (1, 2):
             assert key(vm, "down", SEL) == (str(row), "0")
         assert key(vm, "select", DETAIL) == "2"
         # UP changes nothing in the detail: once it logs, the frame is shown.
         assert key(vm, "up", DETAIL) == "2"
-        check_golden(screenshot(vm, tmp_path), "gallery_detail")
+        golden(screenshot(vm, tmp_path), "gallery_detail")
         # RIGHT stays inside the level: no tab change.
         assert key(vm, "right", DETAIL) == "2"
         assert tabs(vm) == [], vm.serial
@@ -136,8 +136,44 @@ def test_gallery_detail(board, kernel_image, gallery_card, tmp_path, need_mtools
         assert tabs(vm) == [], vm.serial
         assert key(vm, "up", SEL) == ("1", "0")
         # At the top level LEFT changes the tab again.
-        send(vm, "key left")
+        press(vm, "left")
         assert wait_tabs(vm, 1)[-1] == "FONT", vm.serial
+        no_exception(vm)
+
+
+def wait_back(vm, before):
+    """Waits for the back line after `before` of them, returns its row."""
+    return wait_count(vm, BACK, before + 1)[-1]
+
+
+def test_gallery_back_button(board, kernel_image, gallery_card, tmp_path, need_mtools):
+    """The Back button, ABI 1.2's button 6, goes back like LEFT: from the
+    script channel and from Backspace on the console. At the top level
+    it does not change the tab."""
+    with boot_rom(kernel_image, board, sd=gallery_card) as vm:
+        wait_ready(vm)
+        assert key(vm, "down", SEL) == ("1", "0")
+        assert key(vm, "select", DETAIL) == "1"
+        script(vm, "key back 1")
+        script(vm, "key back 0")
+        assert wait_back(vm, 0) == "1"
+        assert tabs(vm) == [], vm.serial
+        # Back at the list: the selection is kept, UP moves it.
+        assert key(vm, "up", SEL) == ("0", "0")
+        # Backspace on the console is Back too.
+        assert key(vm, "select", DETAIL) == "0"
+        vm.send("\x7f")
+        assert wait_back(vm, 1) == "0"
+        assert tabs(vm) == [], vm.serial
+        # At the top level the shell ignores Back. UP at row 0 logs the
+        # list end after it, so the Back press was taken by then.
+        press(vm, "back")
+        assert key(vm, "up", LIST_END) == "0"
+        vm.send("\x7f")
+        assert key(vm, "up", LIST_END) == "0"
+        assert tabs(vm) == [], vm.serial
+        assert len(BACK.findall(vm.serial)) == 2, vm.serial
+        golden(screenshot(vm, tmp_path), "gallery_list")
         no_exception(vm)
 
 
@@ -151,12 +187,12 @@ MIN_ROWS = 5
 
 
 def test_gallery_hold_repeats(board, kernel_image, gallery_card, tmp_path, need_mtools):
-    with booted(kernel_image, board, sd=gallery_card) as vm:
+    with boot_rom(kernel_image, board, sd=gallery_card) as vm:
         wait_ready(vm)
-        send(vm, "key down 1")
+        script(vm, "key down 1")
         held = time.monotonic()
         time.sleep(HOLD_S)
-        send(vm, "key down 0")
+        script(vm, "key down 0")
         held = time.monotonic() - held
         assert held >= HOLD_S
         # The release logs nothing: wait for the queue to drain.

@@ -10,6 +10,7 @@
 _Static_assert(DX_EV_BUTTON == PIP_EV_BUTTON && DX_EV_DIAL == PIP_EV_DIAL, "event types");
 _Static_assert(DX_BTN_LEFT == PIP_BTN_LEFT && DX_BTN_RIGHT == PIP_BTN_RIGHT, "buttons");
 _Static_assert(DX_BTN_SELECT == PIP_BTN_SELECT && DX_BTN_DIAL == PIP_BTN_DIAL, "buttons");
+_Static_assert(DX_BTN_BACK == PIP_BTN_BACK, "buttons");
 _Static_assert(DX_PRESS_RELEASE == PIP_EV_RELEASE && DX_PRESS_REPEAT == PIP_EV_REPEAT, "press");
 _Static_assert(DX_FONT_W == PIP_FONT_W && DX_FONT_H == PIP_FONT_H, "font");
 _Static_assert(DX_COLOR_NONE == PIP_COLOR_NONE, "colour none");

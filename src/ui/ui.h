@@ -45,7 +45,7 @@ enum {
     DX_UI_LEFT,
     DX_UI_RIGHT,
     DX_UI_SELECT,
-    DX_UI_BACK, /* no Pip-OS input produces it in ABI 1.1: see below */
+    DX_UI_BACK, /* the Back button, new in ABI 1.2: see below */
     DX_UI_DIAL,
 };
 
@@ -56,15 +56,17 @@ typedef struct dx_ui_event {
 } dx_ui_event_t;
 
 /*
- * Navigation, until Pip-OS passes the Back button on (a later ABI adds
- * it as button 6):
- * - In a detail view or any nested level, LEFT means "back one level".
- *   The screen handles it, and RIGHT too, so neither changes the tab.
+ * Navigation:
+ * - In a detail view or any nested level, BACK and LEFT both mean "back
+ *   one level". The screen handles them, and RIGHT too, so no key
+ *   changes the tab there.
  * - At the top level of a tab, LEFT and RIGHT move between sub-tabs.
- *   When the screen ignores them, the shell changes the tab.
+ *   When the screen ignores them, the shell changes the tab. The shell
+ *   ignores BACK: it never changes the tab.
  * - The dial push is SELECT. The dial turn always changes the tab.
- * A screen with levels tests dx_ui_is_back() and gets the Back button
- * through it once it exists.
+ * A screen with levels tests dx_ui_is_back(), so the Back button, the
+ * QEMU console's Backspace and LEFT all work the same. A Pip-OS older
+ * than ABI 1.2 never sends Back: LEFT still works there.
  */
 
 /* 1 for DX_UI_BACK and DX_UI_LEFT, repeats too, else 0. */
@@ -72,7 +74,7 @@ int dx_ui_is_back(const dx_ui_event_t *ev);
 
 /*
  * 1 and *out for a press, a repeat or a dial turn. 0 for a release or
- * an unknown event. The dial push is SELECT.
+ * an unknown event. The dial push is SELECT, button 6 is BACK.
  */
 int dx_ui_translate(const dx_event_t *ev, dx_ui_event_t *out);
 

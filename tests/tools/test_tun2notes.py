@@ -7,6 +7,10 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# RobCo-Core's minimal_env: subprocesses get an allowlisted environment,
+# never a copy of the host one.
+sys.path.insert(0, os.path.join(ROOT, "external", "pip-os", "external", "robco-core", "tests"))
+from harness.env import minimal_env  # noqa: E402
 RADIO = os.path.join(ROOT, "content", "PIPBOY", "DATA", "RADIO")
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
@@ -103,7 +107,7 @@ class Cli(unittest.TestCase):
                 f.write(tun("A4/8 R/8"))
             out = os.path.join(d, "t.wav")
             r = subprocess.run([sys.executable, tun2notes.__file__, src, "--wav", out],
-                               capture_output=True, text=True)
+                               capture_output=True, env=minimal_env(), text=True)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(r.stdout, "440 250\n0 250\n")
             self.assertEqual(os.path.getsize(out), 44 + 4000)
@@ -114,7 +118,7 @@ class Cli(unittest.TestCase):
             with open(src, "wb") as f:
                 f.write(tun("Q4"))
             r = subprocess.run([sys.executable, tun2notes.__file__, src],
-                               capture_output=True, text=True)
+                               capture_output=True, env=minimal_env(), text=True)
             self.assertEqual(r.returncode, 1)
             self.assertIn("T.TUN:2: bad note 'Q4'", r.stderr)
 

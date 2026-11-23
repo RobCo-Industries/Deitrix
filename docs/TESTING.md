@@ -6,6 +6,7 @@
 |---|---|---|
 | Host unit tests | `make test-host` | Pure code in `src/model/`, `src/ui/`, `src/screens/` and the app shell, against a fake platform; `tools/pbm2c.py` |
 | Pin checks | `make check-pins`, part of `test-host` | The CI workflow pins and the commit links in the docs |
+| Environment guard | `tests/test_env_hygiene.py`, part of `test-target` | No test or tool copies `os.environ` |
 | Content check | `make check-content`, part of `test-host` | `build/card/` follows [CONTENT.md](CONTENT.md) |
 | Tool tests | `make tools-test`, part of `test-host` | `tools/check_content.py`, `tools/tun2notes.py` and `tools/mkpcm.py` |
 | Card check | `make sdimage-test`, part of `test-host` | The card holds the ROM, the kernel, `PIPOS.CFG` and every file of `build/card/` with the same bytes; `build/card/` holds every file of `content/` and both PCM tracks |
@@ -23,7 +24,7 @@ CI builds the host tests with GCC and `-Werror`, so GCC-only warnings such as `-
 |---|---|
 | `test_nav.c` | Next and previous, wrap, several detents both ways, extreme deltas, any tab count |
 | `test_clock.c` | `00:00`, `23:59`, `--:--`, the minute of the day, the wait to the next minute |
-| `test_ui.c` | The theme shades, event translation, `dx_ui_is_back()`, the sound for each outcome, the tones, number text, cut text |
+| `test_ui.c` | The theme shades, event translation with button 6 as BACK, `dx_ui_is_back()`, the sound for each outcome, the tones, number text, cut text |
 | `test_frame.c` | The header and footer draw lists, the active-tab block, the tab pad with many tabs, every label left of the clock for 1 to 8 tabs of 1 to 5 letters, the cut labels, the refused tables, the placeholder body, the ROM's screen table |
 | `test_app.c` | The refused tab tables, one `present` per redraw, the clip around the body, no redraw without a change, the log lines, the wait timeout, the scheme colour, routing of the dial, LEFT, RIGHT, BACK and other keys, `enter` and `leave`, the hint, `tick` and the wake time, the wait after a slow or a quick draw for the wake time and the minute |
 | `test_list.c` | Selection, the ends, the scroll window for every size up to 30 rows, draw lists, the scroll bar, cut labels, the empty message, coordinates inside the area |
@@ -43,7 +44,9 @@ CI builds the host tests with GCC and `-Werror`, so GCC-only warnings such as `-
 
 To add one, write `tests/host/test_<name>.c` with `TEST(name) { CHECK(...); }` from RobCo-Core's `rc_test.h`. `make test-host` finds it.
 
-The shell tests are `tests/host/check_pipos_links_test.sh` and `tests/host/sdimage_test.sh`.
+The shell tests are `tests/host/check_pins_test.sh` and `tests/host/sdimage_test.sh`. `check_pins_test.sh` runs `make check-pins` in a temporary copy of the docs, with a fake `git` that always fails first on `PATH`. The copy passes. A stale Pip-OS link and a stale RobCo-Core link each fail, with the file, the line and the repository.
+
+A test that starts a subprocess builds its environment with RobCo-Core's `minimal_env()`, from `harness/env.py`. It never passes a copy of `os.environ`: pytest prints the locals of a failing test, secrets included. `tests/test_env_hygiene.py` scans every `.py` and `.sh` file under `tests/` and `tools/` and fails on any copy of `os.environ`.
 
 ### Draw-list tests
 
@@ -60,7 +63,11 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 
 ## QEMU tests
 
-`tests/test_deitrix.py` boots the card from `make sdimage` with the Pip-OS kernel. `tests/test_gallery.py` boots the gallery's card from `make gallery`. It uses RobCo-Core's harness and Pip-OS's `tests/pipos_helpers.py`, both from the submodule. Each test waits for `deitrix: ready` on serial, then drives the ROM through the script channel.
+`tests/test_deitrix.py` boots the card from `make sdimage` with the Pip-OS kernel. `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
+
+- `booted(..., wait="jump")` boots the card. Deitrix never exits, so the kernel prints `ev=jump` but never `ev=ready`. Each test then waits for `deitrix: ready` on serial.
+- `script()` sends one script-channel command and checks it answered `ok`. `press()` presses and releases a button.
+- `check_golden(..., update_var="DEITRIX_UPDATE_GOLDEN")` compares a screenshot with its golden.
 
 | Test | Checks |
 |---|---|
@@ -71,6 +78,7 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 | `test_gallery_screens` | Each gallery screen matches its golden, `golden/gallery_<name>.png`; RIGHT moves through the sub-tabs before it leaves TABS; RIGHT on FONT wraps to LIST; the dial goes back to TABS, which kept its last sub-tab |
 | `test_gallery_list_and_text` | The list moves down to its last row and back, with the window at each step; DOWN at the end and UP at the top do not move it; the text scrolls to its end and back; LIST keeps its state across a tab change; goldens at both ends |
 | `test_gallery_detail` | SELECT on a list row opens its detail, which matches `golden/gallery_detail.png`; RIGHT stays inside it; LEFT goes back to the list with its selection; LEFT at the top level changes the tab |
+| `test_gallery_back_button` | The Back button, from `key back 1` and `key back 0` and from Backspace on the console, leaves the detail for the list like LEFT; at the top level Back does not change the tab |
 | `test_gallery_hold_repeats` | DOWN held for 1.6 s moves the list one row at a time, at least 5 rows, never past the end |
 
 The first two tests boot without an RTC, so the header shows `--:--` and the goldens do not depend on the time. The goldens are 640x480 QEMU screenshots, or crops of them, and must match on every board pixel for pixel.

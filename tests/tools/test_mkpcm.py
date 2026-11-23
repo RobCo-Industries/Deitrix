@@ -8,6 +8,10 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# RobCo-Core's minimal_env: subprocesses get an allowlisted environment,
+# never a copy of the host one.
+sys.path.insert(0, os.path.join(ROOT, "external", "pip-os", "external", "robco-core", "tests"))
+from harness.env import minimal_env  # noqa: E402
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 import check_content  # noqa: E402
@@ -59,7 +63,7 @@ class Cli(unittest.TestCase):
     def test_writes_pcm_and_wav(self):
         with tempfile.TemporaryDirectory() as d:
             r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "mkpcm.py"), d,
-                                "--wav", "--only", "DRIFT"], capture_output=True, text=True)
+                                "--wav", "--only", "DRIFT"], capture_output=True, env=minimal_env(), text=True)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(sorted(os.listdir(d)), ["DRIFT.PCM", "DRIFT.WAV"])
             with open(os.path.join(d, "DRIFT.PCM"), "rb") as f:
@@ -68,7 +72,7 @@ class Cli(unittest.TestCase):
 
     def test_list(self):
         r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "mkpcm.py"), "--list"],
-                           capture_output=True, text=True)
+                           capture_output=True, env=minimal_env(), text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.split(), [n + ".PCM" for n in TRACKS])
 
