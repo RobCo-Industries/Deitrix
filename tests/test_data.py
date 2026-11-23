@@ -210,7 +210,7 @@ def test_data_tapes(board, kernel_image, card, tmp_path, need_mtools, tapes):
 CLOCK = serial_line(r"deitrix: data clock (.*?) \| (.*?)")
 SETTER = serial_line(r"deitrix: data setter field=(\d) (\S+ \S+) \| (.*?)")
 RTC_DEVICE = ["-device", "ds1338,bus=i2c-bus.1,address=0x68"]
-SET_NOTE = "Time set. A clock chip keeps it."
+SET_NOTE = "Time set."
 
 
 def to_clock(vm, dial="dial 2"):

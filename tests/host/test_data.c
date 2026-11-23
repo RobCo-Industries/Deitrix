@@ -905,7 +905,7 @@ TEST(setter_store_ok_failed_and_refused)
     fake.set_time_rc = DX_EPERM;
     key(DX_UI_SELECT);
     CHECK_STR(last_log(), "deitrix: data setter field=0 2026-01-01 00:00 | The time was not set.");
-    /* Stored: the page, with the line about the chip. Seconds are 0. */
+    /* Stored: the page says so, with the line about the chip. Seconds are 0. */
     fake.set_time_rc = 0;
     fake.clock_valid = 0;
     key(DX_UI_RIGHT);
@@ -919,9 +919,19 @@ TEST(setter_store_ok_failed_and_refused)
     CHECK(!dx_data_clock_nested());
     CHECK_STR(last_log(),
               "deitrix: data clock 01:00:00 2026-01-01 Thursday | "
-              "Time set. A clock chip keeps it.");
+              "Time set.");
     draw_body();
-    CHECK(fake_find_text("Time set. A clock chip keeps it.") != NULL);
+    {
+        const fake_text_t *set = fake_find_text("Time set.");
+        const fake_text_t *chip = fake_find_text("Lost at power-off without a clock chip.");
+
+        CHECK(set != NULL && chip != NULL);
+        if (set != NULL && chip != NULL) {
+            CHECK_EQ(set->fg, fake.theme.fg);
+            CHECK_EQ(chip->fg, fake.theme.dim);
+            CHECK(chip->y >= set->y + DX_ROW_H);
+        }
+    }
     CHECK(body_inside());
     /* The line goes when the sub-tab is left. */
     key(DX_UI_LEFT);

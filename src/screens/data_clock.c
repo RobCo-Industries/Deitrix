@@ -19,6 +19,9 @@
 #define LABEL_DY  84
 #define LINE_SIZE 128
 
+/* Under "Time set.": true with a clock chip and without one. */
+#define NO_CHIP "Lost at power-off without a clock chip."
+
 /* The setter row, "YYYY-MM-DD HH:MM": each field's first column and width. */
 static const int field_col[DX_DT_FIELDS] = { 0, 5, 8, 11, 14 };
 static const int field_len[DX_DT_FIELDS] = { 4, 2, 2, 2, 2 };
@@ -91,9 +94,10 @@ static void store(void)
     dx_sb_char(&sb, '\n');
     dx_plat_log(line);
     if (rc == 0) {
-        /* The ABI does not say whether a clock chip took it. */
+        /* The ABI does not say whether a clock chip took it, so the
+         * page says what happens without one. */
         clk.open = 0;
-        clk.status = "Time set. A clock chip keeps it.";
+        clk.status = "Time set.";
     } else if (rc == DX_EIO) {
         clk.message = "The clock chip did not take the time.";
     } else {
@@ -220,7 +224,8 @@ static void draw_page(const dx_ctx_t *ctx, dx_rect_t r)
         centred(ctx, r, r.y + DATE_DY, "No clock. SELECT sets the time.", ctx->theme.dim);
     }
     if (clk.status != NULL) {
-        centred(ctx, r, r.y + r.h - DX_ROW_H - 2, clk.status, ctx->theme.dim);
+        centred(ctx, r, r.y + r.h - 2 * DX_ROW_H - 2, clk.status, ctx->theme.fg);
+        centred(ctx, r, r.y + r.h - DX_ROW_H - 2, NO_CHIP, ctx->theme.dim);
     }
 }
 
