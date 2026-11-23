@@ -92,6 +92,20 @@ int dx_ui_sound_for(const dx_ui_event_t *ev, unsigned result, int tab_changed)
     }
 }
 
+/* The owner's setting, and the radio's claim on the one voice. */
+static int sound_on = 1;
+static int sound_blocked;
+
+void dx_ui_sound_enable(int on)
+{
+    sound_on = on != 0;
+}
+
+void dx_ui_sound_block(int blocked)
+{
+    sound_blocked = blocked != 0;
+}
+
 void dx_ui_sound(int snd)
 {
     /* Hz and ms per DX_SND_*. */
@@ -99,7 +113,7 @@ void dx_ui_sound(int snd)
         { 0, 0 }, { 1400, 12 }, { 1900, 30 }, { 900, 30 }, { 180, 70 },
     };
 
-    if (!DX_UI_SOUND || snd <= DX_SND_NONE || snd > DX_SND_DENY) {
+    if (!DX_UI_SOUND || !sound_on || sound_blocked || snd <= DX_SND_NONE || snd > DX_SND_DENY) {
         return;
     }
     dx_plat_tone(tones[snd][0], tones[snd][1]);

@@ -1,4 +1,6 @@
 /* The platform layer on Pip-OS: the only file that makes system calls. */
+#include <pipos/crc32.h>
+#include <pipos/ini.h>
 #include <pipos/pip.h>
 
 #include "app.h"
@@ -15,6 +17,10 @@ _Static_assert(DX_PRESS_RELEASE == PIP_EV_RELEASE && DX_PRESS_REPEAT == PIP_EV_R
 _Static_assert(DX_FONT_W == PIP_FONT_W && DX_FONT_H == PIP_FONT_H, "font");
 _Static_assert(DX_COLOR_NONE == PIP_COLOR_NONE, "colour none");
 _Static_assert(DX_SCALE_MAX == PIP_SCALE_MAX, "text scale");
+_Static_assert(sizeof(dx_note_t) == sizeof(pip_note_t), "note layout");
+_Static_assert(DX_EBUSY == -PIP_EBUSY, "busy");
+_Static_assert(DX_NAME83_SIZE == PIP_NAME83_SIZE, "8.3 name");
+_Static_assert(DX_SAMPLE_MAX == PIP_SAMPLE_MAX, "sample size");
 
 uint32_t dx_plat_fg(void)
 {
@@ -57,6 +63,190 @@ void dx_plat_log(const char *text)
 void dx_plat_tone(uint32_t freq_hz, uint32_t duration_ms)
 {
     pip_tone(freq_hz, duration_ms);
+}
+
+/* ---- Files ---------------------------------------------------------------- */
+
+static int32_t file_error(int32_t rc)
+{
+    return rc == -PIP_ENOENT ? DX_FILE_MISSING : DX_FILE_ERROR;
+}
+
+int32_t dx_plat_read_file(const char *path, uint8_t *buf, uint32_t limit)
+{
+    int32_t fd = pip_file_open(path);
+    uint32_t got = 0;
+    uint8_t extra;
+    int32_t n;
+
+    if (fd < 0) {
+        return file_error(fd);
+    }
+    while (got < limit) {
+        n = pip_file_read(fd, buf + got, limit - got);
+        if (n < 0) {
+            pip_file_close(fd);
+            return DX_FILE_ERROR;
+        }
+        if (n == 0) {
+            break;
+        }
+        got += (uint32_t)n;
+    }
+    /* One byte more means the file is above the limit. */
+    n = got == limit ? pip_file_read(fd, &extra, 1) : 0;
+    pip_file_close(fd);
+    if (n < 0) {
+        return DX_FILE_ERROR;
+    }
+    return n > 0 ? DX_FILE_TOO_LARGE : (int32_t)got;
+}
+
+int32_t dx_plat_file_open(const char *path)
+{
+    int32_t fd = pip_file_open(path);
+
+    return fd < 0 ? file_error(fd) : fd;
+}
+
+int32_t dx_plat_file_read(int32_t handle, uint8_t *buf, uint32_t size)
+{
+    int32_t n = pip_file_read(handle, buf, size);
+
+    return n < 0 ? DX_FILE_ERROR : n;
+}
+
+void dx_plat_file_close(int32_t handle)
+{
+    pip_file_close(handle);
+}
+
+int32_t dx_plat_dir_list(const char *path, dx_dirent_t *out, uint32_t max, uint32_t start)
+{
+    static pip_dirent_t ents[PIP_DIR_LIST_MAX];
+    int32_t n;
+    int32_t i;
+    int j;
+
+    if (max > PIP_DIR_LIST_MAX) {
+        max = PIP_DIR_LIST_MAX;
+    }
+    if (max == 0) {
+        return 0;
+    }
+    n = pip_dir_list(path, ents, max, start);
+    if (n < 0) {
+        return file_error(n);
+    }
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < DX_NAME83_SIZE - 1 && ents[i].name[j] != '\0'; j++) {
+            out[i].name[j] = ents[i].name[j];
+        }
+        out[i].name[j] = '\0';
+        out[i].is_dir = (ents[i].flags & PIP_DIRENT_DIR) != 0;
+        out[i].size = ents[i].size;
+    }
+    return n;
+}
+
+/* ---- Saves ---------------------------------------------------------------- */
+
+int32_t dx_plat_save_read(const char *name, uint8_t *buf, uint32_t size)
+{
+    int32_t n = pip_read_save(name, buf, size);
+
+    return n < 0 ? file_error(n) : n;
+}
+
+int32_t dx_plat_save_write(const char *name, const uint8_t *buf, uint32_t size)
+{
+    return pip_write_save(name, buf, size) == (int32_t)size ? 0 : DX_FILE_ERROR;
+}
+
+int32_t dx_plat_save_delete(const char *name)
+{
+    int32_t rc = pip_save_delete(name);
+
+    return rc < 0 ? file_error(rc) : 0;
+}
+
+/* ---- Audio ---------------------------------------------------------------- */
+
+int32_t dx_plat_play_seq(const dx_note_t *notes, uint32_t count)
+{
+    return pip_play_seq((const pip_note_t *)(const void *)notes, count);
+}
+
+int32_t dx_plat_sample(const uint8_t *data, uint32_t length)
+{
+    return pip_sample(data, length);
+}
+
+int32_t dx_plat_sample_queue(const uint8_t *data, uint32_t length)
+{
+    return pip_sample_queue(data, length);
+}
+
+void dx_plat_audio_stop(void)
+{
+    pip_audio_stop();
+}
+
+int dx_plat_audio_status(void)
+{
+    return pip_audio_status() == 1;
+}
+
+int32_t dx_plat_volume(uint32_t level)
+{
+    int32_t prev = pip_volume(level);
+
+    return prev < 0 ? -1 : prev;
+}
+
+/* ---- System information ----------------------------------------------------- */
+
+int dx_plat_sysinfo(dx_sysinfo_t *out)
+{
+    pip_sys_info_t si;
+    pip_mem_info_t mi;
+
+    out->abi_version = 0;
+    out->kernel_version = 0;
+    out->board_rev = 0;
+    out->soc = 0;
+    out->mem_total = 0;
+    out->heap_size = 0;
+    out->stack_size = 0;
+    if (pip_sys_info(&si) != 0 || pip_mem_info(&mi) != 0) {
+        return -1;
+    }
+    out->abi_version = si.abi_version;
+    out->kernel_version = si.pipos_version;
+    out->board_rev = si.board_rev;
+    out->soc = si.soc;
+    out->mem_total = si.mem_size;
+    out->heap_size = mi.heap_size;
+    out->stack_size = mi.stack_size;
+    return 0;
+}
+
+/* ---- libpip ------------------------------------------------------------------- */
+
+int dx_ini_parse(const char *text, uint32_t len, dx_ini_handler_t fn, void *ctx,
+                 unsigned *err_line)
+{
+    return pip_ini_parse(text, len, fn, ctx, err_line);
+}
+
+const char *dx_ini_strerror(int code)
+{
+    return pip_ini_strerror(code);
+}
+
+uint32_t dx_crc32(const void *data, uint32_t n)
+{
+    return pip_crc32(data, n);
 }
 
 /* ---- Drawing ------------------------------------------------------------ */

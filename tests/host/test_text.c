@@ -1,5 +1,6 @@
 /* Text wrapping and the scrolled text block. */
 #include "rc_test.h"
+#include "tfmt.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -177,14 +178,14 @@ static const char *last_line(dx_text_t *t)
     if (fake.text_count < 1) {
         return "";
     }
-    strncpy(out, fake.texts[fake.text_count - 1].text, sizeof(out) - 1);
+    tfmt(out, sizeof(out), "%s", fake.texts[fake.text_count - 1].text);
     return out;
 }
 
 /* "first\n", spaces up to `at`, then `tail`, in a buffer of `size`. */
 static char *spaced(size_t size, size_t at, const char *tail)
 {
-    char *s = malloc(size + 1);
+    char *s = fake_alloc(size + 1);
     size_t n = strlen(tail);
 
     memset(s, ' ', size);
@@ -204,7 +205,7 @@ TEST(text_late_line_past_64k)
     CHECK_INT(t.count, 3);
     CHECK_INT(t.cut, 0);
     CHECK_STR(last_line(&t), "late");
-    free(s);
+    fake_free(s);
 }
 
 TEST(text_bytes_just_under)
@@ -217,7 +218,7 @@ TEST(text_bytes_just_under)
     CHECK_INT(t.count, 3);
     CHECK_INT(t.cut, 0);
     CHECK_STR(last_line(&t), "end");
-    free(s);
+    fake_free(s);
 }
 
 TEST(text_bytes_just_over)
@@ -238,7 +239,7 @@ TEST(text_bytes_just_over)
         dx_text_draw(&t, &c, (dx_rect_t){ 0, 22, 120, 32 });
     }
     CHECK_STR(fake.texts[0].text, "la");
-    free(s);
+    fake_free(s);
 }
 
 /* Room for one "L<int>\n" line at any int value, plus the NUL. */
@@ -247,11 +248,11 @@ TEST(text_bytes_just_over)
 /* n lines "L0" .. "L<n-1>". */
 static char *numbered(int n)
 {
-    char *s = malloc((size_t)n * NUMBERED_LINE + 1);
+    char *s = fake_alloc((size_t)n * NUMBERED_LINE + 1);
     int i, o = 0;
 
     for (i = 0; i < n; i++) {
-        o += snprintf(s + o, NUMBERED_LINE, i + 1 < n ? "L%d\n" : "L%d", i);
+        o += tfmt(s + o, NUMBERED_LINE, i + 1 < n ? "L%d\n" : "L%d", i);
     }
     return s;
 }
@@ -265,7 +266,7 @@ TEST(text_lines_just_under)
     CHECK_INT(t.count, DX_TEXT_MAX_LINES);
     CHECK_INT(t.cut, 0);
     CHECK_STR(last_line(&t), "L127");
-    free(s);
+    fake_free(s);
 }
 
 TEST(text_lines_just_over)
@@ -286,5 +287,5 @@ TEST(text_lines_just_over)
         dx_text_draw(&t, &c, (dx_rect_t){ 0, 22, 120, 32 });
     }
     CHECK_STR(fake.texts[0].text, "L126");
-    free(s);
+    fake_free(s);
 }

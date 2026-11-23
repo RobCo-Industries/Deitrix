@@ -137,8 +137,19 @@ enum { DX_SND_NONE, DX_SND_MOVE, DX_SND_SELECT, DX_SND_BACK, DX_SND_DENY };
 /* 0 turns every UI sound off. */
 #define DX_UI_SOUND 1
 
-/* Plays a short tone for a DX_SND_*, unless DX_UI_SOUND is 0. */
+/* Plays a short tone for a DX_SND_*, unless DX_UI_SOUND is 0, the
+ * owner turned UI sounds off, or the radio holds the voice. */
 void dx_ui_sound(int snd);
+
+/* The owner's setting: 0 turns UI sounds off. On at start. */
+void dx_ui_sound_enable(int on);
+
+/*
+ * Pip-OS has one voice, and a tone replaces the sound that plays. So
+ * while the radio plays, it blocks UI sounds: a tab change does not cut
+ * the radio. 1 blocks, 0 lets them play again.
+ */
+void dx_ui_sound_block(int blocked);
 
 /*
  * The sound for an event's outcome: MOVE for a tab change, SELECT or

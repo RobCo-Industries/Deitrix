@@ -10,6 +10,25 @@
 
 #include "ui/ui.h"
 
+/*
+ * A background service: work that goes on whatever tab is shown, such
+ * as the radio and the autosave. tick runs when its wake time passes,
+ * and after every routed event so it sees changes at once. It returns
+ * its next wake time, built with dx_ticks_add(), or 0 for none.
+ * It sets DX_UI_DIRTY in *flags when something a screen may show has
+ * changed, such as the radio going off at the end of a track. The shell
+ * then redraws the tab shown in the same step. A tick that changes
+ * nothing visible leaves *flags alone, so it costs no frame.
+ */
+typedef struct dx_service {
+    const char *name;
+    void (*init)(uint32_t now_ms);
+    uint32_t (*tick)(uint32_t now_ms, unsigned *flags);
+    void (*stop)(void);
+} dx_service_t;
+
+#define DX_SERVICES_MAX 4
+
 typedef struct dx_app {
     const dx_screen_t *const *screens;
     int count;
@@ -21,6 +40,11 @@ typedef struct dx_app {
     int dirty;         /* the active screen asked for a redraw */
     int wake_on;       /* the active screen has a wake time */
     uint32_t wake;     /* its wake time, in ticks */
+    const dx_service_t *const *services;
+    int service_count;
+    int svc_on[DX_SERVICES_MAX];       /* the service has a wake time */
+    uint32_t svc_wake[DX_SERVICES_MAX];
+    void (*tab_changed)(int tab);      /* optional: told after each tab change */
 } dx_app_t;
 
 /*
@@ -34,9 +58,24 @@ typedef struct dx_app {
 int dx_app_init(dx_app_t *app, const dx_screen_t *const *screens, int count);
 
 /*
- * One iteration: ticks the screen when its wake time passed, redraws
- * and presents when anything changed, then waits for one event, the
- * next minute change or the screen's wake time, and routes the event.
+ * Starts the services of the table, at most DX_SERVICES_MAX: calls each
+ * init, then ticks each on the next step. Returns 0, or -1 for a bad
+ * table. Call it after dx_app_init.
+ */
+int dx_app_start_services(dx_app_t *app, const dx_service_t *const *services, int count);
+
+/* Stops every service, in reverse order. */
+void dx_app_stop_services(dx_app_t *app);
+
+/* Makes `tab` the active tab before the first frame, as the settings
+ * ask. Out of range: nothing. */
+void dx_app_set_tab(dx_app_t *app, int tab);
+
+/*
+ * One iteration: ticks the services and the screen whose wake times
+ * passed, redraws and presents when anything changed, then waits for
+ * one event, the next minute change or the earliest wake time, and
+ * routes the event.
  */
 void dx_app_step(dx_app_t *app);
 
