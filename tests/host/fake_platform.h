@@ -25,6 +25,8 @@
 #define FAKE_SAVE_MAX   2048
 #define FAKE_MAX_AUDIO  256
 #define FAKE_HANDLES    8
+#define FAKE_MAX_SET_TIMES 16
+#define FAKE_ARGS_SIZE  100
 
 /* A file on the fake card. data NULL: every byte is `fill`. */
 typedef struct fake_file {
@@ -129,6 +131,26 @@ typedef struct fake_platform {
     uint32_t seq_ms;     /* the length of the last sequence */
     dx_sysinfo_t sysinfo;
     int sysinfo_fail;    /* dx_plat_sysinfo fails while set */
+    /* set_time: the result to give, the calls. A result of 0 or DX_EIO
+     * sets the clock, as Pip-OS does. */
+    int32_t set_time_rc;
+    uint32_t set_times[FAKE_MAX_SET_TIMES];
+    int set_time_count;
+    /* Holotapes: the listing, and a launch that returns launch_rc. */
+    dx_holo_t holos[DX_HOLO_MAX];
+    int holo_count;
+    int32_t holo_list_rc; /* nonzero: dx_plat_holo_list returns it */
+    int holo_lists;       /* dx_plat_holo_list calls */
+    int32_t launch_rc;
+    int launch_count;
+    char launch_file[DX_NAME83_SIZE];
+    char launch_args[FAKE_ARGS_SIZE];
+    /* What had happened before the last launch: audio calls, the
+     * audio stop calls among them and the save writes. */
+    int launch_audio_at;
+    int launch_stops_at;
+    int launch_writes_at;
+    uint32_t launch_draw_ms; /* added to ticks by a launch: the tape's run */
 } fake_platform_t;
 
 extern fake_platform_t fake;
@@ -186,5 +208,7 @@ void fake_put_save(const char *name, const void *data, uint32_t size);
 int fake_audio_busy(void);
 /* How many audio calls of `op`. */
 int fake_audio_ops(int op);
+/* Adds a holotape to the listing; title may be "", icon NULL. */
+void fake_add_holo(const char *file, int kind, const char *title, const uint8_t *icon);
 
 #endif
