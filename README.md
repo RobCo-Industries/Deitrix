@@ -17,6 +17,8 @@ INV is built: the items of ITEMS.INI by category, a detail per item, and counts 
 
 MAP is built: the local and world maps with their places, and a detail per place. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#map).
 
+Culvert, a pipe-turning puzzle, ships on the card as the holotape `CULVERT.HTP`. See [docs/CULVERT.md](docs/CULVERT.md).
+
 DATA and RADIO are placeholders. Each shows the tab's name, "Not built yet." and a line from the content, such as the note count on DATA.
 
 At start the ROM loads the content under `/PIPBOY/DATA/` on the card and its two saves. The formats are in [docs/CONTENT.md](docs/CONTENT.md). The dial, LEFT and RIGHT move between tabs and wrap at both ends. BACK and LEFT go back one level in a nested view. SELECT on RADIO cycles the stations: tunes through `play_seq`, PCM tracks streamed in chunks. The radio keeps playing on other tabs. The last tab and station are saved a moment after they change. A test-only gallery ROM shows every widget of the framework. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
@@ -24,7 +26,6 @@ At start the ROM loads the content under `/PIPBOY/DATA/` on the card and its two
 ## Planned, not built
 
 - The five tabs with real content, on top of the data model.
-- A holotape game.
 
 ## Build
 
@@ -69,6 +70,7 @@ See [docs/TESTING.md](docs/TESTING.md).
 - [docs/CONTENT.md](docs/CONTENT.md): content files, tunes, PCM tracks and saves.
 - [docs/TESTING.md](docs/TESTING.md): test layers, goldens.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): source layout and main loop.
+- [docs/CULVERT.md](docs/CULVERT.md): the Culvert holotape, how to play it.
 - [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md).
 
 ## Assets

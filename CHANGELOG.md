@@ -12,6 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Added
 
+- Culvert, a pipe-turning puzzle holotape with generated levels, built by `make holotapes` and shipped on the card as `CULVERT.HTP`.
 - The STAT tab: the owner and gauges, the attributes, and the device data with the uptime, refreshed each second.
 - The INV tab: one sub-tab per category, a list of its items with a summary row, and a detail view where UP and DOWN change the count and SELECT marks the item.
 - The MAP tab: the local and world maps with their places, and a detail per place.

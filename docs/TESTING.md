@@ -54,6 +54,8 @@ For other GCC-only warnings, CI is the check. If a GCC is installed, run `make C
 | `test_stat.c` | The STAT tab: the name's font size, each sub-tab with a full, a minimal, a missing and a broken profile, the ATTRS scroll, the keys STATUS ignores, the sub-tab kept across tabs, the ABOUT tick, a day of uptime and the tick wrap, every view inside the body, no block live at the end |
 | `test_inv_fmt.c` | INV's text helpers: weights in grams and kilograms, counts, the item of each row, the summary row, at the limits |
 | `test_inv.c` | The INV tab: no ITEMS.INI, a broken file, no category, the first view's draw list, the categories and an empty one, list moves and ends, the detail, the count at 0 and 999, the mark and the summary, routing through the shell and `leave`, the longest names and most items inside the body |
+| `test_culvert_logic.c` | Culvert's pure logic: every rotation; levels 1 to 200 are spanning trees with no opening into a wall, not solved when scrambled, the same twice and different from the level before; the solved test after any single quarter turn; leaks; the flood fill against a slow reference; the timer across the tick wrap; the save record pinned as hex, every single-byte change, every wrong length, an old version |
+| `test_culvert_game.c` | Culvert's state machine: the title menu and quit, title to play, the cursor at the edges, a held SELECT turns once, the dial both ways, the turn sounds, a scripted solve and the next level, Continue from a save, a corrupt save, pause, resume, restart and quit, pause after a solve, the clock across the tick wrap |
 | `test_content.c` | The sample card's load log, line for line; a card without data; read errors; the saves at start; every broken tree of the checker's table, with the log lines it changes, in `test_content_expect.inc` |
 
 `tests/host/test_pbm2c.py` tests the PBM converter: parsing, bit packing, the generated table, bad input and the files in `assets/`. `make test-host` runs it.
@@ -112,11 +114,17 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 | `test_inv_no_items_file` | Without ITEMS.INI the tab matches `golden/inv_empty.png` and SELECT and DOWN do nothing |
 | `test_inv_empty_category` | A category without items matches `golden/inv_empty_cat.png`; SELECT does nothing; RIGHT at the last category moves to DATA |
 | `test_inv_hold_counts_up` | UP held for 1.6 s in the detail adds one per event, at least 5 |
+| `test_culvert_play` | Culvert from the SDK's hello ROM: the title, level 1, the pause menu, a mid-game frame and the solved screen match `golden/culvert_*.png`; the cursor stops at the edge; a held SELECT turns once; the dial turns; Restart brings back the same level; the solution from `culvert_solve` solves level 1; the tune's first notes; the save; level 2; Quit returns status 0 to hello |
+| `test_culvert_save` | Solve level 1 and quit; the next start loads the save and the title offers "Continue (level 2)", `golden/culvert_title_continue.png`; Continue starts level 2 |
+| `test_culvert_corrupt_save` | A CULVERT.SAV with a bad CRC on the card starts fresh: the title matches `golden/culvert_title.png` |
+| `test_culvert_quit_from_title` | Quit on the title ends the tape with status 0 |
 | `test_gallery_screens` | Each gallery screen matches its golden, `golden/gallery_<name>.png`; RIGHT moves through the sub-tabs before it leaves TABS; RIGHT on FONT wraps to LIST; the dial goes back to TABS, which kept its last sub-tab |
 | `test_gallery_list_and_text` | The list moves down to its last row and back, with the window at each step; DOWN at the end and UP at the top do not move it; the text scrolls to its end and back; LIST keeps its state across a tab change; goldens at both ends |
 | `test_gallery_detail` | SELECT on a list row opens its detail, which matches `golden/gallery_detail.png`; RIGHT stays inside it; LEFT goes back to the list with its selection; LEFT at the top level changes the tab |
 | `test_gallery_back_button` | The Back button, from `key back 1` and `key back 0` and from Backspace on the console, leaves the detail for the list like LEFT; at the top level Back does not change the tab |
 | `test_gallery_hold_repeats` | DOWN held for 1.6 s moves the list one row at a time, at least 5 rows, never past the end |
+
+`tests/test_culvert.py` boots the same card with the SDK's hello ROM in place of Deitrix, because Deitrix has no tape list yet. Hello lists the tapes and starts the one picked with SELECT. `make test-target` builds hello with `make hello`, and builds `build/host/culvert_solve` from `logic.c`: it prints the turns that solve a level, and the test plays them. The tape logs each step after its frame is on screen, so a test waits for the line, then takes the screenshot. The goldens leave out the time at the right of the status row.
 
 The first two tests boot without an RTC, so the header shows `--:--` and the goldens do not depend on the time. The goldens are 640x480 QEMU screenshots, or crops of them, and must match on every board pixel for pixel.
 
