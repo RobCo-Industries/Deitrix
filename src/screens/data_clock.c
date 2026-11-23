@@ -126,9 +126,15 @@ static unsigned setter_event(const dx_ui_event_t *ev)
         clk.open = 0; /* LEFT on the first field is Back */
         return DX_UI_HANDLED | DX_UI_DIRTY;
     case DX_UI_BACK:
+        if (ev->repeat) {
+            return DX_UI_IGNORED; /* closes on a fresh press only */
+        }
         clk.open = 0;
         return DX_UI_HANDLED | DX_UI_DIRTY;
     case DX_UI_SELECT:
+        if (ev->repeat) {
+            return DX_UI_IGNORED; /* stores once per press */
+        }
         store();
         return DX_UI_HANDLED | DX_UI_DIRTY;
     default:
@@ -141,7 +147,7 @@ unsigned dx_data_clock_event(const dx_ui_event_t *ev)
     if (clk.open) {
         return setter_event(ev);
     }
-    if (ev->type == DX_UI_SELECT) {
+    if (ev->type == DX_UI_SELECT && !ev->repeat) {
         open_setter();
         return DX_UI_HANDLED | DX_UI_DIRTY;
     }

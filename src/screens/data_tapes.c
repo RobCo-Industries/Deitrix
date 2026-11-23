@@ -176,7 +176,9 @@ unsigned dx_data_tapes_event(const dx_ui_event_t *ev)
 
     setup();
     if (ev->type == DX_UI_SELECT) {
-        return tapes.list.count > 0 ? launch() : DX_UI_IGNORED;
+        /* One launch per press. A SELECT still held when a tape returns
+         * sends only repeats: Pip-OS empties the queue at the tape's end. */
+        return tapes.list.count > 0 && !ev->repeat ? launch() : DX_UI_IGNORED;
     }
     r = dx_list_event(&tapes.list, ev);
     if (r != DX_UI_IGNORED) {

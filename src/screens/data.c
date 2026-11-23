@@ -33,6 +33,8 @@ typedef struct data_state {
     dx_text_t text;
     char body[DX_NOTE_FILE_MAX];
     char logged[LOG_SIZE];
+    int latched;   /* 1 while the repeats of latch_key are swallowed */
+    int latch_key; /* the key whose press opened or closed a level */
 } data_state_t;
 
 static data_state_t data;
@@ -47,6 +49,13 @@ void dx_data_message(const dx_ctx_t *ctx, dx_rect_t r, const char *a, const char
         ctx->gfx->text(r.x + (r.w - dx_text_width(b, 1)) / 2, y + DX_ROW_H, b, ctx->theme.dim,
                        DX_COLOR_NONE, 1);
     }
+}
+
+/* A repeat that must not act: LEFT is handled so it cannot change the
+ * tab; the rest are ignored, which plays no tone for a repeat. */
+static unsigned swallow(const dx_ui_event_t *ev)
+{
+    return ev->type == DX_UI_LEFT ? DX_UI_HANDLED : DX_UI_IGNORED;
 }
 
 void dx_data_log(const char *line)
@@ -123,6 +132,7 @@ static void leave(void *st)
     (void)st;
     data.open = 0;
     data.logged[0] = '\0';
+    data.latched = 0;
     dx_data_tapes_leave();
     dx_data_clock_leave();
 }
@@ -145,6 +155,9 @@ static void open_note(void)
 static unsigned note_event(const dx_ui_event_t *ev)
 {
     if (dx_ui_is_back(ev)) {
+        if (ev->repeat) {
+            return swallow(ev); /* closes on a fresh press only */
+        }
         data.open = 0;
         return DX_UI_HANDLED | DX_UI_DIRTY;
     }
@@ -154,13 +167,18 @@ static unsigned note_event(const dx_ui_event_t *ev)
     return dx_text_event(&data.text, ev);
 }
 
-static unsigned event(void *st, const dx_ui_event_t *ev)
+/* 1 while a note or the setter is open. */
+static int nested(void)
+{
+    return (data.subs.active == SUB_NOTES && data.open) ||
+           (data.subs.active == SUB_CLOCK && dx_data_clock_nested());
+}
+
+static unsigned routed(const dx_ui_event_t *ev)
 {
     unsigned r;
     int was;
 
-    (void)st;
-    setup();
     if (data.subs.active == SUB_NOTES && data.open) {
         return note_event(ev);
     }
@@ -189,11 +207,38 @@ static unsigned event(void *st, const dx_ui_event_t *ev)
     default:
         break;
     }
-    if (ev->type == DX_UI_SELECT && data.notes.count > 0) {
+    if (ev->type == DX_UI_SELECT && data.notes.count > 0 && !ev->repeat) {
         open_note();
         return DX_UI_HANDLED | DX_UI_DIRTY;
     }
     return dx_list_event(&data.notes, ev);
+}
+
+/*
+ * A key held after its press opened or closed a level keeps sending
+ * repeats. They are swallowed until the next fresh press, so a held
+ * LEFT that closed a note does not go on to change the sub-tab.
+ */
+static unsigned event(void *st, const dx_ui_event_t *ev)
+{
+    int before;
+    unsigned r;
+
+    (void)st;
+    setup();
+    if (ev->repeat && data.latched && ev->type == data.latch_key) {
+        return swallow(ev);
+    }
+    if (!ev->repeat) {
+        data.latched = 0;
+    }
+    before = nested();
+    r = routed(ev);
+    if (!ev->repeat && nested() != before) {
+        data.latched = 1;
+        data.latch_key = ev->type;
+    }
+    return r;
 }
 
 static uint32_t tick(void *st, uint32_t now_ms, unsigned *flags)

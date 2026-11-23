@@ -279,3 +279,53 @@ def test_data_clock_with_rtc(board, kernel_image, card, tmp_path, need_mtools):
         line = reply.lines[0]
         assert "rc=0" in line and f"time=2027-11-23T{start[11:]}" in line, reply
         no_exception(vm)
+
+
+# A held key repeats 500 ms after the press, then every 100 ms. HOLD_S
+# gives the press and several repeats.
+HOLD_S = 1.5
+DATA_LINE = serial_line(r"deitrix: data [^\n]*?")
+HOLO_START = serial_line(r"[^\n]*\bev=holo_start name=(\S+)[^\n]*?")
+RTC_SET = serial_line(r"[^\n]*\bev=rtc_set[^\n]*?")
+
+
+def hold(vm, name):
+    """Holds a key for HOLD_S, then waits until the DATA lines stop:
+    repeats queued before the release still arrive."""
+    script(vm, f"key {name} 1")
+    held = time.monotonic()
+    time.sleep(HOLD_S)
+    script(vm, f"key {name} 0")
+    assert time.monotonic() - held >= HOLD_S
+    seen = -1
+    while count(vm, DATA_LINE) != seen:
+        seen = count(vm, DATA_LINE)
+        time.sleep(0.5)
+
+
+def test_data_held_select_runs_a_tape_once(board, kernel_image, card, need_mtools, tapes):
+    add_tapes(card, tapes, ["fault"])
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        assert to_tapes(vm) == ("0", "0", "1", "")
+        hold(vm, "select")
+        assert HOLO_START.findall(vm.serial) == ["FAULT.HTP"], vm.serial
+        assert TAPE_RC.findall(vm.serial) == ["-14"], vm.serial
+        assert TAPES_LINE.findall(vm.serial)[-1] == \
+            ("0", "0", "1", "Tape was stopped by the system.")
+        rom_running(vm)
+        no_exception(vm)
+
+
+def test_data_held_select_opens_the_setter_once(board, kernel_image, card, need_mtools):
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        assert to_clock(vm) == ("none", "")
+        before = count(vm, CLOCK)
+        hold(vm, "select")
+        # One setter line, no page line after it, and nothing stored.
+        assert count(vm, SETTER) == 1, vm.serial
+        assert count(vm, CLOCK) == before, vm.serial
+        assert "data set_time" not in vm.serial, vm.serial
+        assert RTC_SET.findall(vm.serial) == [], vm.serial
+        no_exception(vm)

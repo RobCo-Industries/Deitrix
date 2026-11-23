@@ -826,3 +826,124 @@ TEST(hints_fit)
     key(DX_UI_SELECT);
     CHECK(strlen(hint()) <= 40);
 }
+
+/* ---- Held keys ---------------------------------------------------------- */
+
+/* A press, then n repeats of the same key, as the kernel sends a hold. */
+static void hold(int type, int n)
+{
+    int i;
+
+    key(type);
+    for (i = 0; i < n; i++) {
+        key_ev(type, 1);
+    }
+}
+
+TEST(held_select_launches_a_tape_once)
+{
+    fake_reset();
+    fake_add_holo("QUICK.HTP", DX_HOLO_GAME, "Quick", NULL);
+    boot_tapes();
+    fake.launch_rc = DX_EFAULT;
+    hold(DX_UI_SELECT, 8);
+    CHECK_INT(fake.launch_count, 1);
+    /* A SELECT still held when the tape returns sends only repeats. */
+    key_ev(DX_UI_SELECT, 1);
+    CHECK_INT(fake.launch_count, 1);
+    /* A fresh press runs it again. */
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 2);
+    dx_radio_stop();
+}
+
+TEST(held_select_opens_the_setter_and_stores_once)
+{
+    fake_reset();
+    boot_clock();
+    hold(DX_UI_SELECT, 8);
+    CHECK(dx_data_clock_nested());
+    CHECK_INT(fake.set_time_count, 0);
+    /* UP repeats still step the field. */
+    hold(DX_UI_UP, 3);
+    CHECK_STR(last_log(), "deitrix: data setter field=0 2030-01-01 00:00 | ");
+    hold(DX_UI_SELECT, 8);
+    CHECK_INT(fake.set_time_count, 1);
+    CHECK(!dx_data_clock_nested());
+    CHECK_INT(app.tab, DATA_TAB);
+    /* A repeat with no press before it, as after a tab change by the
+     * dial: it neither opens nor stores. */
+    key(DX_UI_DOWN);
+    key_ev(DX_UI_SELECT, 1);
+    CHECK(!dx_data_clock_nested());
+    key(DX_UI_SELECT);
+    key(DX_UI_UP);
+    key_ev(DX_UI_SELECT, 1);
+    CHECK(dx_data_clock_nested());
+    CHECK_INT(fake.set_time_count, 1);
+}
+
+TEST(held_back_or_left_closes_the_setter_once)
+{
+    fake_reset();
+    boot_clock();
+    key(DX_UI_SELECT);
+    hold(DX_UI_BACK, 8);
+    CHECK(!dx_data_clock_nested());
+    CHECK_INT(app.tab, DATA_TAB);
+    CHECK_STR(hint(), "SELECT: set time   LEFT/RIGHT: page");
+    /* LEFT on the first field cancels; its repeats stay on CLOCK. */
+    key(DX_UI_SELECT);
+    hold(DX_UI_LEFT, 8);
+    CHECK(!dx_data_clock_nested());
+    CHECK_INT(app.tab, DATA_TAB);
+    CHECK_STR(hint(), "SELECT: set time   LEFT/RIGHT: page");
+    /* A LEFT held from the second field stops at the first. */
+    key(DX_UI_SELECT);
+    key(DX_UI_RIGHT);
+    hold(DX_UI_LEFT, 8);
+    CHECK(dx_data_clock_nested());
+    CHECK_INT(fake.set_time_count, 0);
+    /* After another key, a BACK repeat alone does not close. */
+    key(DX_UI_UP);
+    key_ev(DX_UI_BACK, 1);
+    CHECK(dx_data_clock_nested());
+}
+
+TEST(held_keys_open_and_close_a_note_once)
+{
+    fake_reset();
+    add_note("A.TXT", "Alpha\nBody.\n");
+    add_note("B.TXT", "Beta\nBody.\n");
+    add_note("C.TXT", "Gamma\nBody.\n");
+    boot();
+    /* DOWN repeats still move in the list. */
+    hold(DX_UI_DOWN, 2);
+    CHECK_STR(last_log(), "deitrix: data notes sel=2 top=0 count=3");
+    hold(DX_UI_UP, 2);
+    hold(DX_UI_SELECT, 8);
+    CHECK_STR(last_log(), "deitrix: data note A.TXT top=0 lines=1");
+    /* A held LEFT closes the note and stays on NOTES and on DATA. */
+    hold(DX_UI_LEFT, 8);
+    CHECK_INT(app.tab, DATA_TAB);
+    CHECK_STR(last_log(), "deitrix: data notes sel=0 top=0 count=3");
+    CHECK_STR(hint(), "UP/DOWN: move   SELECT: open");
+    /* A held BACK closes it once. */
+    key(DX_UI_SELECT);
+    hold(DX_UI_BACK, 8);
+    CHECK_INT(app.tab, DATA_TAB);
+    CHECK_STR(last_log(), "deitrix: data notes sel=0 top=0 count=3");
+    /* A repeat alone neither opens nor closes a note. */
+    key_ev(DX_UI_SELECT, 1);
+    CHECK_STR(last_log(), "deitrix: data notes sel=0 top=0 count=3");
+    key(DX_UI_SELECT);
+    key(DX_UI_DOWN);
+    key_ev(DX_UI_BACK, 1);
+    key_ev(DX_UI_LEFT, 1);
+    CHECK_INT(app.tab, DATA_TAB);
+    CHECK_STR(last_log(), "deitrix: data note A.TXT top=0 lines=1");
+    key(DX_UI_BACK);
+    /* After a fresh press, LEFT acts again: the shell changes the tab. */
+    key(DX_UI_LEFT);
+    CHECK_INT(app.tab, 1);
+}
