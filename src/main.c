@@ -131,10 +131,14 @@ static void tick_services(dx_app_t *app, uint32_t ticks)
 
     for (i = 0; i < app->service_count; i++) {
         if (app->svc_on[i] && dx_ticks_due(ticks, app->svc_wake[i])) {
-            uint32_t next = app->services[i]->tick(ticks);
+            unsigned flags = 0;
+            uint32_t next = app->services[i]->tick(ticks, &flags);
 
             app->svc_on[i] = next != 0;
             app->svc_wake[i] = next;
+            if (flags & DX_UI_DIRTY) {
+                app->dirty = 1;
+            }
         }
     }
 }

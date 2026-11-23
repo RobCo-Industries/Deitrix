@@ -514,15 +514,17 @@ static struct {
 } sva, svb;
 
 static void sa_init(uint32_t now) { (void)now; sva.inits++; }
-static uint32_t sa_tick(uint32_t now)
+static uint32_t sa_tick(uint32_t now, unsigned *flags)
 {
+    (void)flags;
     sva.ticks++;
     sva.last = now;
     return sva.every ? dx_ticks_add(now, sva.every) : 0;
 }
 static void sa_stop(void) { sva.stops++; }
-static uint32_t sb_tick(uint32_t now)
+static uint32_t sb_tick(uint32_t now, unsigned *flags)
 {
+    (void)flags;
     svb.ticks++;
     svb.last = now;
     return svb.every ? dx_ticks_add(now, svb.every) : 0;
@@ -670,4 +672,131 @@ TEST(set_tab_before_the_first_frame)
     fake_push(DX_EV_DIAL, 0, 1);
     dx_app_step(&app);
     CHECK_INT(told_tab, 0);
+}
+
+/* ---- The radio service and the redraw ------------------------------------ */
+
+#include "content.h"
+#include "services/services.h"
+
+static const dx_service_t *const radio_only[] = { &dx_service_radio };
+
+/* A card with two tracks: 1 plays once (2.5 s), 2 loops. The app starts
+ * on `tab` with the radio service, and draws its first frame. */
+static void radio_start(dx_app_t *app, int tab)
+{
+    fake_reset();
+    fake_add_text("/PIPBOY/DATA/RADIO.INI",
+                  "version = 1\n"
+                  "[station.1]\nname = Once\nkind = pcm\nfile = O.PCM\nloop = no\n"
+                  "[station.2]\nname = Loop\nkind = pcm\nfile = L.PCM\n");
+    fake_add_fill("/PIPBOY/DATA/RADIO/O.PCM", 20000, 128);
+    fake_add_fill("/PIPBOY/DATA/RADIO/L.PCM", 80000, 128);
+    dx_ui_sound_block(0);
+    dx_content_load();
+    dx_settings_set_station(dx_content_settings(), 0); /* SELECT plays station 1 */
+    dx_radio_attach(dx_content_radio());
+    start(app);
+    dx_app_set_tab(app, tab);
+    CHECK_INT(dx_app_start_services(app, radio_only, 1), 0);
+    dx_app_step(app);
+    CHECK_EQ(fake.presents, 1);
+}
+
+/* One step, then the clock moves to the wait's end, as the board would. */
+static void radio_step(dx_app_t *app)
+{
+    dx_app_step(app);
+    if (fake.last_timeout != DX_WAIT_FOREVER) {
+        fake.ticks = dx_ticks_add(fake.ticks, fake.last_timeout);
+    }
+}
+
+/* Steps until the radio is off, at most `max` steps: the count left. */
+static int radio_until_off(dx_app_t *app, int max)
+{
+    while (max > 0 && dx_radio_state() != DX_RADIO_OFF) {
+        fake_clear_draws();
+        radio_step(app);
+        max--;
+    }
+    return max;
+}
+
+TEST(radio_end_redraws_the_radio_tab)
+{
+    dx_app_t app;
+    int wakes = 0;
+
+    radio_start(&app, 4);
+    fake_clear_draws();
+    route(&app, DX_UI_SELECT, 0); /* station 1 */
+    radio_step(&app);
+    CHECK_EQ(fake.presents, 1);
+    CHECK(fake_find_text("Playing Once") != NULL);
+    /* The stream wakes every 250 ms with nothing to show: no frame. */
+    while (wakes < 20 && dx_radio_state() == DX_RADIO_PCM) {
+        fake_clear_draws();
+        radio_step(&app);
+        if (dx_radio_state() == DX_RADIO_PCM) {
+            CHECK_EQ(fake.presents, 0);
+        }
+        wakes++;
+    }
+    /* The track ended in the last step: that step drew once, off. */
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    CHECK(wakes > 4);
+    CHECK_EQ(fake.presents, 1);
+    CHECK(fake_find_text("Off") != NULL);
+    CHECK(fake_find_text("Playing Once") == NULL);
+    CHECK(strstr(fake.log, "deitrix: radio shows Playing Once\n"
+                           "deitrix: radio shows Off\n") != NULL);
+    fake_clear_draws();
+    radio_step(&app);
+    CHECK_EQ(fake.presents, 0);
+}
+
+TEST(radio_end_redraws_another_tab_once)
+{
+    dx_app_t app;
+
+    radio_start(&app, 4);
+    route(&app, DX_UI_SELECT, 0);
+    route(&app, DX_UI_DIAL, -4); /* to STAT, the radio plays on */
+    radio_step(&app);
+    CHECK_INT(app.tab, 0);
+    CHECK_INT(dx_radio_state(), DX_RADIO_PCM);
+    CHECK(radio_until_off(&app, 20) > 0);
+    /* Any service asking for a redraw redraws the tab shown. */
+    CHECK_EQ(fake.presents, 1);
+    CHECK(fake_find_text("STAT") != NULL);
+}
+
+TEST(radio_underrun_redraws_once)
+{
+    dx_app_t app;
+    int i;
+
+    radio_start(&app, 4);
+    route(&app, DX_UI_SELECT, 0);
+    route(&app, DX_UI_SELECT, 0); /* station 2, the loop */
+    radio_step(&app);
+    CHECK(fake_find_text("Playing Loop") != NULL);
+    fake_clear_draws();
+    for (i = 0; i < 12; i++) {
+        radio_step(&app);
+    }
+    CHECK_EQ(fake.presents, 0);
+    CHECK_INT(dx_radio_underruns(), 0);
+    /* The ROM stalls for 3 s: the queue runs dry. */
+    fake.ticks = dx_ticks_add(fake.ticks, 3000);
+    radio_step(&app);
+    CHECK_INT(dx_radio_underruns(), 1);
+    CHECK_EQ(fake.presents, 1);
+    fake_clear_draws();
+    for (i = 0; i < 8; i++) {
+        radio_step(&app);
+    }
+    CHECK_EQ(fake.presents, 0);
+    dx_radio_stop();
 }

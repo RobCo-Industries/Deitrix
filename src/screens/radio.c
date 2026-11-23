@@ -47,6 +47,27 @@ static unsigned event(void *st, const dx_ui_event_t *ev)
     return DX_UI_HANDLED | DX_UI_DIRTY;
 }
 
+/* The station the last frame showed, -1 for off. A frame that shows
+ * another logs "deitrix: radio shows <line>", so a target test can read
+ * what the tab shows. The line goes out just before the present. */
+static int shown = -1;
+
+static void log_shown(int cur, const char *text)
+{
+    char line[64]; /* the prefix, "Playing ", a name of 20, "\n" */
+    dx_sb_t sb;
+
+    if (cur == shown) {
+        return;
+    }
+    shown = cur;
+    dx_sb_init(&sb, line, sizeof(line));
+    dx_sb_str(&sb, "deitrix: radio shows ");
+    dx_sb_str(&sb, text);
+    dx_sb_char(&sb, '\n');
+    dx_plat_log(line);
+}
+
 static void draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
 {
     const dx_radio_t *r = dx_content_radio();
@@ -73,6 +94,7 @@ static void draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
         dx_sb_str(&sb, "Off");
     }
     dx_placeholder_lines(ctx, area, a, b);
+    log_shown(cur, b);
 }
 
 const dx_screen_t dx_screen_radio = {

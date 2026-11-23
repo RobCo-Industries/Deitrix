@@ -13,6 +13,8 @@
 #define CHECK_INT(a, b) CHECK_EQ((int64_t)(a), (int64_t)(b))
 
 static dx_radio_t radio;
+/* What the last service tick reported. */
+static unsigned svc_flags;
 
 /* Stations: 1 a tune, 2 a looping track, 3 a track played once, 4 a
  * track whose file is missing. */
@@ -57,7 +59,7 @@ static void run_for(uint32_t ms, uint32_t wake)
 
     while (wake != 0 && fake.ticks < end) {
         if (dx_ticks_due(fake.ticks, wake)) {
-            wake = dx_service_radio.tick(fake.ticks);
+            wake = dx_service_radio.tick(fake.ticks, &svc_flags);
         } else {
             fake.ticks += dx_ticks_since(fake.ticks, wake);
         }
@@ -76,7 +78,7 @@ static void play_for(uint32_t ms)
 
     while (loop_wake != 0 && fake.ticks != end) {
         if (dx_ticks_due(fake.ticks, loop_wake)) {
-            loop_wake = dx_service_radio.tick(fake.ticks);
+            loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
         } else {
             uint32_t step = dx_ticks_since(fake.ticks, loop_wake);
             uint32_t left = dx_ticks_since(fake.ticks, end);
@@ -99,7 +101,7 @@ TEST(tune_plays_and_replays)
     /* UI tones do not cut the radio. */
     dx_ui_sound(DX_SND_MOVE);
     CHECK_INT(fake.tone_count, 0);
-    loop_wake = dx_service_radio.tick(fake.ticks);
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
     play_for(1240);
     CHECK_INT(fake.seq_count, 1);
     play_for(20);
@@ -115,7 +117,7 @@ TEST(tune_waits_while_the_sound_lasts)
     dx_radio_play(0, fake.ticks);
     /* The kernel plays late: the replay waits for the sound to end. */
     fake.au_end = (fake.au_end + 500) & DX_TICKS_MASK;
-    loop_wake = dx_service_radio.tick(fake.ticks);
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
     play_for(1300);
     CHECK_INT(fake.seq_count, 1);
     play_for(500);
@@ -153,7 +155,7 @@ TEST(pcm_streams_in_chunks)
     CHECK_INT(fake_audio_ops(FAKE_AU_QUEUE), 1);
     CHECK_INT(fake_audio_ops(FAKE_AU_BUSY), 1);
     CHECK_INT(fake.audio[0].n, DX_RADIO_CHUNK);
-    loop_wake = dx_service_radio.tick(fake.ticks);
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
     CHECK_INT(dx_ticks_since(fake.ticks, loop_wake), DX_RADIO_POLL_MS);
     play_for(10000);
     CHECK_INT(fake.au_starts, 1);
@@ -172,7 +174,7 @@ TEST(pcm_loop_join)
 {
     setup(8000 * 2 + 1234, 1);
     dx_radio_play(1, fake.ticks);
-    loop_wake = dx_service_radio.tick(fake.ticks);
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
     play_for(12000);
     CHECK_INT(fake.au_starts, 1);
     CHECK_INT(dx_radio_underruns(), 0);
@@ -185,7 +187,7 @@ TEST(pcm_loop_join)
     /* A track of exactly one chunk loops too. */
     setup(8000, 1);
     dx_radio_play(1, fake.ticks);
-    loop_wake = dx_service_radio.tick(fake.ticks);
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
     play_for(5000);
 
     CHECK_INT(fake.au_starts, 1);
@@ -198,7 +200,7 @@ TEST(pcm_busy_answers_keep_the_chunk)
 
     setup(80000, 1);
     dx_radio_play(1, fake.ticks);
-    loop_wake = dx_service_radio.tick(fake.ticks);
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
     play_for(3000);
     busy = fake_audio_ops(FAKE_AU_BUSY);
     CHECK(busy >= 3);
@@ -210,11 +212,11 @@ TEST(pcm_underrun_restarts)
 {
     setup(80000, 1);
     dx_radio_play(1, fake.ticks);
-    loop_wake = dx_service_radio.tick(fake.ticks);
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
     play_for(1500);
     /* The ROM stalls for 3 s: the queue runs dry. */
     fake.ticks += 3000;
-    loop_wake = dx_service_radio.tick(fake.ticks);
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
     CHECK_INT(dx_radio_underruns(), 1);
     CHECK_INT(fake.au_starts, 2); /* the next chunk started the sound again */
     CHECK(strstr(fake.log, "deitrix: radio underrun\n") != NULL);
@@ -227,7 +229,7 @@ TEST(pcm_once_ends)
 {
     setup(20000, 1);
     CHECK_INT(dx_radio_play(2, fake.ticks), 0);
-    loop_wake = dx_service_radio.tick(fake.ticks);
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
     play_for(2400);
     CHECK_INT(dx_radio_state(), DX_RADIO_PCM);
     play_for(1000);
@@ -251,11 +253,11 @@ TEST(stop_in_every_state)
     CHECK_INT(fake_audio_ops(FAKE_AU_STOP), 1);
     CHECK_INT(fake_audio_busy(), 0);
     dx_radio_play(1, fake.ticks);
-    run_for(1200, dx_service_radio.tick(fake.ticks));
+    run_for(1200, dx_service_radio.tick(fake.ticks, &svc_flags));
     dx_radio_stop();
     CHECK_INT(fake_audio_ops(FAKE_AU_STOP), 2);
     CHECK_INT(fake.handles_open, 0);
-    CHECK_INT(dx_service_radio.tick(fake.ticks), 0);
+    CHECK_INT(dx_service_radio.tick(fake.ticks, &svc_flags), 0);
     /* Playing another station stops the first one. */
     dx_radio_play(1, fake.ticks);
     dx_radio_play(0, fake.ticks);
@@ -283,9 +285,60 @@ TEST(station_cannot_play)
     setup(40000, 1);
     dx_radio_play(1, fake.ticks);
     fake.read_fail = 1;
-    run_for(3000, dx_service_radio.tick(fake.ticks));
+    run_for(3000, dx_service_radio.tick(fake.ticks, &svc_flags));
     CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
     CHECK_INT(fake.handles_open, 0);
+}
+
+/* Ticks the radio for `ms` as the loop would and returns every flag
+ * the ticks reported. */
+static unsigned flags_for(uint32_t ms)
+{
+    uint32_t end = fake.ticks + ms;
+    unsigned all = 0;
+
+    while (loop_wake != 0 && fake.ticks < end) {
+        if (dx_ticks_due(fake.ticks, loop_wake)) {
+            svc_flags = 0;
+            loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
+            all |= svc_flags;
+        } else {
+            fake.ticks += dx_ticks_since(fake.ticks, loop_wake);
+        }
+    }
+    fake.ticks = end;
+    return all;
+}
+
+TEST(radio_reports_what_a_screen_shows)
+{
+    /* A tune's replay changes nothing shown. */
+    setup(40000, 1);
+    dx_radio_play(0, fake.ticks);
+    svc_flags = 0;
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
+    CHECK_INT(svc_flags, 0);
+    CHECK_INT(flags_for(1250 * 3), 0);
+    CHECK(fake.seq_count >= 3); /* it replayed */
+    /* A stream that plays on: nothing. */
+    dx_radio_play(1, fake.ticks);
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
+    CHECK_INT(flags_for(3000), 0);
+    /* A read error stops it: a redraw. */
+    fake.read_fail = 1;
+    CHECK_INT(flags_for(3000), DX_UI_DIRTY);
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    /* The end of a track played once: a redraw. */
+    setup(20000, 1);
+    dx_radio_play(2, fake.ticks);
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
+    CHECK_INT(flags_for(2400), 0);
+    CHECK_INT(flags_for(1000), DX_UI_DIRTY);
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    /* Off: a tick reports nothing. */
+    svc_flags = 0;
+    CHECK_INT(dx_service_radio.tick(fake.ticks, &svc_flags), 0);
+    CHECK_INT(svc_flags, 0);
 }
 
 TEST(volume)
@@ -321,21 +374,21 @@ TEST(autosave_quiet_period)
     uint32_t t0, wake;
 
     save_setup();
-    CHECK_INT(dx_service_autosave.tick(fake.ticks), 0); /* nothing changed */
+    CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), 0); /* nothing changed */
     t0 = fake.ticks;
     dx_settings_set_tab(&settings, 2);
-    wake = dx_service_autosave.tick(fake.ticks);
+    wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
     CHECK_INT(dx_ticks_since(t0, wake), DX_SAVE_QUIET_MS);
     /* Another change 1500 ms later moves the wake. */
     fake.ticks += 1500;
     dx_items_add(&items, 0, 1);
-    wake = dx_service_autosave.tick(fake.ticks);
+    wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
     CHECK_INT(dx_ticks_since(t0, wake), 1500 + DX_SAVE_QUIET_MS);
     fake.ticks += 1999;
-    CHECK_INT(dx_service_autosave.tick(fake.ticks), wake);
+    CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), wake);
     CHECK_INT(fake.save_writes, 0);
     fake.ticks += 1;
-    CHECK_INT(dx_service_autosave.tick(fake.ticks), 0);
+    CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), 0);
     CHECK_INT(fake.save_writes, 2); /* both saves, once */
     CHECK(fake_find_save("DEITRIX") != NULL && fake_find_save("INV") != NULL);
     CHECK_INT(fake_find_save("DEITRIX")->size, 20);
@@ -356,7 +409,7 @@ TEST(autosave_burst_writes_once_at_the_max)
             t0 = fake.ticks;
         }
         dx_items_add(&items, 0, 1);
-        wake = dx_service_autosave.tick(fake.ticks);
+        wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
         if (fake.save_writes > 0) {
             break;
         }
@@ -375,7 +428,7 @@ TEST(autosave_flush)
     dx_settings_set_volume(&settings, 10);
     CHECK_INT(dx_autosave_flush(fake.ticks), 0);
     CHECK_INT(fake.save_writes, 1);
-    CHECK_INT(dx_service_autosave.tick(fake.ticks), 0);
+    CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), 0);
     CHECK_INT(dx_autosave_flush(fake.ticks), 0); /* nothing left */
     CHECK_INT(fake.save_writes, 1);
     /* stop flushes too. */
@@ -389,11 +442,12 @@ TEST(autosave_retry_bounded)
     uint32_t wake, t;
 
     save_setup();
+    svc_flags = 0;
     dx_settings_set_tab(&settings, 1);
     fake.save_fail = 100;
-    wake = dx_service_autosave.tick(fake.ticks);
+    wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
     fake.ticks += DX_SAVE_QUIET_MS;
-    wake = dx_service_autosave.tick(fake.ticks);
+    wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
     CHECK_INT(fake.save_writes, 1);
     CHECK(strstr(fake.log, "deitrix: save DEITRIX.SAV failed\n") != NULL);
     CHECK_INT(dx_ticks_since(fake.ticks, wake), DX_SAVE_RETRY_MS);
@@ -402,29 +456,31 @@ TEST(autosave_retry_bounded)
     t = fake.ticks;
     fake.ticks += 100;
     dx_settings_set_tab(&settings, 2);
-    CHECK_INT(dx_service_autosave.tick(fake.ticks), wake);
+    CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), wake);
     CHECK_INT(fake.save_writes, 1);
     fake.ticks = t + DX_SAVE_RETRY_MS;
-    wake = dx_service_autosave.tick(fake.ticks);
+    wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
     CHECK_INT(fake.save_writes, 2);
     fake.ticks += DX_SAVE_RETRY_MS;
-    wake = dx_service_autosave.tick(fake.ticks);
+    wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
     fake.ticks += DX_SAVE_RETRY_MS;
-    wake = dx_service_autosave.tick(fake.ticks);
+    wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
     /* 1 try and 3 retries, then it gives up until the next change. */
     CHECK_INT(fake.save_writes, 4);
     CHECK_INT(wake, 0);
     CHECK_INT(dx_autosave_pending(), 0);
     CHECK(strstr(fake.log, "deitrix: save gave up\n") != NULL);
+    /* No screen shows the saves: no redraw, even when it gives up. */
+    CHECK_INT(svc_flags, 0);
     /* The next change tries again, and a retry that works ends it. */
     fake.save_fail = 1;
     dx_settings_set_tab(&settings, 3);
-    dx_service_autosave.tick(fake.ticks);
+    dx_service_autosave.tick(fake.ticks, &svc_flags);
     fake.ticks += DX_SAVE_QUIET_MS;
-    wake = dx_service_autosave.tick(fake.ticks);
+    wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
     CHECK_INT(fake.save_writes, 5);
     fake.ticks += DX_SAVE_RETRY_MS;
-    CHECK_INT(dx_service_autosave.tick(fake.ticks), 0);
+    CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), 0);
     CHECK_INT(fake.save_writes, 6);
     CHECK_INT(fake_find_save("DEITRIX")->data[12], 3);
 }
@@ -436,13 +492,13 @@ TEST(autosave_across_the_tick_wrap)
     save_setup();
     fake.ticks = DX_TICKS_MASK - 999; /* 1000 ms before the wrap */
     dx_settings_set_tab(&settings, 4);
-    wake = dx_service_autosave.tick(fake.ticks);
+    wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
     CHECK_INT(wake, 1000); /* 2000 ms later, past the wrap */
     fake.ticks = 999;
-    CHECK_INT(dx_service_autosave.tick(fake.ticks), wake);
+    CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), wake);
     CHECK_INT(fake.save_writes, 0);
     fake.ticks = 1000;
-    CHECK_INT(dx_service_autosave.tick(fake.ticks), 0);
+    CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), 0);
     CHECK_INT(fake.save_writes, 1);
 }
 
@@ -451,7 +507,7 @@ TEST(radio_across_the_tick_wrap)
     setup(40000, 1);
     fake.ticks = DX_TICKS_MASK - 2000;
     dx_radio_play(1, fake.ticks);
-    loop_wake = dx_service_radio.tick(fake.ticks);
+    loop_wake = dx_service_radio.tick(fake.ticks, &svc_flags);
     CHECK(loop_wake != 0);
     play_for(6000);
     CHECK(fake.ticks < 10000);

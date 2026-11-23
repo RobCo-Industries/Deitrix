@@ -128,8 +128,10 @@ int dx_autosave_flush(uint32_t now_ms)
     return dirty != 0;
 }
 
-static uint32_t tick(uint32_t now_ms)
+/* No screen shows the saves' state, so the tick never asks for a redraw. */
+static uint32_t tick(uint32_t now_ms, unsigned *flags)
 {
+    (void)flags;
     return run(now_ms, 0);
 }
 

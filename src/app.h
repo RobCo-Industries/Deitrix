@@ -15,11 +15,15 @@
  * as the radio and the autosave. tick runs when its wake time passes,
  * and after every routed event so it sees changes at once. It returns
  * its next wake time, built with dx_ticks_add(), or 0 for none.
+ * It sets DX_UI_DIRTY in *flags when something a screen may show has
+ * changed, such as the radio going off at the end of a track. The shell
+ * then redraws the tab shown in the same step. A tick that changes
+ * nothing visible leaves *flags alone, so it costs no frame.
  */
 typedef struct dx_service {
     const char *name;
     void (*init)(uint32_t now_ms);
-    uint32_t (*tick)(uint32_t now_ms);
+    uint32_t (*tick)(uint32_t now_ms, unsigned *flags);
     void (*stop)(void);
 } dx_service_t;
 

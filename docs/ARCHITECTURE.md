@@ -150,7 +150,7 @@ Each step of `dx_app_step()`:
 
 1. Reads the clock and the tick counter. Without a clock, the minute is "none".
 2. Calls each service's `tick`, then the screen's `tick`, when their wake times have passed.
-3. Redraws when the tab or the minute changed or a screen asked for it: clear, header, body inside the clip, footer, then one `present`.
+3. Redraws when the tab or the minute changed, or a screen or a service asked for it: clear, header, body inside the clip, footer, then one `present`.
 4. Logs on serial after the `present`: `deitrix: ready` after the first frame, `deitrix: tab=<NAME>` after a frame for a new tab.
 5. Reads the clock and the tick counter again, since the tick and the draw take time. Waits in `wait_event` until the earliest of the next whole minute, the screen's wake time and the services' wake times, or with no timeout when there is none. When the minute changed or the wake time passed during the draw, the timeout is 0 and the next step starts at once. The loop compares and subtracts ticks only through `dx_ticks_due` and `dx_ticks_since`, which mask the difference to 31 bits as the Pip-OS ABI asks.
 6. Translates the event and routes it.
@@ -226,6 +226,8 @@ deitrix: load DEITRIX.SAV ok tab=4 volume=80 sound=1 station=1
 
 A service is a `dx_service_t`: a name, `init`, `tick` and `stop`. `dx_app_start_services()` takes a table of up to 4. The shell calls a service's `tick` when its wake time passes, and once after every routed event, so a service sees a change at once. `tick` returns the next wake time, built with `dx_ticks_add()`, or 0 for none. The loop's wait is the earliest of the next minute change, the screen's wake time and every service's wake time.
 
+A service asks for a redraw the way a screen does: `tick` sets `DX_UI_DIRTY` in its `flags` argument when something a screen may show has changed. The shell then redraws the tab shown in the same step, with one `present`. It redraws whatever tab is shown, even one that shows nothing of the service. Such changes are rare, so the extra frame costs little. A tick that changes nothing visible leaves the flags alone and costs no frame: the streaming wakes every 250 ms draw nothing. A screen that calls a service directly, such as `dx_radio_play`, does so in its event handler, which already returns `DX_UI_DIRTY`.
+
 ### The radio
 
 The radio plays whatever tab is shown. Its states are off, playing a tune and playing a PCM track. The screen calls `dx_radio_play`, `dx_radio_stop`, `dx_radio_current`, `dx_radio_state` and `dx_radio_set_volume`.
@@ -235,12 +237,13 @@ The radio plays whatever tab is shown. Its states are off, playing a tune and pl
 - While a track streams, the service wakes every 250 ms, a quarter of a chunk. `sample_queue` takes a chunk only once the one before starts to play. So the slot opens at most 250 ms before the service fills it, and at least 750 ms of sound are still queued. In the steady state a wake reads at most one chunk from the card.
 - `-PIP_EBUSY` keeps the chunk for the next wake. When `audio_status` says nothing plays before a chunk goes out, the queue ran dry: the service logs `deitrix: radio underrun` and that chunk starts the sound again.
 - A track with `loop = no` ends after its last chunk: the radio goes off.
+- A tick asks for a redraw when the state, the station or the underrun count changed: the end of a track, a read error that stops it, a failed tune restart, an underrun. A tune's replay and a chunk handed over ask for none. The RADIO tab logs `deitrix: radio shows <line>` when a frame shows another station or off.
 
 Pip-OS has one voice, and a UI tone would replace the radio. So while the radio plays, it blocks the UI tones with `dx_ui_sound_block()`. They come back when it stops.
 
 ### The autosave
 
-The autosave writes DEITRIX.SAV and INV.SAV when their counters change. It writes 2 s after the last change, and at most 10 s after the first one, so a burst of changes writes once. It writes only the saves that changed. Each write logs `deitrix: save DEITRIX.SAV ok` or `failed`. A failed write is tried again 5 s later. After 3 failed retries it gives up until the next change and logs `deitrix: save gave up`. `dx_autosave_flush()` writes at once; the service's `stop` calls it. A write in QEMU takes 20 to 120 ms, and the UI waits only that long.
+The autosave writes DEITRIX.SAV and INV.SAV when their counters change. It writes 2 s after the last change, and at most 10 s after the first one, so a burst of changes writes once. It writes only the saves that changed. Each write logs `deitrix: save DEITRIX.SAV ok` or `failed`. A failed write is tried again 5 s later. After 3 failed retries it gives up until the next change and logs `deitrix: save gave up`. `dx_autosave_flush()` writes at once; the service's `stop` calls it. A write in QEMU takes 20 to 120 ms, and the UI waits only that long. No screen shows the saves, so the autosave never asks for a redraw.
 
 ## Planned
 

@@ -7,8 +7,11 @@ write and one "deitrix: radio" line per change of station. QEMU has no
 PWM, so Pip-OS prints each change of sound as an audio trace line.
 """
 
+import os
 import re
+import shutil
 import subprocess
+import sys
 import time
 
 from pipos_testing import TIMEOUT, booted, minimal_env, no_exception, script
@@ -16,6 +19,7 @@ from pipos_testing import TIMEOUT, booted, minimal_env, no_exception, script
 READY_LINE = re.compile(r"^deitrix: ready\r?$", re.M)
 TAB_LINE = re.compile(r"^deitrix: tab=(\w+)\r?$", re.M)
 AUDIO = re.compile(r"^@RC stage=pipos ev=audio op=(\w+)(.*?)\r?$", re.M)
+SHOWS_OFF = re.compile(r"^deitrix: radio shows Off\r?$", re.M)
 PART = 2048 * 512  # the card's FAT partition starts at LBA 2048
 
 TUNES = ("MORNING", "WALK", "LULLABY")
@@ -211,4 +215,58 @@ def test_radio_streams_pcm(board, kernel_image, card, need_mtools):
             assert time.monotonic() < deadline, vm.serial
             time.sleep(0.1)
         del after
+        no_exception(vm)
+
+
+# The radio service wakes every 250 ms while a track streams
+# (DX_RADIO_POLL_MS in src/services/services.h). The wake after the
+# sound ends turns the radio off and the shell redraws in the same step.
+POLL_S = 0.25
+# One frame of the RADIO tab, plus the serial line reaching the host.
+# Measured well below this on every board; QEMU runs alongside others.
+REDRAW_S = 1.0
+
+
+def test_radio_end_redraws(board, kernel_image, card, tmp_path, need_mtools):
+    """A sixth station plays a 2 s track once. When the trace shows the
+    sound ended (op=pcm_end), RADIO shows Off again within POLL_S +
+    REDRAW_S, with no key sent. The changed card passes the checker."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    tree = tmp_path / "card"
+    shutil.copytree(os.path.join(root, "build", "card"), tree)
+    data = tree / "PIPBOY" / "DATA"
+    ini = (data / "RADIO.INI").read_text()
+    ini += "\n[station.6]\nname = Short\nkind = pcm\nfile = SHORT.PCM\nloop = no\n"
+    (data / "RADIO.INI").write_text(ini)
+    (data / "RADIO" / "SHORT.PCM").write_bytes(bytes(128 + (i % 32) for i in range(16000)))
+    subprocess.run([sys.executable, os.path.join(root, "tools", "check_content.py"), str(tree)],
+                   check=True, capture_output=True)
+    target = card_target(card)
+    mtools("mcopy", "-o", "-i", target, str(data / "RADIO.INI"), "::PIPBOY/DATA/RADIO.INI")
+    mtools("mcopy", "-o", "-i", target, str(data / "RADIO" / "SHORT.PCM"),
+           "::PIPBOY/DATA/RADIO/SHORT.PCM")
+    with boot(kernel_image, board, card) as vm:
+        wait_ready(vm)
+        assert "deitrix: load RADIO.INI stations=6" in vm.serial, vm.serial
+        to_radio(vm)
+        for n in range(1, 7):
+            select(vm, f"deitrix: radio station={n}")
+        mark = "deitrix: radio station=6"
+        wait_line(vm, "deitrix: radio shows Playing Short")
+        ended = None
+        deadline = time.monotonic() + 30
+        while not SHOWS_OFF.search(vm.serial, vm.serial.index(mark)):
+            assert time.monotonic() < deadline, vm.serial[vm.serial.index(mark):]
+            if ended is None and "pcm_end" in [op for op, _ in audio_after(vm, mark)]:
+                ended = time.monotonic()
+            time.sleep(0.01)
+        shown = time.monotonic()
+        # The trace is flushed late: op=pcm_end may come after the line.
+        deadline = time.monotonic() + 10
+        while "pcm_end" not in [op for op, _ in audio_after(vm, mark)]:
+            assert time.monotonic() < deadline, vm.serial[vm.serial.index(mark):]
+            time.sleep(0.01)
+        if ended is not None:
+            assert shown - ended <= POLL_S + REDRAW_S, (shown - ended, vm.serial)
+        assert "deitrix: radio underrun" not in vm.serial
         no_exception(vm)

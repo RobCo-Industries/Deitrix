@@ -199,7 +199,7 @@ int dx_radio_play(int i, uint32_t now_ms)
     return 0;
 }
 
-static uint32_t tick(uint32_t now_ms)
+static uint32_t step(uint32_t now_ms)
 {
     const dx_station_t *s;
 
@@ -224,6 +224,22 @@ static uint32_t tick(uint32_t now_ms)
     default:
         return 0;
     }
+}
+
+/* A screen shows the state, the station and may show the underruns: a
+ * change of any asks for a redraw. A tune's replay and a chunk handed
+ * to the kernel change none of them. */
+static uint32_t tick(uint32_t now_ms, unsigned *flags)
+{
+    int was_state = state;
+    int was_current = current;
+    uint32_t was_underruns = underruns;
+    uint32_t next = step(now_ms);
+
+    if (state != was_state || current != was_current || underruns != was_underruns) {
+        *flags |= DX_UI_DIRTY;
+    }
+    return next;
 }
 
 static void init(uint32_t now_ms)
