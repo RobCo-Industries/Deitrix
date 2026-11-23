@@ -32,7 +32,7 @@ The UI framework: the core types in `ui.h`, the frame every tab shares, and the 
 
 ### `src/screens/`
 
-One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. Today each draws the shared placeholder from `placeholder.c`: the tab's name in large text, "Not built yet." and one or two lines from the model, such as "14 items in 4 categories". SELECT on RADIO cycles the radio: off, station 1, station 2 and so on, then off.
+One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. STAT and INV are built, see [Screens](#screens). DATA, MAP and RADIO draw the shared placeholder from `placeholder.c`: the tab's name in large text, "Not built yet." and one or two lines from the model. SELECT on RADIO cycles the radio: off, station 1, station 2 and so on, then off.
 
 ### `assets/`
 
@@ -272,6 +272,38 @@ deitrix: stat about Deitrix=0.1.0 | Pip-OS=7.1.0 | ABI=1.2 | SoC=BCM2836 | RAM=9
 ```
 
 ABOUT logs its line on each frame, so once a second. `model/profile.h` and `ui/gauge.h` both define `struct dx_gauge`, so `stat.c` cannot include both. `src/screens/stat_draw.c` draws the name and the gauges from plain values for it.
+
+### INV
+
+`src/screens/inv.c` shows ITEMS.INI. `src/model/inv_fmt.c` holds its pure helpers: which item is row N of a category, and the text of a count, a weight and a summary.
+
+The views:
+
+- **The list.** The sub-tabs show the category labels in file order. Under them, the items of the active category in file order, 9 rows at a time. A row shows the name and, at the right, the count and unit, such as `20 m`. A count of 0 is dim. A marked item has the list's mark. A dim row under the list gives the entry count and the total weight of the category, such as `4 entries, 760 g`. The total uses `dx_items_total`. Below 1000 g it shows grams, else kilograms with one decimal, rounded half up to 100 g. When no item of the category has a weight, the row shows the entry count only.
+- **The detail.** SELECT on a row opens it. It shows the name, then Count, Weight when the item has one, Category and Marked, then the note in dim text. The note never scrolls, since UP and DOWN change the count. A note longer than the space ends with `~`.
+- **Empty states.** Without a loaded ITEMS.INI, or with no category, the body says "No items on the card." and, for a file that did not load, the reason, such as `ITEMS.INI missing`. A category without items says "Nothing here.".
+
+The keys:
+
+| View | Key | Does |
+|---|---|---|
+| List | UP, DOWN | Move the selection, repeats too |
+| List | LEFT, RIGHT | Change the category. At either end the shell changes the tab |
+| List | SELECT | Opens the detail of the selected item |
+| Detail | UP, DOWN | Add or take one from the count, one per press or repeat, within 0 to 999 |
+| Detail | SELECT | Marks or unmarks the item |
+| Detail | BACK, LEFT | Back to the list, on the same row |
+| Detail | RIGHT | Nothing: it cannot change the tab |
+
+At 0 or 999 the model refuses the step. The tab ignores the key, so the shell plays the deny tone for a press and nothing for a repeat. BACK at the list is ignored too.
+
+The tab keeps the active category and the selected row of each category while the ROM runs. Leaving the tab closes the detail, so coming back shows the list.
+
+Changes go through `dx_items_add` and `dx_items_toggle_marked`. They count a change in the overlay, and the autosave writes INV.SAV. A refused step counts none.
+
+The footer says `UP/DOWN: item  SELECT: open` at the list, `LEFT/RIGHT: category  DIAL: tab` at an empty category and `UP/DOWN: count  SELECT: mark  BACK` in the detail. The empty states keep the shell's hint.
+
+Each key the tab takes logs one serial line before the redraw, for the QEMU tests: `deitrix: inv cat=1 row=0`, `open=knife`, `count=3`, `refused count=999`, `marked=1`, `back row=0`, `end row=0` at a list end, and `idle` for a key that changes nothing. LEFT or RIGHT that changes the tab logs no `inv` line.
 
 ## Planned
 

@@ -69,7 +69,7 @@ def test_first_screen(board, kernel_image, card, tmp_path, need_mtools):
 # several detents, LEFT and RIGHT, and a wrap each way by dial and by key.
 STEPS = [
     ("dial 1", "INV"),
-    ("key right", "DATA"),
+    ("dial 1", "DATA"),      # INV takes RIGHT for its sub-tabs
     ("key left", "INV"),
     ("dial -2", "RADIO"),    # wraps back past STAT
     ("dial 1", "STAT"),      # wraps forward past RADIO

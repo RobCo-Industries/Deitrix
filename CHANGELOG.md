@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 ### Added
 
 - The STAT tab: the owner and gauges, the attributes, and the device data with the uptime, refreshed each second.
+- The INV tab: one sub-tab per category, a list of its items with a summary row, and a detail view where UP and DOWN change the count and SELECT marks the item.
 - A data model in `src/model/` that loads PROFILE.INI, ITEMS.INI, the notes, MAP.INI, RADIO.INI and the tunes as `docs/CONTENT.md` says, with fixed tables and no allocation. One serial line per file loaded.
 - DEITRIX.SAV and INV.SAV: the settings and the item overlay, read at start and written by an autosave service.
 - Services in the app shell: a table of background jobs with their own wake times. The radio service plays tunes and streams PCM tracks on any tab.
