@@ -331,7 +331,7 @@ deitrix: map detail LOCAL place=2
 deitrix: map shows none
 ```
 
-The time comes from `ticks_ms`, which moves in 10 ms steps in QEMU. With the largest map the format allows, 64 lines of 16 points and 24 places, each redraw of the map view logged 0 or 10 ms on every board in QEMU.
+The time comes from `ticks_ms`, which moves in 10 ms steps in QEMU. With the largest map the format allows, 64 lines of 16 points and 24 places, each redraw of the map view logged 0 ms on raspi0 and raspi2b in QEMU, and under 100 ms on every board.
 
 ## Planned
 
