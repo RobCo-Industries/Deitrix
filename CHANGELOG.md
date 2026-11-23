@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Changed
 
-- Pip-OS moves to `bd5fa36`, with RobCo-Core `00d9a2d` inside it.
+- Pip-OS moves to `2d10c2c`, with RobCo-Core `f5bba36` inside it. The kernel mounts the card with the shared boot volume rule.
 
 ### Added
 
