@@ -39,6 +39,23 @@ RADIO_KEY = serial_line(r"deitrix: radio (station=\d+|off)")
 SAMPLE_NOTES = ["GARDEN01.TXT", "RECIPE01.TXT", "SHOP01.TXT", "WALK01.TXT"]
 
 
+@pytest.fixture
+def card(card, need_mtools):
+    """The default card without its holotapes: each test adds the test
+    tapes it lists, so the TAPES goldens and counts stay fixed."""
+    target = card_target(card)
+    for name in holo_files(target):
+        mtools("mdel", "-i", target, f"::PIPBOY/HOLO/{name}")
+    return card
+
+
+def holo_files(target):
+    """The file names in PIPBOY/HOLO on the card image `target`."""
+    out = subprocess.run(["mdir", "-b", "-i", target, "::PIPBOY/HOLO"], env=minimal_env(
+        MTOOLS_SKIP_CHECK="1"), capture_output=True, text=True)
+    return [line.rsplit("/", 1)[-1] for line in out.stdout.split() if line]
+
+
 def to_data(vm, dial="dial 2"):
     """To DATA with the dial: two detents from STAT by default."""
     before = count(vm, NOTES)
