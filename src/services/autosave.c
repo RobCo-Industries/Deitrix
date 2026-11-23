@@ -12,7 +12,8 @@ enum { SAVE_SETTINGS = 1, SAVE_INV = 2 };
 static dx_settings_t *settings;
 static dx_items_t *items;
 static uint32_t seen_settings, seen_items;
-static unsigned dirty;     /* SAVE_* bits */
+static unsigned dirty;     /* SAVE_* bits: not on the card */
+static unsigned stalled;   /* dirty bits the retries gave up on */
 static uint32_t first_ms;  /* the first change since the last write */
 static uint32_t last_ms;   /* the latest change */
 static int failures;       /* failed attempts in a row */
@@ -26,6 +27,11 @@ void dx_autosave_attach(dx_settings_t *s, dx_items_t *it)
 }
 
 int dx_autosave_pending(void)
+{
+    return (dirty & ~stalled) != 0;
+}
+
+int dx_autosave_unsaved(void)
 {
     return dirty != 0;
 }
@@ -45,10 +51,12 @@ static void note_changes(uint32_t now_ms)
     if (found == 0) {
         return;
     }
-    if (dirty == 0) {
+    /* A change to a save the retries gave up on starts them again. */
+    if ((dirty & ~stalled) == 0 || (found & stalled) != 0) {
         first_ms = now_ms;
         failures = 0;
     }
+    stalled &= ~found;
     dirty |= found;
     last_ms = now_ms;
 }
@@ -63,30 +71,37 @@ static int write_one(const char *name, const char *file, uint32_t size)
     return ok;
 }
 
-static void write_dirty(void)
+/* Tries each save in `which` that is not on the card. */
+static void write_dirty(unsigned which)
 {
-    if (dirty & SAVE_SETTINGS) {
+    if (dirty & which & SAVE_SETTINGS) {
         dx_settings_encode(settings, buf);
         if (write_one(DX_SETTINGS_NAME, "DEITRIX.SAV", DX_SETTINGS_SIZE)) {
             dirty &= ~(unsigned)SAVE_SETTINGS;
+            stalled &= ~(unsigned)SAVE_SETTINGS;
         }
     }
-    if (dirty & SAVE_INV) {
+    if (dirty & which & SAVE_INV) {
         int n = dx_inv_encode(items, buf);
 
         if (write_one(DX_INV_NAME, "INV.SAV", (uint32_t)n)) {
             dirty &= ~(unsigned)SAVE_INV;
+            stalled &= ~(unsigned)SAVE_INV;
         }
     }
 }
 
-/* The wake time, or 0 for none, after a write attempt or a change. */
+/* The wake time, or 0 for none, after a write attempt or a change.
+ * force writes every save not on the card, stalled ones too. */
 static uint32_t run(uint32_t now_ms, int force)
 {
     int due;
 
     note_changes(now_ms);
-    if (dirty == 0) {
+    if ((dirty & ~stalled) == 0) {
+        if (force && dirty != 0) {
+            write_dirty(dirty); /* one attempt; the retries stay stopped */
+        }
         return 0;
     }
     if (failures > 0) {
@@ -106,15 +121,16 @@ static uint32_t run(uint32_t now_ms, int force)
             return dx_ticks_add(now_ms, quiet < max ? quiet : max);
         }
     }
-    write_dirty();
-    if (dirty == 0) {
+    write_dirty(force ? dirty : dirty & ~stalled);
+    if ((dirty & ~stalled) == 0) {
         failures = 0;
         return 0;
     }
     if (++failures > DX_SAVE_RETRIES) {
-        /* Give up until the next change: the UI never waits on the card. */
+        /* Stop retrying until the next change or flush: the UI never
+         * waits on the card. The changes stay marked as not saved. */
         dx_plat_log("deitrix: save gave up\n");
-        dirty = 0;
+        stalled = dirty;
         failures = 0;
         return 0;
     }
@@ -142,6 +158,7 @@ static void init(uint32_t now_ms)
     seen_settings = settings != NULL ? settings->changes : 0;
     seen_items = items != NULL ? items->changes : 0;
     dirty = 0;
+    stalled = 0;
     failures = 0;
 }
 

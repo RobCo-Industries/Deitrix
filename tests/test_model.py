@@ -15,11 +15,12 @@ import sys
 import time
 
 from pipos_testing import TIMEOUT, booted, minimal_env, no_exception, script
+from conftest import serial_line
 
-READY_LINE = re.compile(r"^deitrix: ready\r?$", re.M)
-TAB_LINE = re.compile(r"^deitrix: tab=(\w+)\r?$", re.M)
-AUDIO = re.compile(r"^@RC stage=pipos ev=audio op=(\w+)(.*?)\r?$", re.M)
-SHOWS_OFF = re.compile(r"^deitrix: radio shows Off\r?$", re.M)
+READY_LINE = serial_line(r"deitrix: ready")
+TAB_LINE = serial_line(r"deitrix: tab=(\w+)")
+AUDIO = serial_line(r"@RC stage=pipos ev=audio op=(\w+)(.*?)")
+SHOWS_OFF = serial_line(r"deitrix: radio shows Off")
 PART = 2048 * 512  # the card's FAT partition starts at LBA 2048
 
 TUNES = ("MORNING", "WALK", "LULLABY")
@@ -61,7 +62,7 @@ def matches(lines, want):
 
 
 def wait_line(vm, text, timeout=TIMEOUT):
-    vm.wait_for(re.compile("^" + re.escape(text) + r"\r?$", re.M), timeout=timeout)
+    vm.wait_for(serial_line(re.escape(text)), timeout=timeout)
 
 
 def mtools(*args):
@@ -83,6 +84,14 @@ def select(vm, line):
     script(vm, "key select 1")
     script(vm, "key select 0")
     wait_line(vm, line)
+
+
+def down_to(vm, row):
+    """Moves RADIO's cursor down from row 0 to `row`, one key at a time."""
+    for n in range(1, row + 1):
+        script(vm, "key down 1")
+        script(vm, "key down 0")
+        wait_line(vm, f"deitrix: radio row={n}")
 
 
 def audio_after(vm, mark):
@@ -152,7 +161,7 @@ def test_no_data_folder(board, kernel_image, card, need_mtools):
             re.compile(r"deitrix: load DEITRIX.SAV missing tab=0 volume=\d+ sound=1 station=0"),
             "deitrix: load INV.SAV missing",
         ])
-        # Every tab draws its empty state. SELECT on RADIO does nothing:
+        # Every tab draws its empty state. SELECT on RADIO plays nothing:
         # the dial after it is the sync point, as the ROM takes events in order.
         for name in ("INV", "DATA", "MAP", "RADIO"):
             script(vm, "dial 1")
@@ -161,20 +170,20 @@ def test_no_data_folder(board, kernel_image, card, need_mtools):
         script(vm, "key select 0")
         script(vm, "dial 1")
         wait_line(vm, "deitrix: tab=STAT")
-        assert "deitrix: radio" not in vm.serial
+        assert "deitrix: radio station" not in vm.serial
         no_exception(vm)
 
 
 def test_radio_streams_pcm(board, kernel_image, card, need_mtools):
     """Station 4 streams HEARTH.PCM in 8000-byte chunks: one op=pcm, then
     op=pcm_next for each chunk with no op=pcm_end between, so the queue
-    never ran dry. A tab change does not stop it. Then SELECT twice: 5,
-    then off, which stops the sound."""
+    never ran dry. A tab change does not stop it. Then station 5, and
+    SELECT on it again turns the radio off, which stops the sound."""
     with boot(kernel_image, board, card) as vm:
         wait_ready(vm)
         to_radio(vm)
-        for n in (1, 2, 3, 4):
-            select(vm, f"deitrix: radio station={n}")
+        down_to(vm, 3)
+        select(vm, "deitrix: radio station=4")
         mark = "deitrix: radio station=4"
 
         def ops():
@@ -207,6 +216,9 @@ def test_radio_streams_pcm(board, kernel_image, card, need_mtools):
         assert "deitrix: radio underrun" not in vm.serial
         script(vm, "dial -1")
         wait_line(vm, "deitrix: tab=RADIO")
+        script(vm, "key down 1")
+        script(vm, "key down 0")
+        wait_line(vm, "deitrix: radio row=4")
         select(vm, "deitrix: radio station=5")
         select(vm, "deitrix: radio off")
         after = audio_after(vm, "deitrix: radio off")
@@ -249,8 +261,8 @@ def test_radio_end_redraws(board, kernel_image, card, tmp_path, need_mtools):
         wait_ready(vm)
         assert "deitrix: load RADIO.INI stations=6" in vm.serial, vm.serial
         to_radio(vm)
-        for n in range(1, 7):
-            select(vm, f"deitrix: radio station={n}")
+        down_to(vm, 5)
+        select(vm, "deitrix: radio station=6")
         mark = "deitrix: radio station=6"
         wait_line(vm, "deitrix: radio shows Playing Short")
         ended = None

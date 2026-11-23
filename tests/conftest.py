@@ -7,6 +7,7 @@ Makefile).
 """
 
 import os
+import re
 import shutil
 import sys
 
@@ -15,6 +16,17 @@ sys.path.insert(0, os.path.join(ROOT, "external", "pip-os", "sdk", "testing"))
 pytest_plugins = ["pipos_testing.plugin"]
 
 import pytest  # noqa: E402
+
+
+def serial_line(body):
+    """A regex for whole serial lines that match body.
+
+    The serial buffer can end in the middle of a line that is still
+    arriving. With "$" and re.M a cut line matches at the end of the
+    buffer, so a test can parse half a line. The pattern ends at the
+    newline instead.
+    """
+    return re.compile("^" + body + r"\r?\n", re.M)
 
 
 def pytest_addoption(parser):

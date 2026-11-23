@@ -32,7 +32,7 @@ The UI framework: the core types in `ui.h`, the frame every tab shares, and the 
 
 ### `src/screens/`
 
-One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. STAT and INV are built, see [Screens](#screens). DATA, MAP and RADIO draw the shared placeholder from `placeholder.c`: the tab's name in large text, "Not built yet." and one or two lines from the model. SELECT on RADIO cycles the radio: off, station 1, station 2 and so on, then off.
+One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. Every tab is built, see [Screens](#screens). `stat_draw.c` draws STAT's name and gauges. DATA keeps TAPES in `data_tapes.c` and CLOCK in `data_clock.c`.
 
 ### `holotapes/`
 
@@ -234,7 +234,7 @@ A service asks for a redraw the way a screen does: `tick` sets `DX_UI_DIRTY` in 
 
 ### The radio
 
-The radio plays whatever tab is shown. Its states are off, playing a tune and playing a PCM track. The screen calls `dx_radio_play`, `dx_radio_stop`, `dx_radio_current`, `dx_radio_state` and `dx_radio_set_volume`.
+The radio plays whatever tab is shown. Its states are off, playing a tune and playing a PCM track. The screen calls `dx_radio_play`, `dx_radio_stop`, `dx_radio_current`, `dx_radio_failed` and `dx_radio_set_volume`. `dx_radio_failed` gives the station an error stopped: its file was missing or could not be opened, read or played. A start or a stop clears it.
 
 - A tune goes to `play_seq` in one call. The service wakes when the tune's length has passed. If `audio_status` says the sound still plays, it checks again every 50 ms. Then it starts the tune again.
 - A PCM track streams from a file handle kept open. Chunks are 8000 bytes, 1000 ms each at 8000 Hz. The first goes to `sample`, the rest to `sample_queue`. One chunk plays, one waits in Pip-OS and one waits in the ROM's buffer. File handles cannot seek, so at the end of a looping track the ROM closes the file, opens it again and fills the rest of the chunk from the first byte. Every chunk is whole, so the joint has no gap.
@@ -247,7 +247,7 @@ Pip-OS has one voice, and a UI tone would replace the radio. So while the radio 
 
 ### The autosave
 
-The autosave writes DEITRIX.SAV and INV.SAV when their counters change. It writes 2 s after the last change, and at most 10 s after the first one, so a burst of changes writes once. It writes only the saves that changed. Each write logs `deitrix: save DEITRIX.SAV ok` or `failed`. A failed write is tried again 5 s later. After 3 failed retries it gives up until the next change and logs `deitrix: save gave up`. `dx_autosave_flush()` writes at once; the service's `stop` calls it. A write in QEMU takes 20 to 120 ms, and the UI waits only that long. No screen shows the saves, so the autosave never asks for a redraw.
+The autosave writes DEITRIX.SAV and INV.SAV when their counters change. It writes 2 s after the last change, and at most 10 s after the first one, so a burst of changes writes once. It writes only the saves that changed. Each write logs `deitrix: save DEITRIX.SAV ok` or `failed`. A failed write is tried again 5 s later. After 3 failed retries it gives up and logs `deitrix: save gave up` once. It then stops its retries, so a broken card is not hit again and again. The changes stay marked as not saved. A new change to that save starts a fresh round of retries. `dx_autosave_flush()` writes at once. It tries every save that is not on the card once, even after a give-up. It returns 0 only when every save is on the card. The service's `stop` calls it. `dx_autosave_unsaved()` returns 1 while a change is not on the card. `dx_autosave_pending()` returns 1 only while the service plans a write, so it is 0 after a give-up. A write in QEMU takes 20 to 120 ms, and the UI waits only that long. No screen shows the saves, so the autosave never asks for a redraw.
 
 ## Screens
 
@@ -309,6 +309,45 @@ The footer says `UP/DOWN: item  SELECT: open` at the list, `LEFT/RIGHT: category
 
 Each key the tab takes logs one serial line before the redraw, for the QEMU tests: `deitrix: inv cat=1 row=0`, `open=knife`, `count=3`, `refused count=999`, `marked=1`, `back row=0`, `end row=0` at a list end, and `idle` for a key that changes nothing. LEFT or RIGHT that changes the tab logs no `inv` line.
 
+### DATA
+
+`src/screens/data.c` has three sub-tabs: NOTES, TAPES and CLOCK. It holds the sub-tabs and NOTES. `data_tapes.c` holds TAPES and `data_clock.c` holds CLOCK. LEFT and RIGHT move between the sub-tabs at the top level. At NOTES, LEFT goes to the previous tab, and at CLOCK, RIGHT goes to the next. Leaving the tab closes an open note or the setter, and drops the TAPES result line and the CLOCK status line. The sub-tab and the list selections stay.
+
+SELECT, BACK and LEFT open, close, store or launch only on a fresh press. Their repeats do nothing, and a held LEFT does not change the sub-tab or the tab from a nested level. After a press opens or closes a note or the setter, the repeats of that key do nothing until the next press. UP and DOWN act on every repeat in the lists, the note text and the setter fields.
+
+NOTES lists the notes the model loaded, in name order, by title. Ten rows fit. UP and DOWN move the selection. SELECT opens the note: its title, a faint rule, then the body in the text widget, 38 columns and 9 lines. UP and DOWN scroll it. A body over 128 wrapped lines ends with `[text cut]`. The body comes from `dx_content_note_body` into a 4 KiB buffer the screen owns. A read error shows "The note could not be read." under the title. BACK or LEFT returns to the list with the same note selected. RIGHT does nothing there. With no notes the list shows "No notes on the card.". When the folder could not be read it shows "The notes were not read." and the reason.
+
+TAPES lists the holotapes from `dx_plat_holo_list`, the seam's `holo_enumerate`. A row shows the title, or the file name when the title is empty, and the kind at the right: GAME, UTIL or DATA. The selected tape's 32x32 icon sits at the top right when it has one. The list is read when the sub-tab opens and after each launch, and the selection stays on the same file. With no tapes it shows "No holotapes on the card.". When the listing fails it shows "The holotapes could not be read.".
+
+SELECT runs the selected tape:
+
+1. A data tape is not run: the result line says "Data tapes cannot be started.". Pip-OS would refuse it with `-PIP_ENOEXEC`, and that answer for a data tape gives the same line.
+2. `dx_autosave_flush()` writes any change that is not on the card, so a tape that crashes the device loses nothing. This includes changes the autosave gave up on. When a write fails, the tape does not run and the result line says "Save failed. SELECT again runs it.". The radio keeps playing. The next fresh SELECT runs the tape even if the write fails again. Moving the selection or leaving the sub-tab or the tab drops that line and the second chance. A held SELECT's repeats never count. A card that cannot be written must not block every tape, and the user must know the changes are not safe first.
+3. `dx_radio_stop()` stops the radio. Pip-OS stops the sound when a tape starts, so the service must not think it still plays. After the tape the radio stays off.
+4. `dx_plat_holo_launch(file, "")` runs the tape. The ROM waits inside the call.
+5. The listing is read again and the whole frame redraws, since the back buffer holds what the tape drew.
+
+The result line shows under the list until the selection moves or the sub-tab is left: "Tape ended, status N." for an exit status, "Tape was stopped by the system." for a fault, "Not a holotape." for a file that fails validation, "Card error." for a read error, "Tape not found." when the file vanished, and "The tape could not start." for any other error.
+
+CLOCK shows the time as `HH:MM:SS` in the stroke font at unit 6, the date and the weekday under it, and "The clock runs in UTC.". `src/model/data_time.c` computes the weekday and converts Unix seconds to fields and back for 2000 to 2099. Without a clock the page shows `--:--:--` and "No clock. SELECT sets the time.". The tick reads the clock every 250 ms and asks for a redraw only when the second changed. On NOTES and TAPES the tick returns 0.
+
+SELECT opens the setter: year, month, day, hour and minute in one row, the active field inverse. It starts from the clock, or from 2026-01-01 00:00 when there is no clock or its year is outside 2000 to 2099. UP and DOWN change the active field, repeats too. Each field wraps at its ends: year 2000 to 2099, month 1 to 12, day 1 to the month's length, hour 0 to 23, minute 0 to 59. A change of year or month clamps the day. RIGHT moves to the next field and LEFT to the previous one. On the first field a fresh LEFT cancels, like BACK; a held LEFT stops there. SELECT stores the time with 0 seconds through `dx_plat_set_time`, the seam's `set_time`. Pip-OS also writes the clock chip when one answered at boot. On success the setter closes and the page shows "Time set." with "Lost at power-off without a clock chip." in dim text under it. The ABI does not say whether a chip is present, so the second line is true either way. A failed chip write shows "The clock chip did not take the time." and keeps the setter open. The clock keeps the new time then, as Pip-OS documents.
+
+The tab logs one line when a frame shows another view, just before the present. A launch logs the file before the call and the result after it. A store logs the seconds and the result:
+
+```
+deitrix: data notes sel=2 top=0 count=4
+deitrix: data note SHOP01.TXT top=0 lines=12
+deitrix: data tapes sel=0 top=0 count=2 | Tape ended, status 42.
+deitrix: data launch LINETEST.HTP
+deitrix: data tape rc=42
+deitrix: data clock 09:30:07 2026-11-23 Monday | 
+deitrix: data setter field=1 2026-02-01 07:00 | 
+deitrix: data set_time 1769929200 rc=0
+```
+
+The CLOCK page logs once a second while the time runs. DATA writes no save. The only state it changes outside the screen is the clock, through `set_time`.
+
 ### MAP
 
 `src/screens/map.c` shows the maps of MAP.INI, one sub-tab per map in file order: LOCAL, then WORLD. A card with one map has one sub-tab. LEFT and RIGHT move between them. At the first sub-tab LEFT goes to DATA, and at the last RIGHT goes to RADIO. No view of MAP changes state, so it writes no save. Nothing ticks: the screen redraws only after a key.
@@ -336,6 +375,37 @@ deitrix: map shows none
 ```
 
 The time comes from `ticks_ms`, which moves in 10 ms steps in QEMU. With the largest map the format allows, 64 lines of 16 points and 24 places, each redraw of the map view logged 0 ms on raspi0 and raspi2b in QEMU, and under 100 ms on every board.
+
+### RADIO
+
+`src/screens/radio.c` is the control panel of the radio service. It has one page and no sub-tabs.
+
+- **The stations.** One row per station of RADIO.INI, in file order. A station whose file is missing or broken is dim. The station on air shows `ON AIR` at the right.
+- **Now playing.** Under a faint rule, two rows. While a station plays: "Playing" and its name, then its kind in dim text: `tune` for `kind = tune`, `recording` for `kind = pcm`. When nothing plays: "Radio off." in dim text. When the last start failed or an error stopped the station: "Station has nothing to play." and the reason, such as `LULLABY.TUN missing`.
+- **The settings.** Under a second rule, `Volume` with a bar and the level, and `UI sounds` with On or Off.
+
+UP and DOWN move one cursor through the stations, then Volume, then UI sounds. They stop at both ends. The selected row is inverse.
+
+| Row | Key | Does |
+|---|---|---|
+| Station | SELECT | Starts it, or stops it when it plays. Starting one stops the station before |
+| Station | LEFT, RIGHT | Not handled: the shell changes the tab |
+| Volume | LEFT, RIGHT | The level goes to the next multiple of 10 down or up, within 0 to 100. Repeats too. At a limit a press plays the deny tone and the tab stays |
+| UI sounds | SELECT, LEFT, RIGHT | Turns UI sounds on or off. A repeat does nothing and the tab stays |
+
+BACK does nothing on any row. The service plays on whatever tab is shown, so leaving the tab does not stop the radio. The cursor stays while the ROM runs.
+
+The tab reads the stations from `dx_content_radio()`, the settings from `dx_content_settings()`, and what plays from `dx_radio_current()` and `dx_radio_failed()`. A start sets the last station with `dx_settings_set_station`. A stop keeps it. The volume goes through `dx_settings_set_volume` and `dx_radio_set_volume`, the UI sounds through `dx_settings_set_ui_sound` and `dx_ui_sound_enable`. Each setter counts a change only when the value changes, and the autosave writes DEITRIX.SAV. A refused step counts none.
+
+At start the cursor goes to the last station. The radio does not resume: the station is only selected. Without stations the cursor starts on Volume.
+
+When the service changes what plays, such as at the end of a track played once, its tick asks for a redraw. The tab has no tick of its own.
+
+Without RADIO.INI, or with a file the loader ignored, the list area says "No stations on the card." and the reason in dim text, such as `RADIO.INI missing`. The settings still work.
+
+The footer says `UP/DOWN: station  SELECT: play` on a station, `SELECT: stop` on the one on air, `LEFT/RIGHT: volume  UP/DOWN: move` on Volume and `SELECT: UI sounds on/off  UP/DOWN: move` on UI sounds.
+
+Each key the tab takes logs one serial line before the redraw: `deitrix: radio row=3`, `end row=0`, `station=4`, `off`, `volume=70`, `refused volume=100`, `sound=0`, and `idle` for a key that changes nothing. A start that fails adds `deitrix: radio cannot play`. A frame that shows another state logs `deitrix: radio shows Playing Hearth`, `shows Off` or `shows Cannot play Lullaby`, just before the present.
 
 ## Holotapes
 
@@ -383,9 +453,3 @@ The save is `CULVERT`, 30 bytes, little-endian:
 A record of another size, magic, version or class count, a bad CRC or a level of 0 is ignored, and the game starts fresh.
 
 The tape logs one line per step on the serial console, after the frame is on screen: `culvert: title`, `culvert: level n= w= h= seed=`, `culvert: cursor x= y=`, `culvert: turn x= y= connected=`, `culvert: menu item=`, `culvert: pause`, `culvert: resume`, `culvert: solved level= moves=`, `culvert: done` when the message shows, `culvert: idle` for a key that changes nothing, and `culvert: exit rc=0`. It also logs `culvert: load rc=` and `culvert: save rc=`. Before the exit line, `culvert stats: grid draws= ms=` gives the number of full grid redraws and their total time from `ticks_ms`.
-
-## Planned
-
-These are plans, not code:
-
-- The four screens with real content: INV, DATA, MAP and RADIO.

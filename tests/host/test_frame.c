@@ -1,4 +1,4 @@
-/* The frame and the placeholder screen, drawn into the recorder. */
+/* The frame, drawn into the recorder. */
 #include "rc_test.h"
 
 #include <string.h>
@@ -216,29 +216,6 @@ TEST(footer_draw_list)
     dx_frame_footer(&c, DX_FRAME_HINT);
     CHECK_STR(fake.draws, "line 0 215 319 215 fg\n"
                           "text 40 220 \"DIAL or LEFT/RIGHT: change tab\" dim none s1\n");
-}
-
-TEST(placeholder_body)
-{
-    const fake_text_t *name, *note;
-    dx_ctx_t c;
-
-    fake_reset();
-    c = fake_ctx();
-    dx_placeholder_draw(&c, dx_frame_body(), "RADIO");
-    CHECK(fake_points_inside(dx_frame_body()));
-    name = fake_find_text("RADIO");
-    note = fake_find_text("Not built yet.");
-    CHECK(name != NULL && note != NULL);
-    if (name == NULL || note == NULL) {
-        return;
-    }
-    /* The skeleton's positions, so its goldens stay valid. */
-    CHECK_EQ(name->scale, 3);
-    CHECK_EQ(name->y, 72);
-    CHECK_EQ(note->y, 144);
-    CHECK_EQ(name->fg, fake.theme.fg);
-    CHECK_EQ(note->fg, fake.theme.dim);
 }
 
 TEST(rom_screens)

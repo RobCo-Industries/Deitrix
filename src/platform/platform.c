@@ -231,6 +231,59 @@ int dx_plat_sysinfo(dx_sysinfo_t *out)
     return 0;
 }
 
+/* ---- The clock and holotapes ------------------------------------------------- */
+
+_Static_assert(DX_EPERM == -PIP_EPERM && DX_ENOENT == -PIP_ENOENT && DX_EIO == -PIP_EIO,
+               "errors");
+_Static_assert(DX_EFAULT == -PIP_EFAULT && DX_EINVAL == -PIP_EINVAL &&
+                   DX_ENOEXEC == -PIP_ENOEXEC, "errors");
+_Static_assert(DX_HOLO_GAME == PIP_HOLO_GAME && DX_HOLO_UTILITY == PIP_HOLO_UTILITY &&
+                   DX_HOLO_DATA == PIP_HOLO_DATA, "holotape kinds");
+_Static_assert(DX_HOLO_MAX == PIP_HOLO_ENUM_MAX, "holotape count");
+_Static_assert(DX_HOLO_ICON_SIZE == sizeof(((pip_holo_info_t *)0)->icon), "icon size");
+_Static_assert(DX_HOLO_TITLE_MAX + 1 == sizeof(((pip_holo_info_t *)0)->title), "title size");
+
+int32_t dx_plat_set_time(uint32_t unix_seconds)
+{
+    return pip_set_time(unix_seconds);
+}
+
+int32_t dx_plat_holo_list(dx_holo_t *out, uint32_t max)
+{
+    static pip_holo_info_t info[PIP_HOLO_ENUM_MAX];
+    int32_t n, i;
+    uint32_t j;
+
+    if (max == 0 || max > PIP_HOLO_ENUM_MAX) {
+        return DX_EINVAL;
+    }
+    n = pip_holo_enumerate(info, max);
+    for (i = 0; i < n; i++) {
+        dx_holo_t *h = &out[i];
+
+        for (j = 0; j < DX_NAME83_SIZE; j++) {
+            h->file[j] = info[i].file[j];
+        }
+        h->file[DX_NAME83_SIZE - 1] = '\0';
+        h->kind = info[i].subtype;
+        for (j = 0; j < DX_HOLO_TITLE_MAX; j++) {
+            h->title[j] = info[i].title[j];
+        }
+        h->title[DX_HOLO_TITLE_MAX] = '\0';
+        h->has_icon = 0;
+        for (j = 0; j < DX_HOLO_ICON_SIZE; j++) {
+            h->icon[j] = info[i].icon[j];
+            h->has_icon |= info[i].icon[j] != 0;
+        }
+    }
+    return n;
+}
+
+int32_t dx_plat_holo_launch(const char *file, const char *args)
+{
+    return pip_holo_launch(file, args);
+}
+
 /* ---- libpip ------------------------------------------------------------------- */
 
 int dx_ini_parse(const char *text, uint32_t len, dx_ini_handler_t fn, void *ctx,
