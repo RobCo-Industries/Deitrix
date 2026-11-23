@@ -11,7 +11,7 @@ Deitrix has a UI framework and five placeholder tabs. It boots on Pip-OS in QEMU
 - the active tab's name and "Not built yet." in the body;
 - a key hint at the bottom.
 
-The dial, LEFT and RIGHT move between tabs and wrap at both ends. Nothing else reacts yet. The framework's widgets run in a test-only gallery ROM until the tabs use them. Nothing has been tried on real hardware.
+The dial, LEFT and RIGHT move between tabs and wrap at both ends. BACK and LEFT go back one level in a nested view. Nothing else reacts yet. The framework's widgets run in a test-only gallery ROM until the tabs use them. Nothing has been tried on real hardware.
 
 ## Planned, not built
 
@@ -39,8 +39,9 @@ This builds the Pip-OS kernel and a card with Deitrix, then boots it in QEMU on 
 
 | Key | Does |
 |---|---|
-| Right arrow | Next tab |
-| Left arrow | Previous tab |
+| Right arrow | Next tab, or stays inside a nested view |
+| Left arrow | Previous tab, or back one level in a nested view |
+| Backspace, or Escape alone | Back: one level up in a nested view. It never changes the tab. |
 | Ctrl-A, then x | Quits QEMU |
 
 The terminal has no dial key. The script channel's `dial <n>` command turns the dial in the tests.
