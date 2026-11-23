@@ -172,6 +172,26 @@ static int move_menu(cv_game_t *g, int d)
     return 1;
 }
 
+/* The dial moves the bar one item per step, like UP and DOWN, and stops
+ * at the first and last item. A turn past an end stops there. */
+static void dial_menu(cv_game_t *g, int32_t value)
+{
+    int last = cv_menu_count(g) - 1;
+    int32_t m = (int32_t)g->menu;
+
+    if (value < -last || value > last) {
+        m = value < 0 ? 0 : last;
+    } else {
+        m += value;
+        m = m < 0 ? 0 : (m > last ? last : m);
+    }
+    if (value == 0 || m == g->menu) {
+        g->log = CV_LOG_IDLE;
+        return;
+    }
+    move_menu(g, (int)(m - g->menu));
+}
+
 static void pause(cv_game_t *g, uint32_t now)
 {
     if (g->st == CV_ST_PLAY) {
@@ -323,7 +343,7 @@ void cv_game_event(cv_game_t *g, const cv_input_t *ev, uint32_t now)
                 turn(g, q, now);
             }
         } else if (g->st == CV_ST_TITLE || g->st == CV_ST_PAUSE) {
-            move_menu(g, ev->value > 0 ? 1 : -1);
+            dial_menu(g, ev->value);
         } else {
             g->log = CV_LOG_IDLE;
         }

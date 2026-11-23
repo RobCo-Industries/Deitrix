@@ -411,3 +411,18 @@ def test_culvert_quit_from_title(board, kernel_image, card, need_mtools):
         key(vm, "select", "exit rc=0")
         ended(vm)
         no_exception(vm)
+
+
+def test_culvert_dial_quit_from_pause(board, kernel_image, card, need_mtools):
+    """One dial event of two steps moves the pause menu from Resume to Quit,
+    and the dial push quits."""
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        assert to_tapes(vm) == LISTED
+        launch(vm)
+        key(vm, "dial_push", r"level n=1 .*")
+        key(vm, "back", "pause")
+        key(vm, "dial 2", "menu item=2")
+        key(vm, "dial_push", "exit rc=0")
+        ended(vm)
+        no_exception(vm)

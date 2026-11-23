@@ -469,3 +469,63 @@ TEST(culvert_dial_multi_detent_without_solve)
     CHECK_INT(g.moves, 5);
     CHECK_INT(here(), cv_rot_n(before, 1));
 }
+
+/* Expected bar after a dial event of `v` steps from item `from` in a menu
+ * of `n` items: one item per step, stopped at both ends. */
+static int dial_rule(int from, int32_t v, int n)
+{
+    int64_t m = (int64_t)from + v;
+
+    return m < 0 ? 0 : (m >= n ? n - 1 : (int)m);
+}
+
+static void check_menu_dial(int st, int n)
+{
+    static const int32_t vals[] = { 1, 2, 3, 7, 0x7FFFFFFF, -1, -2, -3, -7,
+                                    (int32_t)0x80000000u };
+    unsigned i;
+    int from;
+
+    for (from = 0; from < n; from++) {
+        for (i = 0; i < sizeof vals / sizeof vals[0]; i++) {
+            int want = dial_rule(from, vals[i], n);
+
+            CHECK_INT(g.st, st);
+            CHECK_INT(cv_menu_count(&g), n);
+            g.menu = from;
+            ev(CV_EV_DIAL, 0, vals[i], 0);
+            CHECK_INT(g.st, st);
+            CHECK_INT(g.menu, want);
+            CHECK_INT(g.log, want == from ? CV_LOG_IDLE : CV_LOG_MENU);
+        }
+        g.menu = from;
+        ev(CV_EV_DIAL, 0, 0, 0);
+        CHECK_INT(g.menu, from);
+        CHECK_INT(g.log, CV_LOG_IDLE);
+        CHECK_INT(g.fx, 0);
+    }
+}
+
+TEST(culvert_dial_menu_moves_by_steps)
+{
+    /* Title of a fresh save: New game, Quit. */
+    cv_game_init(&g, 0, 0);
+    check_menu_dial(CV_ST_TITLE, 2);
+    /* Title with Continue: three items. */
+    cv_game_init(&g, 0, 0);
+    g.save.highest = 2;
+    check_menu_dial(CV_ST_TITLE, 3);
+    /* Two steps from the top reach Quit. */
+    g.menu = 0;
+    ev(CV_EV_DIAL, 0, 2, 0);
+    CHECK_INT(cv_menu_item(&g, g.menu), CV_ITEM_QUIT);
+    /* The pause menu. */
+    start_fresh(0);
+    key(CV_KEY_BACK, 0);
+    check_menu_dial(CV_ST_PAUSE, 3);
+    g.menu = 0;
+    ev(CV_EV_DIAL, 0, 2, 0);
+    CHECK_INT(cv_menu_item(&g, g.menu), CV_ITEM_QUIT);
+    key(CV_KEY_DIAL, 0);
+    CHECK_INT(g.st, CV_ST_EXIT);
+}
