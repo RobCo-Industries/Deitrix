@@ -170,7 +170,7 @@ static void draw_empty(const dx_ctx_t *ctx, dx_rect_t area)
     if (m->load.status == DX_LOAD_OK) {
         reason = "MAP.INI holds no map.";
     } else {
-        reason = dx_placeholder_reason(&m->load, "MAP.INI", why, sizeof(why));
+        reason = dx_file_reason(&m->load, "MAP.INI", why, sizeof(why));
     }
     message(ctx, area, "No map on the card.", reason);
 }

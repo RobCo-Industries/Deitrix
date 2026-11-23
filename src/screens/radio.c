@@ -259,7 +259,7 @@ static void draw_now(const dx_radio_t *r, const dx_ctx_t *ctx, dx_rect_t area)
         ctx->gfx->text(area.x + PAD_L, y, "Station has nothing to play.", t->fg, DX_COLOR_NONE,
                        1);
         if (s->file_load.status != DX_LOAD_OK) {
-            dx_placeholder_reason(&s->file_load, s->file, a, sizeof(a));
+            dx_file_reason(&s->file_load, s->file, a, sizeof(a));
         } else {
             dx_sb_init(&sb, a, sizeof(a));
             dx_sb_str(&sb, s->file);
@@ -312,7 +312,7 @@ static void draw_empty(const dx_radio_t *r, const dx_ctx_t *ctx, dx_rect_t area)
 
     dx_text_centered(ctx, y - DX_ROW_H / 2, "No stations on the card.", ctx->theme.fg, 1);
     if (r->load.status != DX_LOAD_OK) {
-        dx_placeholder_reason(&r->load, "RADIO.INI", reason, sizeof(reason));
+        dx_file_reason(&r->load, "RADIO.INI", reason, sizeof(reason));
         dx_text_centered(ctx, y + DX_ROW_H, reason, ctx->theme.dim, 1);
     }
 }

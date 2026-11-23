@@ -269,7 +269,7 @@ static void draw_list(const dx_ctx_t *ctx, dx_rect_t r)
     dx_data_log(line);
     if (n->load.status != DX_LOAD_OK && n->load.status != DX_LOAD_MISSING) {
         dx_data_message(ctx, r, "The notes were not read.",
-                        dx_placeholder_reason(&n->load, "NOTES", why, sizeof(why)));
+                        dx_file_reason(&n->load, "NOTES", why, sizeof(why)));
         return;
     }
     dx_list_draw(&data.notes, ctx,
