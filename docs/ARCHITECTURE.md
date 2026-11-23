@@ -407,5 +407,4 @@ Each key the tab takes logs one serial line before the redraw: `deitrix: radio r
 
 These are plans, not code:
 
-- The two screens with real content: MAP and RADIO.
 - A holotape game.
