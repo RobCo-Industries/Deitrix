@@ -245,6 +245,40 @@ Pip-OS has one voice, and a UI tone would replace the radio. So while the radio 
 
 The autosave writes DEITRIX.SAV and INV.SAV when their counters change. It writes 2 s after the last change, and at most 10 s after the first one, so a burst of changes writes once. It writes only the saves that changed. Each write logs `deitrix: save DEITRIX.SAV ok` or `failed`. A failed write is tried again 5 s later. After 3 failed retries it gives up until the next change and logs `deitrix: save gave up`. `dx_autosave_flush()` writes at once; the service's `stop` calls it. A write in QEMU takes 20 to 120 ms, and the UI waits only that long. No screen shows the saves, so the autosave never asks for a redraw.
 
+## Screens
+
+### INV
+
+`src/screens/inv.c` shows ITEMS.INI. `src/model/inv_fmt.c` holds its pure helpers: which item is row N of a category, and the text of a count, a weight and a summary.
+
+The views:
+
+- **The list.** The sub-tabs show the category labels in file order. Under them, the items of the active category in file order, 9 rows at a time. A row shows the name and, at the right, the count and unit, such as `20 m`. A count of 0 is dim. A marked item has the list's mark. A dim row under the list gives the entry count and the total weight of the category, such as `4 entries, 760 g`. The total uses `dx_items_total`. Below 1000 g it shows grams, else kilograms with one decimal, rounded half up to 100 g. When no item of the category has a weight, the row shows the entry count only.
+- **The detail.** SELECT on a row opens it. It shows the name, then Count, Weight when the item has one, Category and Marked, then the note in dim text. The note never scrolls, since UP and DOWN change the count. A note longer than the space ends with `~`.
+- **Empty states.** Without a loaded ITEMS.INI, or with no category, the body says "No items on the card." and, for a file that did not load, the reason, such as `ITEMS.INI missing`. A category without items says "Nothing here.".
+
+The keys:
+
+| View | Key | Does |
+|---|---|---|
+| List | UP, DOWN | Move the selection, repeats too |
+| List | LEFT, RIGHT | Change the category. At either end the shell changes the tab |
+| List | SELECT | Opens the detail of the selected item |
+| Detail | UP, DOWN | Add or take one from the count, one per press or repeat, within 0 to 999 |
+| Detail | SELECT | Marks or unmarks the item |
+| Detail | BACK, LEFT | Back to the list, on the same row |
+| Detail | RIGHT | Nothing: it cannot change the tab |
+
+At 0 or 999 the model refuses the step. The tab ignores the key, so the shell plays the deny tone for a press and nothing for a repeat. BACK at the list is ignored too.
+
+The tab keeps the active category and the selected row of each category while the ROM runs. Leaving the tab closes the detail, so coming back shows the list.
+
+Changes go through `dx_items_add` and `dx_items_toggle_marked`. They count a change in the overlay, and the autosave writes INV.SAV. A refused step counts none.
+
+The footer says `UP/DOWN: item  SELECT: open` at the list, `LEFT/RIGHT: category  DIAL: tab` at an empty category and `UP/DOWN: count  SELECT: mark  BACK` in the detail. The empty states keep the shell's hint.
+
+Each key the tab takes logs one serial line before the redraw, for the QEMU tests: `deitrix: inv cat=1 row=0`, `open=knife`, `count=3`, `refused count=999`, `marked=1`, `back row=0`, `end row=0` at a list end, and `idle` for a key that changes nothing. LEFT or RIGHT that changes the tab logs no `inv` line.
+
 ## Planned
 
 These are plans, not code:
