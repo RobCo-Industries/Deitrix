@@ -32,7 +32,7 @@ The UI framework: the core types in `ui.h`, the frame every tab shares, and the 
 
 ### `src/screens/`
 
-One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. STAT and INV are built, see [Screens](#screens). DATA, MAP and RADIO draw the shared placeholder from `placeholder.c`: the tab's name in large text, "Not built yet." and one or two lines from the model. SELECT on RADIO cycles the radio: off, station 1, station 2 and so on, then off.
+One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. STAT, INV and RADIO are built, see [Screens](#screens). DATA and MAP draw the shared placeholder from `placeholder.c`: the tab's name in large text, "Not built yet." and one or two lines from the model.
 
 ### `assets/`
 
@@ -230,7 +230,7 @@ A service asks for a redraw the way a screen does: `tick` sets `DX_UI_DIRTY` in 
 
 ### The radio
 
-The radio plays whatever tab is shown. Its states are off, playing a tune and playing a PCM track. The screen calls `dx_radio_play`, `dx_radio_stop`, `dx_radio_current`, `dx_radio_state` and `dx_radio_set_volume`.
+The radio plays whatever tab is shown. Its states are off, playing a tune and playing a PCM track. The screen calls `dx_radio_play`, `dx_radio_stop`, `dx_radio_current`, `dx_radio_failed` and `dx_radio_set_volume`. `dx_radio_failed` gives the station an error stopped: its file was missing or could not be opened, read or played. A start or a stop clears it.
 
 - A tune goes to `play_seq` in one call. The service wakes when the tune's length has passed. If `audio_status` says the sound still plays, it checks again every 50 ms. Then it starts the tune again.
 - A PCM track streams from a file handle kept open. Chunks are 8000 bytes, 1000 ms each at 8000 Hz. The first goes to `sample`, the rest to `sample_queue`. One chunk plays, one waits in Pip-OS and one waits in the ROM's buffer. File handles cannot seek, so at the end of a looping track the ROM closes the file, opens it again and fills the rest of the chunk from the first byte. Every chunk is whole, so the joint has no gap.
@@ -304,6 +304,37 @@ Changes go through `dx_items_add` and `dx_items_toggle_marked`. They count a cha
 The footer says `UP/DOWN: item  SELECT: open` at the list, `LEFT/RIGHT: category  DIAL: tab` at an empty category and `UP/DOWN: count  SELECT: mark  BACK` in the detail. The empty states keep the shell's hint.
 
 Each key the tab takes logs one serial line before the redraw, for the QEMU tests: `deitrix: inv cat=1 row=0`, `open=knife`, `count=3`, `refused count=999`, `marked=1`, `back row=0`, `end row=0` at a list end, and `idle` for a key that changes nothing. LEFT or RIGHT that changes the tab logs no `inv` line.
+
+### RADIO
+
+`src/screens/radio.c` is the control panel of the radio service. It has one page and no sub-tabs.
+
+- **The stations.** One row per station of RADIO.INI, in file order. A station whose file is missing or broken is dim. The station on air shows `ON AIR` at the right.
+- **Now playing.** Under a faint rule, two rows. While a station plays: "Playing" and its name, then its file name without the extension and `track 1 of 1`. A station plays one file, so it is always track 1 of 1. When nothing plays: "Radio off." in dim text. When the last start failed or an error stopped the station: "Station has nothing to play." and the reason, such as `LULLABY.TUN missing`.
+- **The settings.** Under a second rule, `Volume` with a bar and the level, and `UI sounds` with On or Off.
+
+UP and DOWN move one cursor through the stations, then Volume, then UI sounds. They stop at both ends. The selected row is inverse.
+
+| Row | Key | Does |
+|---|---|---|
+| Station | SELECT | Starts it, or stops it when it plays. Starting one stops the station before |
+| Station | LEFT, RIGHT | Not handled: the shell changes the tab |
+| Volume | LEFT, RIGHT | The level goes to the next multiple of 10 down or up, within 0 to 100. Repeats too. At a limit a press plays the deny tone and the tab stays |
+| UI sounds | SELECT, LEFT, RIGHT | Turns UI sounds on or off. A repeat does nothing and the tab stays |
+
+BACK does nothing on any row. The service plays on whatever tab is shown, so leaving the tab does not stop the radio. The cursor stays while the ROM runs.
+
+The tab reads the stations from `dx_content_radio()`, the settings from `dx_content_settings()`, and what plays from `dx_radio_current()` and `dx_radio_failed()`. A start sets the last station with `dx_settings_set_station`. A stop keeps it. The volume goes through `dx_settings_set_volume` and `dx_radio_set_volume`, the UI sounds through `dx_settings_set_ui_sound` and `dx_ui_sound_enable`. Each setter counts a change only when the value changes, and the autosave writes DEITRIX.SAV. A refused step counts none.
+
+At start the cursor goes to the last station. The radio does not resume: the station is only selected. Without stations the cursor starts on Volume.
+
+When the service changes what plays, such as at the end of a track played once, its tick asks for a redraw. The tab has no tick of its own.
+
+Without RADIO.INI, or with a file the loader ignored, the list area says "No stations on the card." and the reason in dim text, such as `RADIO.INI missing`. The settings still work.
+
+The footer says `UP/DOWN: station  SELECT: play` on a station, `SELECT: stop` on the one on air, `LEFT/RIGHT: volume  UP/DOWN: move` on Volume and `SELECT: UI sounds on/off  UP/DOWN: move` on UI sounds.
+
+Each key the tab takes logs one serial line before the redraw: `deitrix: radio row=3`, `end row=0`, `station=4`, `off`, `volume=70`, `refused volume=100`, `sound=0`, and `idle` for a key that changes nothing. A start that fails adds `deitrix: radio cannot play`. A frame that shows another state logs `deitrix: radio shows Playing Hearth`, `shows Off` or `shows Cannot play Lullaby`, just before the present.
 
 ## Planned
 

@@ -15,7 +15,9 @@ STAT is built: the owner and gauges, the attributes, and the device data. See [d
 
 INV is built: the items of ITEMS.INI by category, a detail per item, and counts and marks the owner changes, kept in INV.SAV. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#inv).
 
-DATA, MAP and RADIO are placeholders. Each shows the tab's name, "Not built yet." and a line from the content, such as the note count on DATA.
+RADIO is built: the stations of RADIO.INI, what plays now, the volume and the UI sounds, kept in DEITRIX.SAV. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#radio).
+
+DATA and MAP are placeholders. Each shows the tab's name, "Not built yet." and a line from the content, such as the note count on DATA.
 
 At start the ROM loads the content under `/PIPBOY/DATA/` on the card and its two saves. The formats are in [docs/CONTENT.md](docs/CONTENT.md). The dial, LEFT and RIGHT move between tabs and wrap at both ends. BACK and LEFT go back one level in a nested view. SELECT on RADIO cycles the stations: tunes through `play_seq`, PCM tracks streamed in chunks. The radio keeps playing on other tabs. The last tab and station are saved a moment after they change. A test-only gallery ROM shows every widget of the framework. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
 
