@@ -31,6 +31,10 @@ endif
 DX_SRCS   := $(sort $(wildcard src/*.c src/*/*.c))
 PURE_SRCS := $(filter-out src/platform/%,$(DX_SRCS))
 
+# The icons: assets/*.pbm turned into C at build time.
+ICONS     := $(sort $(wildcard assets/*.pbm))
+ICONS_C   := $(BUILD)/gen/icons.c
+
 # ---- The ROM, through the Pip-OS SDK --------------------------------------
 
 PIPOS_SDK    := $(PIP_OS)/sdk
@@ -39,14 +43,17 @@ KIND         := rom
 NAME         := DEITRIX
 TITLE        := Deitrix
 VERSION      := 0.1.0
-SRCS         := $(DX_SRCS)
+SRCS         := $(DX_SRCS) $(ICONS_C)
 CFLAGS_EXTRA := -Isrc
 include $(PIPOS_SDK)/pipos-app.mk
+
+$(ICONS_C): tools/pbm2c.py $(ICONS)
+	$(PYTHON) tools/pbm2c.py $@ $(ICONS)
 
 # ---- Host unit tests, with RobCo-Core's host.mk ---------------------------
 
 HOST_TEST_DIR := tests/host
-HOST_SRCS     := $(PURE_SRCS) tests/host/fake_platform.c
+HOST_SRCS     := $(PURE_SRCS) $(ICONS_C) tests/host/fake_platform.c
 HOST_INCLUDES := src
 include $(ROBCO_CORE)/mk/host.mk
 
@@ -87,7 +94,7 @@ bootdir: all
 
 # ---- Checks and tests ------------------------------------------------------
 
-.PHONY: test test-target check-pins check-pins-test sdimage-test venv
+.PHONY: test test-target check-pins check-pins-test pbm2c-test sdimage-test venv
 
 check-pins:
 	$(ROBCO_CORE)/tools/check_pins.sh .github/workflows/ci.yml
@@ -97,11 +104,14 @@ check-pins:
 check-pins-test:
 	tests/host/check_pipos_links_test.sh
 
+pbm2c-test:
+	$(PYTHON) tests/host/test_pbm2c.py
+
 sdimage-test: sdimage
 	tests/host/sdimage_test.sh $(CARD) $(PIP_OUT)
 
 # The C host tests come from host.mk's test-host; these run first.
-test-host: check-pins check-pins-test sdimage-test
+test-host: check-pins check-pins-test pbm2c-test sdimage-test
 
 VENV := .venv
 venv: $(VENV)/.installed
