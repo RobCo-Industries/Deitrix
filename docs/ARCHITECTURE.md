@@ -219,7 +219,7 @@ The list, text, gauge, key and value, and sub-tab widgets are structs the screen
 
 - `list.h`: rows from a callback, each with a label, an optional value at the right and flags for disabled and marked. UP and DOWN move the selection, repeats too. At either end the list stays and returns `DX_UI_IGNORED`. The window scrolls by one row to keep the selection in view. The selected row is drawn inverse. A long label is cut with `~` before the value. An empty list draws a centred message. A scroll bar shows at the right when the rows do not fit.
 - `text.h`: a block of text wrapped to the area on word boundaries by `dx_wrap()`. A word longer than a line is split, `\n` forces a break and a tab counts as a space. UP and DOWN scroll a line at a time, with the same scroll bar. It keeps at most 128 lines and reads at most 256 KiB; a longer text ends with a `[text cut]` line.
-- `gauge.h`: a label, a bar for `value` of `max` and the numbers at the right. The value is clamped to 0 to `max`. `max` 0 draws an empty bar. The numbers sit right-aligned in a column of `value_cols` characters. Give every gauge of a group the same `value_cols`, from `dx_gauge_value_cols()`, and their bars share both edges.
+- `gauge.h`: a label, a bar for `value` of `max` and the numbers at the right. The value is clamped to 0 to `max`. `max` 0 draws an empty bar. The numbers sit right-aligned in a column of `value_cols` characters. Give every gauge of a group the same `value_cols`, from `dx_gauge_value_cols()`, and their bars share both edges. A selected gauge draws its row inverse, like a list's selected row. `value_only` shows the value without `/max`, and `pad` moves the label in from the left edge.
 - `kv.h`: read-only key and value rows, the values in one column after the longest key.
 - `subtabs.h`: a row of up to 5 labels under the header. LEFT and RIGHT move between them. At either end they return `DX_UI_IGNORED`, so the shell changes the main tab. The active label is bright and underlined.
 - `icon.h`: draws a 1-bit icon from `assets/` centred in an area. `dx_icon_find()` looks one up by its file name.
@@ -327,7 +327,7 @@ deitrix: stat shows STATUS
 deitrix: stat about Deitrix=0.1.0 | Pip-OS=7.1.0 | ABI=1.2 | SoC=BCM2836 | RAM=960 MiB | Uptime=0d 00:00:12 | Time=no clock
 ```
 
-ABOUT logs its line when the page shows and when the uptime's minute changes, not on every frame. A test that needs a newer value leaves the page and comes back. `model/profile.h` and `ui/gauge.h` both define `struct dx_gauge`, so `stat.c` cannot include both. `src/screens/stat_draw.c` draws the name and the gauges from plain values for it.
+ABOUT logs its line when the page shows and when the uptime's minute changes, not on every frame. A test that needs a newer value leaves the page and comes back. The profile's gauge data is `dx_profile_gauge_t` in `model/profile.h`, apart from the widget's `dx_gauge_t`. `src/screens/stat_draw.c` draws the name and the gauges.
 
 ### INV
 
@@ -434,7 +434,7 @@ The time comes from `ticks_ms`, which moves in 10 ms steps in QEMU. With the lar
 
 - **The stations.** One row per station of RADIO.INI, in file order. A station whose file is missing or broken is dim. The station on air shows `ON AIR` at the right.
 - **Now playing.** Under a faint rule, two rows. While a station plays: "Playing" and its name, then its kind in dim text: `tune` for `kind = tune`, `recording` for `kind = pcm`. When nothing plays: "Radio off." in dim text. When the last start failed or an error stopped the station: "Station has nothing to play." and the reason, such as `LULLABY.TUN missing`.
-- **The settings.** Under a second rule, `Volume` with a bar and the level, and `UI sounds` with On or Off.
+- **The settings.** Under a second rule, `Volume` with a bar and the level, drawn by the gauge widget, and `UI sounds` with On or Off. Their labels are dim, as on STAT's gauges.
 
 UP and DOWN move one cursor through the stations, then Volume, then UI sounds. They stop at both ends. The selected row is inverse.
 

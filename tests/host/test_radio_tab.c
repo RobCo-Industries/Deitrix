@@ -155,11 +155,11 @@ TEST(first_view_draw_list)
               "line 0 128 319 128 faint\n"
               "text 12 134 \"Radio off.\" dim none s1\n"
               "line 0 172 319 172 faint\n"
-              "text 12 178 \"Volume\" fg none s1\n"
+              "text 12 178 \"Volume\" dim none s1\n"
+              "text 300 178 \"80\" fg none s1\n"
               "rect 108 181 176 10 dim outline\n"
               "rect 110 183 137 6 fg fill\n"
-              "text 300 178 \"80\" fg none s1\n"
-              "text 12 194 \"UI sounds\" fg none s1\n"
+              "text 12 194 \"UI sounds\" dim none s1\n"
               "text 300 194 \"On\" fg none s1\n");
     CHECK(inside_body());
     check_hint("UP/DOWN: move  SELECT: play");
@@ -192,11 +192,11 @@ TEST(start_stop_and_switch)
               "text 12 134 \"Playing Morning\" fg none s1\n"
               "text 12 150 \"tune\" dim none s1\n"
               "line 0 172 319 172 faint\n"
-              "text 12 178 \"Volume\" fg none s1\n"
+              "text 12 178 \"Volume\" dim none s1\n"
+              "text 300 178 \"80\" fg none s1\n"
               "rect 108 181 176 10 dim outline\n"
               "rect 110 183 137 6 fg fill\n"
-              "text 300 178 \"80\" fg none s1\n"
-              "text 12 194 \"UI sounds\" fg none s1\n"
+              "text 12 194 \"UI sounds\" dim none s1\n"
               "text 300 194 \"On\" fg none s1\n");
     CHECK(inside_body());
     check_hint("UP/DOWN: move  SELECT: stop");
@@ -371,6 +371,7 @@ TEST(volume_to_both_limits)
     CHECK(strstr(fake.draws, "text 12 28 \"Morning\" fg none s1\n") != NULL);
     CHECK(strstr(fake.draws, "rect 0 178 320 16 fg fill\n"
                              "text 12 178 \"Volume\" bg fg s1\n"
+                             "text 300 178 \"83\" bg fg s1\n"
                              "rect 108 181 176 10 bg outline\n") != NULL);
     /* Off the grid: the next multiple of 10 each way. */
     changes = set->changes;
@@ -406,7 +407,8 @@ TEST(volume_to_both_limits)
     CHECK_INT(set->changes, changes + 12);
     draw();
     /* An empty bar: the outline only. */
-    CHECK(strstr(fake.draws, "rect 108 181 176 10 bg outline\ntext 308 178 \"0\" bg fg s1\n") != NULL);
+    CHECK(strstr(fake.draws, "text 308 178 \"0\" bg fg s1\nrect 108 181 176 10 bg outline\n"
+                             "text 12 194") != NULL);
     /* SELECT and Back on the row do nothing. */
     CHECK_INT(key(DX_UI_SELECT), DX_UI_IGNORED);
     CHECK_INT(key(DX_UI_BACK), DX_UI_IGNORED);

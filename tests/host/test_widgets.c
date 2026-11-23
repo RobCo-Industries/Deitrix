@@ -41,6 +41,32 @@ TEST(gauge_draw_list)
                           "rect 62 27 75 6 fg fill\n");
 }
 
+TEST(gauge_selected_value_only_and_pad)
+{
+    dx_gauge_t g;
+    dx_ctx_t c;
+    char buf[24];
+
+    fake_reset();
+    c = fake_ctx();
+    dx_gauge_init(&g, "Power", 3, 4);
+    CHECK_INT(g.selected, 0);
+    CHECK_INT(g.value_only, 0);
+    CHECK_INT(g.pad, 4);
+    g.selected = 1;
+    g.value_only = 1;
+    g.pad = 12;
+    CHECK_INT(dx_gauge_text(&g, buf), 1);
+    CHECK_STR(buf, "3");
+    dx_gauge_draw(&g, &c, (dx_rect_t){ 0, 22, 200, 16 }, 5, 3);
+    /* Inverse: the row in fg, everything else in bg on it. */
+    CHECK_STR(fake.draws, "rect 0 22 200 16 fg fill\n"
+                          "text 12 22 \"Power\" bg fg s1\n"
+                          "text 188 22 \"3\" bg fg s1\n"
+                          "rect 60 25 104 10 bg outline\n"
+                          "rect 62 27 75 6 bg fill\n");
+}
+
 TEST(gauge_max_zero_draws_empty_bar)
 {
     dx_gauge_t g;

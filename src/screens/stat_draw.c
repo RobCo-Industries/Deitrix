@@ -52,7 +52,7 @@ void dx_stat_draw_gauges(const dx_ctx_t *ctx, dx_rect_t area, int pitch,
                          const char *const *labels, const int32_t *values,
                          const int32_t *maxes, int n)
 {
-    dx_gauge_t gs[GAUGES_MAX] = { { NULL, 0, 0 } };
+    dx_gauge_t gs[GAUGES_MAX] = { { NULL, 0, 0, 0, 0, 0 } };
     int label_cols = 0;
     int value_cols;
     int i;

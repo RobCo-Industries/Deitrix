@@ -4,7 +4,7 @@
 typedef struct staging {
     dx_profile_t *p;
     uint8_t gauge_on[DX_GAUGES_MAX];
-    dx_gauge_t gauges[DX_GAUGES_MAX];
+    dx_profile_gauge_t gauges[DX_GAUGES_MAX];
     uint8_t attr_on[DX_ATTRS_MAX];
     dx_attr_t attrs[DX_ATTRS_MAX];
     uint8_t about_on[DX_ABOUT_MAX];
@@ -24,7 +24,7 @@ static int take_name(char *dst, int max, const char *s, int n)
     return 1;
 }
 
-static int gauge(dx_gauge_t *g, const char *v)
+static int gauge(dx_profile_gauge_t *g, const char *v)
 {
     int st[3], ln[3];
     uint32_t value, max;

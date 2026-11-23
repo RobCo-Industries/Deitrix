@@ -9,6 +9,9 @@ void dx_gauge_init(dx_gauge_t *g, const char *label, int32_t value, int32_t max)
     g->label = label;
     g->value = value;
     g->max = max;
+    g->selected = 0;
+    g->value_only = 0;
+    g->pad = PAD;
 }
 
 int32_t dx_gauge_clamp(int32_t value, int32_t max)
@@ -32,6 +35,9 @@ int dx_gauge_text(const dx_gauge_t *g, char *buf)
     int32_t max = g->max < 0 ? 0 : g->max;
     int n = dx_itoa(dx_gauge_clamp(g->value, max), buf);
 
+    if (g->value_only) {
+        return n;
+    }
     buf[n++] = '/';
     return n + dx_itoa(max, buf + n);
 }
@@ -60,21 +66,28 @@ void dx_gauge_draw(const dx_gauge_t *g, const dx_ctx_t *ctx, dx_rect_t area, int
     char nums[24];
     int n = dx_gauge_text(g, nums);
     int right = area.x + area.w - PAD;
-    int bx = area.x + PAD + label_cols * DX_FONT_W + GAP;
+    int bx = area.x + g->pad + label_cols * DX_FONT_W + GAP;
+    uint32_t label = g->selected ? t->bg : t->dim;
+    uint32_t text = g->selected ? t->bg : t->fg;
+    uint32_t back = g->selected ? t->fg : DX_COLOR_NONE;
     int bw, fill;
 
     if (value_cols < n) {
         value_cols = n;
     }
     bw = right - value_cols * DX_FONT_W - GAP - bx;
-    dx_text_cut(ctx, area.x + PAD, area.y, g->label, label_cols, t->dim, DX_COLOR_NONE);
-    ctx->gfx->text(right - n * DX_FONT_W, area.y, nums, t->fg, DX_COLOR_NONE, 1);
-    if (bw < 3) {
-        return;
+    if (g->selected) {
+        ctx->gfx->rect(area.x, area.y, area.w, DX_ROW_H, t->fg, 1);
     }
-    ctx->gfx->rect(bx, area.y + (DX_ROW_H - BAR_H) / 2, bw, BAR_H, t->dim, 0);
-    fill = dx_gauge_fill(g->value, max, bw - 4);
-    if (fill > 0) {
-        ctx->gfx->rect(bx + 2, area.y + (DX_ROW_H - BAR_H) / 2 + 2, fill, BAR_H - 4, t->fg, 1);
+    dx_text_cut(ctx, area.x + g->pad, area.y, g->label, label_cols, label, back);
+    ctx->gfx->text(right - n * DX_FONT_W, area.y, nums, text, back, 1);
+    if (bw >= 3) {
+        ctx->gfx->rect(bx, area.y + (DX_ROW_H - BAR_H) / 2, bw, BAR_H,
+                       g->selected ? t->bg : t->dim, 0);
+        fill = dx_gauge_fill(g->value, max, bw - 4);
+        if (fill > 0) {
+            ctx->gfx->rect(bx + 2, area.y + (DX_ROW_H - BAR_H) / 2 + 2, fill, BAR_H - 4, text,
+                           1);
+        }
     }
 }
