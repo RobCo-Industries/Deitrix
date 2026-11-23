@@ -52,6 +52,10 @@ int dx_frame_tab_x(const char *const *names, int count, int tab);
 void dx_frame_header(const dx_ctx_t *ctx, const char *const *names, int count, int active,
                      const char *clock);
 
+/* The unsaved mark: a "!" in fg in the gap left of the clock. */
+#define DX_MARK_X (DX_CLOCK_X - DX_FONT_W)
+void dx_frame_mark(const dx_ctx_t *ctx);
+
 /* Draws the rule and the hint, centred. */
 void dx_frame_footer(const dx_ctx_t *ctx, const char *hint);
 

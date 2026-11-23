@@ -175,6 +175,9 @@ static void draw(dx_app_t *app, int32_t minute)
     dx_clock_text(minute, clock);
     g->clear(app->ctx.theme.bg);
     dx_frame_header(&app->ctx, app->names, app->count, app->tab, clock);
+    if (dx_autosave_marked()) {
+        dx_frame_mark(&app->ctx);
+    }
     if (s->draw != NULL) {
         g->clip(body.x, body.y, body.w, body.h);
         s->draw(s->st, &app->ctx, body);

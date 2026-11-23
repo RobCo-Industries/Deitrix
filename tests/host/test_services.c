@@ -508,8 +508,10 @@ TEST(autosave_retry_bounded)
     CHECK_INT(dx_autosave_pending(), 0);
     CHECK_INT(dx_autosave_unsaved(), 1);
     CHECK(strstr(fake.log, "deitrix: save gave up\n") != NULL);
-    /* No screen shows the saves: no redraw, even when it gives up. */
-    CHECK_INT(svc_flags, 0);
+    /* The changes stayed unsaved past DX_SAVE_MARK_MS: the mark is on,
+     * with one redraw for it. */
+    CHECK_INT(svc_flags, DX_UI_DIRTY);
+    CHECK_INT(dx_autosave_marked(), 1);
     /* The next change tries again, and a retry that works ends it. */
     fake.save_fail = 1;
     dx_settings_set_tab(&settings, 3);
@@ -521,6 +523,85 @@ TEST(autosave_retry_bounded)
     CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), 0);
     CHECK_INT(fake.save_writes, 6);
     CHECK_INT(fake_find_save("DEITRIX")->data[12], 3);
+}
+
+/* Runs the autosave's tick at every wake it asks for, and at `step`
+ * ms at most, until `until` ms after t0. Returns the redraws it asked. */
+static int run_saves(uint32_t t0, uint32_t until, uint32_t step)
+{
+    int redraws = 0;
+
+    while (dx_ticks_since(t0, fake.ticks) < until) {
+        unsigned flags = 0;
+        uint32_t wake = dx_service_autosave.tick(fake.ticks, &flags);
+        uint32_t d = step;
+
+        if (flags & DX_UI_DIRTY) {
+            redraws++;
+        }
+        if (wake != 0 && dx_ticks_since(fake.ticks, wake) < d) {
+            d = dx_ticks_since(fake.ticks, wake);
+        }
+        fake.ticks += d == 0 ? 1 : d;
+    }
+    return redraws;
+}
+
+TEST(autosave_mark_on_a_failing_card_and_off_when_it_recovers)
+{
+    uint32_t t0;
+    unsigned flags = 0;
+    uint32_t wake;
+
+    save_setup();
+    fake.save_fail = 1000;
+    t0 = fake.ticks;
+    dx_settings_set_tab(&settings, 1);
+    /* Not before DX_SAVE_MARK_MS, though the first write failed. */
+    CHECK_INT(run_saves(t0, DX_SAVE_MARK_MS - 1, 1000), 0);
+    CHECK_INT(dx_autosave_marked(), 0);
+    CHECK(fake.save_writes >= 1);
+    /* The tick wakes at DX_SAVE_MARK_MS itself, even between retries. */
+    fake.ticks = t0 + DX_SAVE_MARK_MS - 1;
+    wake = dx_service_autosave.tick(fake.ticks, &flags);
+    CHECK_INT(dx_ticks_since(t0, wake), DX_SAVE_MARK_MS);
+    fake.ticks = wake;
+    dx_service_autosave.tick(fake.ticks, &flags);
+    CHECK_INT(flags, DX_UI_DIRTY);
+    CHECK_INT(dx_autosave_marked(), 1);
+    CHECK(strstr(fake.log, "deitrix: unsaved mark on\n") != NULL);
+    /* It stays on after the retries give up, with no more redraws. */
+    CHECK_INT(run_saves(t0, 60000, 1000), 0);
+    CHECK_INT(dx_autosave_marked(), 1);
+    CHECK(strstr(fake.log, "deitrix: save gave up\n") != NULL);
+    /* The card heals; the next change reaches it and the mark goes. */
+    fake.save_fail = 0;
+    dx_settings_set_tab(&settings, 2);
+    t0 = fake.ticks;
+    CHECK_INT(run_saves(t0, DX_SAVE_QUIET_MS + 1, 1000), 1);
+    CHECK_INT(dx_autosave_unsaved(), 0);
+    CHECK_INT(dx_autosave_marked(), 0);
+    CHECK(strstr(fake.log, "deitrix: unsaved mark off\n") != NULL);
+}
+
+TEST(autosave_mark_never_on_a_healthy_card)
+{
+    uint32_t t0;
+    int i;
+
+    save_setup();
+    t0 = fake.ticks;
+    /* A change every 500 ms for a minute, then quiet. */
+    for (i = 0; i < 120; i++) {
+        dx_items_add(&items, 0, i % 2 ? -1 : 1);
+        CHECK_INT(run_saves(fake.ticks, 500, 100), 0);
+        CHECK_INT(dx_autosave_marked(), 0);
+    }
+    CHECK_INT(run_saves(fake.ticks, 20000, 1000), 0);
+    CHECK_INT(dx_autosave_marked(), 0);
+    CHECK_INT(dx_autosave_unsaved(), 0);
+    CHECK(dx_ticks_since(t0, fake.ticks) > 60000);
+    CHECK(strstr(fake.log, "unsaved mark") == NULL);
 }
 
 static int count_in_log(const char *what)

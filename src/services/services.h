@@ -54,6 +54,9 @@ int dx_radio_failed(void);
 #define DX_SAVE_MAX_MS   10000u
 #define DX_SAVE_RETRY_MS 5000u
 #define DX_SAVE_RETRIES  3
+/* Changes not on the card this long show the unsaved mark: past the
+ * longest wait of a healthy save, so it never shows on one. */
+#define DX_SAVE_MARK_MS  (DX_SAVE_MAX_MS + DX_SAVE_QUIET_MS)
 
 extern const dx_service_t dx_service_autosave;
 
@@ -69,5 +72,10 @@ int dx_autosave_pending(void);
 
 /* 1 while a change is not on the card, even after the retries gave up. */
 int dx_autosave_unsaved(void);
+
+/* 1 while the header shows the unsaved mark: a change has not reached
+ * the card for DX_SAVE_MARK_MS. The service's tick turns it on and off,
+ * logs "deitrix: unsaved mark on" or "off", and asks for a redraw. */
+int dx_autosave_marked(void);
 
 #endif

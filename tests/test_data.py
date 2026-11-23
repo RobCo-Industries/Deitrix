@@ -24,7 +24,7 @@ import pytest
 from test_deitrix import boot_rom, golden, rom_running, tabs, wait_ready, wait_tabs
 from test_model import card_target, mtools, wait_line
 from test_stat import count, key, quiet, settled, wait_count
-from pipos_testing import TIMEOUT, minimal_env, no_exception, press, script
+from pipos_testing import TIMEOUT, minimal_env, no_exception, press, screenshot, script
 from conftest import serial_line
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -416,4 +416,65 @@ def test_data_held_select_opens_the_setter_once(board, kernel_image, card, need_
         assert count(vm, CLOCK) == before, vm.serial
         assert "data set_time" not in vm.serial, vm.serial
         assert RTC_SET.findall(vm.serial) == [], vm.serial
+        no_exception(vm)
+
+
+MARK_ON = serial_line(r"deitrix: unsaved mark on")
+MARK_OFF = serial_line(r"deitrix: unsaved mark off")
+MARK_S = (save_constant("DX_SAVE_MAX_MS") + save_constant("DX_SAVE_QUIET_MS")) / 1000
+# The "!" cell left of the clock, x 268 to 275 and the header text row,
+# in the screenshot's 2x pixels.
+MARK_BOX = (268 * 2, 3 * 2, 276 * 2, 19 * 2)
+
+
+def mark_pixels(vm, tmp_path):
+    """The lit pixels in the mark's cell."""
+    cell = screenshot(vm, tmp_path).crop(MARK_BOX)
+    return sum(1 for p in cell.getdata() if max(p) > 32)
+
+
+def test_unsaved_mark_on_a_card_that_cannot_save(board, kernel_image, card, tmp_path,
+                                                  need_mtools):
+    """A file named SAVE makes every write fail: after a tab change the
+    header shows the unsaved mark once DX_SAVE_MAX_MS + DX_SAVE_QUIET_MS
+    passed, and not before."""
+    blocker = tmp_path / "SAVE"
+    blocker.write_bytes(b"not a folder\n")
+    mtools("mcopy", "-i", card_target(card), str(blocker), "::PIPBOY/SAVE")
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        to_data(vm)
+        changed = time.monotonic()
+        assert mark_pixels(vm, tmp_path) == 0
+        deadline = changed + MARK_S + GAVE_UP_ALLOWANCE_S
+        while count(vm, MARK_ON) < 1:
+            assert time.monotonic() < deadline, vm.serial
+            time.sleep(0.1)
+        assert time.monotonic() - changed >= MARK_S - 0.5, vm.serial
+        assert "deitrix: save DEITRIX.SAV failed" in vm.serial, vm.serial
+        # The line comes before the frame: wait for the frame to settle.
+        time.sleep(0.5)
+        assert mark_pixels(vm, tmp_path) > 0
+        assert count(vm, MARK_OFF) == 0, vm.serial
+        rom_running(vm)
+        no_exception(vm)
+
+
+def test_no_unsaved_mark_on_a_healthy_card(board, kernel_image, card, tmp_path, need_mtools):
+    """Changes that reach the card never show the mark: tab changes a
+    few seconds apart for longer than the mark's delay."""
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        start = time.monotonic()
+        n = 0
+        while time.monotonic() - start < MARK_S + 4:
+            script(vm, "dial 1")
+            n += 1
+            wait_tabs(vm, n)
+            assert mark_pixels(vm, tmp_path) == 0
+            time.sleep(1.5)
+        wait_line(vm, "deitrix: save DEITRIX.SAV ok", timeout=20)
+        time.sleep(MARK_S - save_constant("DX_SAVE_MAX_MS") / 1000 + 1)
+        assert count(vm, MARK_ON) == 0, vm.serial
+        assert mark_pixels(vm, tmp_path) == 0
         no_exception(vm)
