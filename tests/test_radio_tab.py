@@ -11,13 +11,14 @@ looks for the ops it wants after a mark and waits for them.
 """
 
 import re
+import subprocess
 import time
 
 import pytest
 
 from test_deitrix import boot_rom, golden, tabs, wait_ready, wait_tabs
-from test_model import audio_after, card_target, mtools, wait_line
-from pipos_testing import TIMEOUT, no_exception, press, screenshot, script
+from test_model import AUDIO, audio_after, card_target, mtools, wait_line
+from pipos_testing import TIMEOUT, minimal_env, no_exception, press, screenshot, script
 
 # Whole lines only: the serial buffer can end in the middle of one. The
 # lines a frame or the service logs are not key lines.
@@ -26,6 +27,27 @@ SAVE_OK = re.compile(r"^deitrix: save DEITRIX\.SAV ok\r?\n", re.M)
 UNDERRUN = "deitrix: radio underrun"
 # The UI tones of src/ui/core.c: MOVE, SELECT, BACK, DENY.
 UI_HZ = {1400, 1900, 900, 180}
+
+# The level Pip-OS starts at comes from [audio] volume in
+# PIPBOY/PIPOS.CFG, a file the Pip-OS build puts on the card. The ROM takes
+# it as its volume default. The goldens show the volume, so every test here
+# writes this level into the card's copy first.
+START_VOLUME = 80
+CFG = "::PIPBOY/PIPOS.CFG"
+
+
+@pytest.fixture(autouse=True)
+def start_volume(card, tmp_path, need_mtools):
+    env = minimal_env(MTOOLS_SKIP_CHECK="1")
+    text = subprocess.run(["mtype", "-i", card_target(card), CFG], check=True, env=env,
+                          capture_output=True, text=True).stdout
+    text, n = re.subn(r"(?m)^volume *=.*$", f"volume = {START_VOLUME}", text)
+    if n == 0:
+        text += f"\n[audio]\nvolume = {START_VOLUME}\n"
+    cfg = tmp_path / "PIPOS.CFG"
+    cfg.write_text(text)
+    mtools("mcopy", "-o", "-i", card_target(card), str(cfg), CFG)
+
 
 # The sample card: stations 1 to 3 are tunes, 4 and 5 PCM tracks. Rows 0
 # to 4 are the stations, 5 the volume, 6 the UI sounds.
@@ -68,11 +90,17 @@ def walk(vm, start, end):
         key(vm, step, f"row={row}")
 
 
+def ops_after(vm, mark):
+    """The audio ops after the last serial line `mark`: [op]."""
+    at = vm.serial.rindex(mark)
+    return [m[1] for m in AUDIO.finditer(vm.serial, at)]
+
+
 def wait_ops(vm, mark, op, count=1, timeout=TIMEOUT):
-    """Waits for `count` audio ops `op` after the line `mark`, returns all ops."""
+    """Waits for `count` audio ops `op` after the last line `mark`, returns all ops."""
     deadline = time.monotonic() + timeout
     while True:
-        ops = [o for o, _ in audio_after(vm, mark)]
+        ops = ops_after(vm, mark)
         if ops.count(op) >= count:
             return ops
         assert time.monotonic() < deadline, f"wanted {count} op={op}\n{vm.serial}"
@@ -80,8 +108,10 @@ def wait_ops(vm, mark, op, count=1, timeout=TIMEOUT):
 
 
 def start_level(vm):
+    """The level the ROM loaded: START_VOLUME, from the start_volume fixture."""
     m = re.search(r"^deitrix: load DEITRIX\.SAV \w+.*? volume=(\d+) ", vm.serial, re.M)
     assert m, vm.serial
+    assert int(m[1]) == START_VOLUME, vm.serial
     return int(m[1])
 
 
@@ -94,7 +124,8 @@ def test_radio_views(board, kernel_image, card, tmp_path, need_mtools):
         key(vm, "up", "end row=0")
         press(vm, "left")
         assert wait_tabs(vm, 2)[-1] == "MAP", vm.serial
-        press(vm, "right")
+        # MAP takes RIGHT for its sub-tabs: back by the dial.
+        script(vm, "dial 1")
         assert wait_tabs(vm, 3)[-1] == "RADIO", vm.serial
         # A tune: its first note is G4, 392 Hz.
         key(vm, "select", "station=1")
@@ -109,15 +140,25 @@ def test_radio_views(board, kernel_image, card, tmp_path, need_mtools):
         wait_line(vm, "deitrix: radio shows Playing Hearth")
         ops = wait_ops(vm, "deitrix: radio station=4", "pcm_next")
         assert ops.count("pcm") == 1, ops
-        # The ROM stops the tune first, but the trace shows no op=stop
-        # between the tune and op=pcm, so only the stream is checked.
+        # The ROM stops the tune first. The trace may show no op=stop for
+        # it: the library takes the stop and the PCM start in one tick and
+        # traces only op=pcm. The tune is silent from op=pcm on.
+        assert "tone" not in ops[ops.index("pcm"):], ops
         assert "pcm_end" not in ops, ops
         # SELECT on the playing station stops it.
         key(vm, "select", "off")
         wait_line(vm, "deitrix: radio shows Off")
         wait_ops(vm, "deitrix: radio off", "stop")
+        # From PCM back to a tune: op=stop ends the stream before the tune.
+        key(vm, "select", "station=4")
+        wait_ops(vm, "deitrix: radio station=4", "pcm_next", count=1)
+        walk(vm, 3, 0)
+        key(vm, "select", "station=1")
+        ops = wait_ops(vm, "deitrix: radio station=1", "tone")
+        assert "stop" in ops and ops.index("stop") < ops.index("tone"), ops
+        key(vm, "select", "off")
         # The settings rows: LEFT and RIGHT stay on the tab.
-        walk(vm, 3, ROW_VOLUME)
+        walk(vm, 0, ROW_VOLUME)
         shot(vm, tmp_path, "radio_volume")
         level = start_level(vm)
         down = max(0, ((level + 9) // 10 - 1) * 10)
