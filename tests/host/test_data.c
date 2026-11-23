@@ -553,6 +553,37 @@ TEST(tapes_failed_save_asks_for_a_second_press)
     fake.save_fail = 0;
 }
 
+/* After the autosave gave up, the change is still not on the card: the
+ * first SELECT refuses and the second runs the tape. */
+TEST(tapes_save_gave_up_asks_for_a_second_press)
+{
+    int i;
+
+    fake_reset();
+    fake_add_holo("BEACON.HTP", DX_HOLO_GAME, "Beacon", NULL);
+    boot_tapes();
+    fake.save_fail = 1000000;
+    CHECK(dx_items_toggle_marked(dx_content_items(), 0));
+    key(DX_UI_UP); /* any key wakes the services, as INV's mark key does */
+    fake.log[0] = '\0';
+    for (i = 0; i < 60; i++) {
+        fake.ticks += 1000;
+        dx_app_step(&app);
+    }
+    CHECK(strstr(fake.log, "deitrix: save gave up\n") != NULL);
+    CHECK(!dx_autosave_pending());
+    CHECK(dx_autosave_unsaved());
+    CHECK_INT(fake.launch_count, 0);
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 0);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=1 | Save failed. SELECT again runs it.");
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 1);
+    CHECK_STR(fake.launch_file, "BEACON.HTP");
+    CHECK(dx_autosave_unsaved());
+    fake.save_fail = 0;
+}
+
 TEST(tapes_list_changes_after_a_launch)
 {
     fake_reset();

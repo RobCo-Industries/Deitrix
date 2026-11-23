@@ -347,6 +347,53 @@ def test_data_tapes_failed_save(board, kernel_image, card, tmp_path, need_mtools
         no_exception(vm)
 
 
+def save_constant(name):
+    """A DX_SAVE_* constant from src/services/services.h, in ms or a count."""
+    text = (ROOT / "src" / "services" / "services.h").read_text()
+    return int(re.search(r"#define " + name + r"\s+(\d+)u?\b", text).group(1))
+
+
+GAVE_UP = serial_line(r"deitrix: save gave up")
+# The first write comes at most DX_SAVE_MAX_MS after the change, then
+# DX_SAVE_RETRIES retries DX_SAVE_RETRY_MS apart. The allowance covers
+# the writes themselves (20 to 120 ms each in QEMU) and a busy host.
+GAVE_UP_ALLOWANCE_S = 10.0
+GAVE_UP_S = (save_constant("DX_SAVE_MAX_MS")
+             + save_constant("DX_SAVE_RETRIES") * save_constant("DX_SAVE_RETRY_MS")) / 1000 \
+    + GAVE_UP_ALLOWANCE_S
+
+
+def test_data_tapes_save_gave_up(board, kernel_image, card, tmp_path, need_mtools, tapes):
+    """After the autosave gave up on the tab change, the change is still
+    not on the card: the first SELECT refuses and the second runs it."""
+    add_tapes(card, tapes, ["fault"])
+    blocker = tmp_path / "SAVE"
+    blocker.write_bytes(b"not a folder\n")
+    mtools("mcopy", "-i", card_target(card), str(blocker), "::PIPBOY/SAVE")
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        assert to_tapes(vm) == ("0", "0", "1", "")
+        deadline = time.monotonic() + GAVE_UP_S
+        while count(vm, GAVE_UP) < 1:
+            assert time.monotonic() < deadline, vm.serial
+            time.sleep(0.1)
+        quiet(vm, TAPES_LINE)
+        assert count(vm, GAVE_UP) == 1, vm.serial
+        before = count(vm, TAPES_LINE)
+        press(vm, "select")
+        assert wait_count(vm, TAPES_LINE, before + 1)[-1] == \
+            ("0", "0", "1", "Save failed. SELECT again runs it.")
+        quiet(vm, TAPES_LINE)
+        assert HOLO_START.findall(vm.serial) == [], vm.serial
+        before = count(vm, TAPES_LINE)
+        press(vm, "select")
+        assert wait_count(vm, TAPES_LINE, before + 1)[-1] == \
+            ("0", "0", "1", "Tape was stopped by the system.")
+        assert HOLO_START.findall(vm.serial) == ["FAULT.HTP"], vm.serial
+        rom_running(vm)
+        no_exception(vm)
+
+
 def test_data_held_select_opens_the_setter_once(board, kernel_image, card, need_mtools):
     with boot_rom(kernel_image, board, sd=card) as vm:
         wait_ready(vm)
