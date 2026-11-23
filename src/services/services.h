@@ -41,6 +41,9 @@ int dx_radio_state(void);
 int dx_radio_set_volume(int level);
 /* How many times the stream ran dry and restarted. */
 uint32_t dx_radio_underruns(void);
+/* The station index an error stopped: its file could not be opened,
+ * read or played. -1 once a station plays or dx_radio_stop runs. */
+int dx_radio_failed(void);
 
 /* ---- Autosave ---------------------------------------------------------- */
 

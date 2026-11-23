@@ -678,6 +678,7 @@ TEST(set_tab_before_the_first_frame)
 /* ---- The radio service and the redraw ------------------------------------ */
 
 #include "content.h"
+#include "screens/radio_screen.h"
 #include "services/services.h"
 
 static const dx_service_t *const radio_only[] = { &dx_service_radio };
@@ -696,6 +697,7 @@ static void radio_start(dx_app_t *app, int tab)
     dx_ui_sound_block(0);
     dx_content_load();
     dx_settings_set_station(dx_content_settings(), 0); /* SELECT plays station 1 */
+    dx_radio_screen_reset();
     dx_radio_attach(dx_content_radio());
     start(app);
     dx_app_set_tab(app, tab);
@@ -748,7 +750,7 @@ TEST(radio_end_redraws_the_radio_tab)
     CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
     CHECK(wakes > 4);
     CHECK_EQ(fake.presents, 1);
-    CHECK(fake_find_text("Off") != NULL);
+    CHECK(fake_find_text("Radio off.") != NULL);
     CHECK(fake_find_text("Playing Once") == NULL);
     CHECK(strstr(fake.log, "deitrix: radio shows Playing Once\n"
                            "deitrix: radio shows Off\n") != NULL);
@@ -779,7 +781,7 @@ TEST(radio_underrun_redraws_once)
     int i;
 
     radio_start(&app, 4);
-    route(&app, DX_UI_SELECT, 0);
+    route(&app, DX_UI_DOWN, 0);
     route(&app, DX_UI_SELECT, 0); /* station 2, the loop */
     radio_step(&app);
     CHECK(fake_find_text("Playing Loop") != NULL);

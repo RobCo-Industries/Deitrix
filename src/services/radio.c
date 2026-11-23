@@ -21,6 +21,7 @@ static uint32_t pending;  /* bytes in chunk not handed to the kernel */
 static int started;       /* a chunk of this stream reached the kernel */
 static int at_end;        /* loop = no and the file is done */
 static uint32_t underruns;
+static int failed = -1;   /* the station an error stopped, or -1 */
 
 void dx_radio_attach(const dx_radio_t *stations)
 {
@@ -40,6 +41,11 @@ int dx_radio_state(void)
 uint32_t dx_radio_underruns(void)
 {
     return underruns;
+}
+
+int dx_radio_failed(void)
+{
+    return failed;
 }
 
 int dx_radio_set_volume(int level)
@@ -74,6 +80,16 @@ void dx_radio_stop(void)
         dx_plat_audio_stop();
     }
     off();
+    failed = -1;
+}
+
+/* Stops on an error and keeps which station it was. */
+static void fail(void)
+{
+    int was = current;
+
+    dx_radio_stop();
+    failed = was;
 }
 
 static int open_track(void)
@@ -139,7 +155,7 @@ static void feed(void)
             int r = at_end ? 0 : read_chunk();
 
             if (r < 0) {
-                dx_radio_stop();
+                fail();
                 return;
             }
             if (r == 0) {
@@ -156,7 +172,7 @@ static void feed(void)
             return;
         }
         if (rc != 0) {
-            dx_radio_stop();
+            fail();
             return;
         }
         started = 1;
@@ -170,7 +186,11 @@ int dx_radio_play(int i, uint32_t now_ms)
 
     (void)now_ms;
     dx_radio_stop();
-    if (table == NULL || i < 0 || i >= table->count || !table->stations[i].playable) {
+    if (table == NULL || i < 0 || i >= table->count) {
+        return -1;
+    }
+    if (!table->stations[i].playable) {
+        failed = i;
         return -1;
     }
     s = &table->stations[i];
@@ -181,12 +201,14 @@ int dx_radio_play(int i, uint32_t now_ms)
     if (s->kind == DX_KIND_TUNE) {
         if (dx_plat_play_seq(s->notes, (uint32_t)s->note_count) != 0) {
             off();
+            failed = i;
             return -1;
         }
         state = DX_RADIO_TUNE;
     } else {
         if (!open_track()) {
             off();
+            failed = i;
             return -1;
         }
         state = DX_RADIO_PCM;
@@ -211,6 +233,7 @@ static uint32_t step(uint32_t now_ms)
         }
         /* The tune ended: it plays again from its start. */
         if (dx_plat_play_seq(s->notes, (uint32_t)s->note_count) != 0) {
+            failed = current;
             off();
             return 0;
         }
@@ -247,6 +270,7 @@ static void init(uint32_t now_ms)
     (void)now_ms;
     off();
     underruns = 0;
+    failed = -1;
 }
 
 const dx_service_t dx_service_radio = { "radio", init, tick, dx_radio_stop };
