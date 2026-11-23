@@ -66,6 +66,12 @@ class Cli(unittest.TestCase):
                 self.assertEqual(f.read(), TRACKS["DRIFT"])
             self.assertEqual(os.path.getsize(os.path.join(d, "DRIFT.WAV")), 44 + len(TRACKS["DRIFT"]))
 
+    def test_list(self):
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "mkpcm.py"), "--list"],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.split(), [n + ".PCM" for n in TRACKS])
+
 
 if __name__ == "__main__":
     unittest.main()

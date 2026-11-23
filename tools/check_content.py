@@ -471,7 +471,7 @@ def check_tun(rep, rel, path):
         rep.add(rel, e.line, e.msg)
 
 
-def check_radio(rep, root, rel, radio_dir):
+def check_radio(rep, root, rel, radio_dir, generated=()):
     items = read_ini(rep, root, rel)
     if items is None:
         return set()
@@ -514,6 +514,8 @@ def check_radio(rep, root, rel, radio_dir):
         path = os.path.join(radio_dir, fv)
         frel = os.path.join(os.path.dirname(rel), "RADIO", fv)
         if not os.path.isfile(path):
+            if kind_v == "pcm" and fv in generated:
+                continue
             rep.add(rel, fn_line, f"file '{fv}' is not in RADIO/")
             continue
         used.add(fv)
@@ -594,8 +596,12 @@ def check_names(rep, root, data_rel):
                 rep.add(rel, 0, "name is not upper-case 8.3: 1 to 8 of A-Z, 0-9, _ and an optional .EXT of 1 to 3")
 
 
-def check_tree(root):
-    """Returns the list of problems in the tree at root."""
+def check_tree(root, generated=()):
+    """Returns the list of problems in the tree at root.
+
+    generated: .PCM names that the build adds later. A station may name
+    one of them although the file is not in the tree yet. Used on content/.
+    """
     rep = Report()
     data_rel = os.path.join("PIPBOY", "DATA")
     data = os.path.join(root, data_rel)
@@ -611,7 +617,7 @@ def check_tree(root):
         if name in files and os.path.isfile(path):
             files[name](rep, root, rel)
         elif name == "RADIO.INI" and os.path.isfile(path):
-            used = check_radio(rep, root, rel, os.path.join(data, "RADIO"))
+            used = check_radio(rep, root, rel, os.path.join(data, "RADIO"), generated)
         elif name in ("NOTES", "RADIO") and os.path.isdir(path):
             pass
         else:
@@ -638,10 +644,14 @@ def check_tree(root):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    generated = []
+    while len(argv) >= 2 and argv[0] == "--generated":
+        generated.append(argv[1])
+        argv = argv[2:]
     if len(argv) != 1:
-        print("usage: check_content.py <dir>", file=sys.stderr)
+        print("usage: check_content.py [--generated NAME.PCM]... <dir>", file=sys.stderr)
         return 2
-    errors = check_tree(argv[0])
+    errors = check_tree(argv[0], generated)
     for e in errors:
         print(e)
     return 1 if errors else 0

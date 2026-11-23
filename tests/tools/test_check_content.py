@@ -185,6 +185,15 @@ class Sample(unittest.TestCase):
             os.path.join(D, "RADIO.INI") + ":28: file 'DRIFT.PCM' is not in RADIO/",
         ])
 
+    def test_content_alone_with_generated_tracks(self):
+        names = [n + ".PCM" for n in mkpcm.TRACKS]
+        self.assertEqual(check_content.check_tree(os.path.join(ROOT, "content"), names), [])
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "check_content.py"),
+                            "--generated", "HEARTH.PCM", os.path.join(ROOT, "content")],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(r.stdout, os.path.join(D, "RADIO.INI") + ":28: file 'DRIFT.PCM' is not in RADIO/\n")
+
     def test_no_data_folder(self):
         with tempfile.TemporaryDirectory() as d:
             self.assertEqual(check_content.check_tree(d), [os.path.join(D) + ":0: no such folder"])

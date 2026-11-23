@@ -11,8 +11,8 @@
 #   make sdimage              build/pipos/sd.img: the Pip-OS kernel, its sample
 #                             PIPOS.CFG, ROM1.ROM and the card tree
 #   make card-tree            build/card/: content/ plus the generated radio
-#                             tracks, the tree that goes to the card root
-#   make check-content        tools/check_content.py on build/card/
+#                             tracks, checked; the tree that goes to the card root
+#   make check-content        tools/check_content.py on content/ and build/card/
 #   make run                  boot the card in QEMU on this terminal
 #                             (BOARD=<name>, WINDOW=1 opens the display)
 #   make bootdir DIR=<path>   the files of a real card (FIRMWARE=0 leaves
@@ -75,23 +75,32 @@ $(HOST_TESTS): $(wildcard src/*/*.h) tests/host/fake_platform.h
 
 # ---- The card tree: content/ plus the generated radio tracks ------------
 
-# tools/mkpcm.py writes the two .PCM tracks into build/pcm/; they are not
-# in git. The card tree is copied again on every run, so an edit in
-# content/ always reaches it, even within the same second.
+# tools/mkpcm.py writes the .PCM tracks into build/pcm/; they are not in
+# git. Its --list gives their names, so the list lives in one place. Each
+# track is its own target: a missing one is made again. The card tree is
+# copied again on every run, so an edit in content/ always reaches it,
+# even within the same second. Then the checker runs on it: a station
+# whose file is missing stops the build.
+CONTENT    ?= content
 CARD_TREE  := $(BUILD)/card
 PCM_DIR    := $(BUILD)/pcm
-PCM_STAMP  := $(PCM_DIR)/.stamp
+PCM_NAMES  := $(shell $(PYTHON) tools/mkpcm.py --list)
+PCM_FILES  := $(addprefix $(PCM_DIR)/,$(PCM_NAMES))
 
-$(PCM_STAMP): tools/mkpcm.py
-	$(PYTHON) tools/mkpcm.py $(PCM_DIR)
-	touch $@
+ifeq ($(strip $(PCM_NAMES)),)
+$(error tools/mkpcm.py --list printed no tracks)
+endif
+
+$(PCM_DIR)/%.PCM: tools/mkpcm.py
+	$(PYTHON) tools/mkpcm.py $(PCM_DIR) --only $*
 
 .PHONY: card-tree
-card-tree: $(PCM_STAMP)
+card-tree: $(PCM_FILES)
 	rm -rf $(CARD_TREE)
 	mkdir -p $(CARD_TREE)
-	cp -R content/. $(CARD_TREE)/
-	cp $(PCM_DIR)/*.PCM $(CARD_TREE)/PIPBOY/DATA/RADIO/
+	cp -R $(CONTENT)/. $(CARD_TREE)/
+	cp $(PCM_FILES) $(CARD_TREE)/PIPBOY/DATA/RADIO/
+	$(PYTHON) tools/check_content.py $(CARD_TREE)
 
 # ---- Pip-OS: kernel, card, QEMU, real card --------------------------------
 
@@ -155,8 +164,10 @@ pbm2c-test:
 sdimage-test: sdimage
 	tests/host/sdimage_test.sh $(CARD) $(PIP_OUT) $(CARD_TREE)
 
+# content/ alone: the generated tracks may be missing there. card-tree
+# checks the built tree, where they must be present.
 check-content: card-tree
-	$(PYTHON) tools/check_content.py $(CARD_TREE)
+	$(PYTHON) tools/check_content.py $(addprefix --generated ,$(PCM_NAMES)) $(CONTENT)
 
 # The tests of the Python tools: unittest, so no pytest is needed.
 tools-test:

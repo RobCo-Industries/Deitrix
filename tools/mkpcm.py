@@ -4,6 +4,7 @@
     tools/mkpcm.py <outdir>               write HEARTH.PCM and DRIFT.PCM
     tools/mkpcm.py <outdir> --wav         also write HEARTH.WAV and DRIFT.WAV
     tools/mkpcm.py <outdir> --only HEARTH one track only
+    tools/mkpcm.py --list                 print the file names, one per line
 
 Output: raw 8-bit unsigned mono at 8000 Hz, no header, as docs/CONTENT.md
 describes. The synthesis uses integers only, so the bytes are the same on
@@ -180,10 +181,17 @@ def write_wav(path, data):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("outdir")
+    ap.add_argument("outdir", nargs="?")
+    ap.add_argument("--list", action="store_true", help="print the .PCM names and exit")
     ap.add_argument("--wav", action="store_true", help="also write <NAME>.WAV")
     ap.add_argument("--only", choices=sorted(TRACKS), help="one track only")
     a = ap.parse_args(argv)
+    if a.list:
+        for name in TRACKS:
+            print(name + ".PCM")
+        return 0
+    if a.outdir is None:
+        ap.error("outdir is required")
     os.makedirs(a.outdir, exist_ok=True)
     for name, fn in TRACKS.items():
         if a.only and name != a.only:
