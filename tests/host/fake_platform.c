@@ -679,7 +679,7 @@ int32_t dx_plat_save_read(const char *name, uint8_t *buf, uint32_t size)
 int32_t dx_plat_save_write(const char *name, const uint8_t *buf, uint32_t size)
 {
     fake.save_writes++;
-    if (fake.save_fail > 0) {
+    if (fake.save_fail > 0 && (fake.save_fail_only == NULL || strcmp(name, fake.save_fail_only) == 0)) {
         fake.save_fail--;
         return DX_FILE_ERROR;
     }

@@ -114,10 +114,12 @@ typedef struct fake_platform {
     int handles_open;
     int read_fail;       /* dx_plat_read_file and file_read fail while set */
     int dir_page;        /* dir_list returns at most this many, 0: 64 */
-    /* The save store. save_fail: the next N writes fail. */
+    /* The save store. save_fail: the next N writes fail. When
+     * save_fail_only is set, only writes to that save name fail. */
     fake_save_t saves[FAKE_MAX_SAVES];
     int save_count;
     int save_fail;
+    const char *save_fail_only;
     int save_writes;
     /* Audio: the calls, and the voice played against fake.ticks. */
     fake_audio_t audio[FAKE_MAX_AUDIO];
