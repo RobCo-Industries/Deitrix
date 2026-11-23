@@ -21,7 +21,7 @@ MAP is built: the local and world maps with their places, and a detail per place
 
 RADIO is built: the stations of RADIO.INI, what plays now, the volume and the UI sounds, kept in DEITRIX.SAV. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#radio).
 
-Culvert, a pipe-turning puzzle, ships on the card as the holotape `CULVERT.HTP`. See [docs/CULVERT.md](docs/CULVERT.md).
+Culvert, a pipe-turning puzzle, ships on the card as the holotape `CULVERT.HTP`. Start it from DATA, TAPES. See [docs/CULVERT.md](docs/CULVERT.md).
 
 At start the ROM loads the content under `/PIPBOY/DATA/` on the card and its two saves. The formats are in [docs/CONTENT.md](docs/CONTENT.md). The dial, LEFT and RIGHT move between tabs and wrap at both ends. On STAT, INV, DATA and MAP, LEFT and RIGHT move between the sub-tabs first. On RADIO the Volume and UI sounds rows take them. BACK and LEFT go back one level in a nested view. SELECT on RADIO starts or stops the station under the cursor: tunes play through `play_seq`, PCM tracks stream in chunks. The radio keeps playing on other tabs. The last tab and station are saved a moment after they change. A test-only gallery ROM shows every widget of the framework. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
 

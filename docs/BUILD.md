@@ -27,7 +27,6 @@ The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its gu
 | `make test` | `test-host`, then `test-target` |
 | `make test-target` | The QEMU tests, see [TESTING.md](TESTING.md) |
 | `make gallery` | `build/gallery/`: the widget gallery, a test-only ROM, and its card |
-| `make hello` | `build/hello/ROM1.ROM`: the SDK's hello ROM, which the Culvert tests use to start the tape |
 | `make check-pins` | The CI pins and the commit links in the docs match the submodules |
 | `make kernel` | Builds the Pip-OS kernel into `build/pipos/pipos.img` |
 | `make sdimage` | Builds the card, `build/pipos/sd.img` |
@@ -53,7 +52,7 @@ The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its gu
 - `all` includes the SDK's `pipos-app.mk` with `KIND=rom`, `NAME=DEITRIX` and `TITLE=Deitrix`.
 - `test-host` includes RobCo-Core's `mk/host.mk` for the C tests.
 - `kernel`, `sdimage`, `run` and `bootdir` call the same targets in Pip-OS's Makefile, with `BUILD=build/pipos`. This is the interface of Pip-OS's [Using Pip-OS from another repository](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/ROM_DEVELOPMENT.md#using-pip-os-from-another-repository).
-- `sdimage`, `run` and `bootdir` pass `ROM=build/ROM1.ROM`, `TAPE=none` and `CARD_DIR=build/card`. `bootdir` also passes `DIR`, `FIRMWARE` and `CLEAN`. Pip-OS writes the same files to the card and to the folder.
+- `sdimage`, `run` and `bootdir` pass `ROM=build/ROM1.ROM`, `TAPE=build/holo/CULVERT.HTP` and `CARD_DIR=build/card`. `bootdir` also passes `DIR`, `FIRMWARE` and `CLEAN`. Pip-OS writes the same files to the card and to the folder.
 - Pip-OS checks the staged card. Two paths that differ only in case stop the build, and a name longer than 8.3 gets a warning. `tools/check_content.py` already refuses any name under `PIPBOY/DATA/` that is not upper-case 8.3, so the Deitrix content passes with no warning.
 - `bootdir` keeps a `PIPBOY/PIPOS.CFG` that is already in the folder. Its other rules, `BOOTDIR.LST` and `CLEAN=1` are in Pip-OS's [A real card](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/BUILD.md#a-real-card).
 - `check-pins` runs RobCo-Core's `tools/check_pins.sh` on the CI workflow, then its `tools/check_doc_links.sh` twice: once with `--repo RobCo-Industries/Pip-OS` for `external/pip-os`, once for the RobCo-Core inside it.

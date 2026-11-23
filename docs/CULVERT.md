@@ -4,7 +4,7 @@ Culvert is a pipe-turning puzzle. It ships on the Deitrix card as the holotape `
 
 ## Start it
 
-Pick "Culvert" in a holotape list and press SELECT. Deitrix has no tape list yet. Until it does, the Pip-OS sample ROM in `external/pip-os/sdk/examples/hello` lists the tapes on the card and starts the one you pick.
+In Deitrix, go to DATA, then TAPES. Pick "Culvert" and press SELECT. Deitrix stops the radio and writes its saves first. When you quit, Deitrix shows TAPES again with "Tape ended, status 0." under the list.
 
 The title screen offers "New game" and "Quit". After you solve a level, it also offers "Continue (level N)", where N is the next level you have not solved.
 
@@ -33,7 +33,7 @@ When the level is solved, the network flashes and a short tune plays. Then the s
 
 - Resume: back to the level.
 - Restart level: the same level from the start, with no moves and the clock at 0:00.
-- Quit: leave the tape. You go back to the program that started it.
+- Quit: leave the tape. You go back to TAPES in Deitrix.
 
 ## What is saved
 

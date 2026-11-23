@@ -409,11 +409,11 @@ Each key the tab takes logs one serial line before the redraw: `deitrix: radio r
 
 ## Holotapes
 
-A holotape is a separate image that the ROM starts with `holo_launch`. Each one lives in its own folder under `holotapes/` with a Makefile that includes the SDK's `pipos-app.mk` with `KIND := holotape`. `make holotapes` builds them into `build/holo/`, and `make` builds them with the ROM. The top Makefile passes them to Pip-OS's `TAPE=` list, so `make sdimage`, `make run` and `make bootdir` put them in `/PIPBOY/HOLO/`.
+A holotape is a separate image. DATA's TAPES list starts it with `holo_launch`, see [DATA](#data). Each one lives in its own folder under `holotapes/` with a Makefile that includes the SDK's `pipos-app.mk` with `KIND := holotape`. `make holotapes` builds them into `build/holo/`, and `make` builds them with the ROM. The top Makefile passes them to Pip-OS's `TAPE=` list, so `make sdimage`, `make run` and `make bootdir` put them in `/PIPBOY/HOLO/`.
 
 ### Culvert
 
-Culvert is a pipe-turning puzzle, a game tape of about 14 KiB. [CULVERT.md](CULVERT.md) says how to play it.
+Culvert is a pipe-turning puzzle, a game tape of about 14 KiB. Its save `CULVERT` sits in `/PIPBOY/SAVE` beside DEITRIX.SAV and INV.SAV, and none of them reads another. [CULVERT.md](CULVERT.md) says how to play it.
 
 | File | Role |
 |---|---|
@@ -451,5 +451,7 @@ The save is `CULVERT`, 30 bytes, little-endian:
 | 26 | 4 | CRC-32 of bytes 0 to 25 |
 
 A record of another size, magic, version or class count, a bad CRC or a level of 0 is ignored, and the game starts fresh.
+
+Pip-OS empties the event queue when the tape starts. A SELECT still held from the launch then sends only repeats and its release. The game acts on a press, and only the arrows repeat, so the title waits for a fresh key.
 
 The tape logs one line per step on the serial console, after the frame is on screen: `culvert: title`, `culvert: level n= w= h= seed=`, `culvert: cursor x= y=`, `culvert: turn x= y= connected=`, `culvert: menu item=`, `culvert: pause`, `culvert: resume`, `culvert: solved level= moves=`, `culvert: done` when the message shows, `culvert: idle` for a key that changes nothing, and `culvert: exit rc=0`. It also logs `culvert: load rc=` and `culvert: save rc=`. Before the exit line, `culvert stats: grid draws= ms=` gives the number of full grid redraws and their total time from `ticks_ms`.
