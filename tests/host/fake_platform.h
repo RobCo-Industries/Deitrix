@@ -97,6 +97,9 @@ typedef struct fake_platform {
     /* Corners of rects, ends of lines, text boxes, blits. */
     fake_point_t points[FAKE_MAX_POINTS];
     int point_count;
+    /* Every point, past FAKE_MAX_POINTS too: how many, and their box. */
+    int points_seen;
+    fake_point_t points_lo, points_hi;
     char draws[FAKE_DRAW_SIZE];
     char log[FAKE_LOG_SIZE];
     uint32_t tones[FAKE_MAX_TONES][2];
@@ -159,6 +162,9 @@ dx_ctx_t fake_ctx(void);
 
 /* 1 when every recorded point lies inside r. */
 int fake_points_inside(dx_rect_t r);
+/* The same for every point since the draws were cleared, the ones past
+ * FAKE_MAX_POINTS included. 1 when there was none. */
+int fake_all_points_inside(dx_rect_t r);
 
 /* Adds a file to the fake card. data is not copied: it must outlive the
  * file. */
