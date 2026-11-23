@@ -74,10 +74,13 @@ The SDK seals the ROM for ABI 1.2. The loader checks only the major version, so 
 
 The app shell routes each event:
 
-1. A dial turn changes the tab by its detents, with wrap-around. The screen does not see it.
-2. Every other event goes to the active screen. It returns `DX_UI_IGNORED`, or `DX_UI_HANDLED`, optionally with `DX_UI_DIRTY` to ask for a redraw.
-3. LEFT or RIGHT that the screen ignores moves to the previous or next tab.
-4. Anything else the screen ignores does nothing.
+1. A repeat of a latched key is dropped. See the held-key rule below.
+2. A dial turn changes the tab by its detents, with wrap-around. The screen does not see it.
+3. Every other event goes to the active screen. It returns `DX_UI_IGNORED`, or `DX_UI_HANDLED`, optionally with `DX_UI_DIRTY` to ask for a redraw and `DX_UI_LEVEL` when it opened or closed a nested view.
+4. LEFT or RIGHT that the screen ignores moves to the previous or next tab.
+5. Anything else the screen ignores does nothing.
+
+The held-key rule is the same on every tab. It lives in `src/ui/latch.h`, and `dx_app_route()` applies it. A fresh press that changes the level latches its key: the screen returned `DX_UI_LEVEL`, or the shell changed the tab. The repeats of that key are then dropped until the next fresh event of any key, the dial included. So a held LEFT that closes a view does not go on to change the sub-tab or the tab, and a held SELECT that opens a view does not act inside it. Other repeats still reach the screen: UP and DOWN in lists and text, INV's count, RADIO's volume and the clock setter's fields. A screen opens or closes a level on a fresh press only, since a repeat can arrive with no press before it, as after a tab change by the dial.
 
 A tab change calls `leave` on the old screen and `enter` on the new one, then redraws.
 
@@ -309,7 +312,7 @@ Each key the tab takes logs one serial line before the redraw, for the QEMU test
 
 `src/screens/data.c` has three sub-tabs: NOTES, TAPES and CLOCK. It holds the sub-tabs and NOTES. `data_tapes.c` holds TAPES and `data_clock.c` holds CLOCK. LEFT and RIGHT move between the sub-tabs at the top level. At NOTES, LEFT goes to the previous tab, and at CLOCK, RIGHT goes to the next. Leaving the tab closes an open note or the setter, and drops the TAPES result line and the CLOCK status line. The sub-tab and the list selections stay.
 
-SELECT, BACK and LEFT open, close, store or launch only on a fresh press. Their repeats do nothing, and a held LEFT does not change the sub-tab or the tab from a nested level. After a press opens or closes a note or the setter, the repeats of that key do nothing until the next press. UP and DOWN act on every repeat in the lists, the note text and the setter fields.
+SELECT, BACK and LEFT open, close, store or launch only on a fresh press. Their repeats do nothing, and a held LEFT does not change the sub-tab or the tab from a nested level. Opening or closing a note or the setter returns `DX_UI_LEVEL`, so the shell's held-key rule drops the repeats of that key until the next press. UP and DOWN act on every repeat in the lists, the note text and the setter fields.
 
 NOTES lists the notes the model loaded, in name order, by title. Ten rows fit. UP and DOWN move the selection. SELECT opens the note: its title, a faint rule, then the body in the text widget, 38 columns and 9 lines. UP and DOWN scroll it. A body over 128 wrapped lines ends with `[text cut]`. The body comes from `dx_content_note_body` into a 4 KiB buffer the screen owns. A read error shows "The note could not be read." under the title. BACK or LEFT returns to the list with the same note selected. RIGHT does nothing there. With no notes the list shows "No notes on the card.". When the folder could not be read it shows "The notes were not read." and the reason.
 

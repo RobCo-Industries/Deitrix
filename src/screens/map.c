@@ -113,7 +113,7 @@ static unsigned event(void *st, const dx_ui_event_t *ev)
     if (map.detail) {
         if (dx_ui_is_back(ev)) {
             map.detail = 0;
-            return DX_UI_HANDLED | DX_UI_DIRTY;
+            return DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL;
         }
         /* RIGHT stays in the detail: no tab change. */
         return ev->type == DX_UI_RIGHT ? DX_UI_HANDLED : DX_UI_IGNORED;
@@ -141,7 +141,7 @@ static unsigned event(void *st, const dx_ui_event_t *ev)
             return DX_UI_IGNORED;
         }
         map.detail = 1;
-        return DX_UI_HANDLED | DX_UI_DIRTY;
+        return DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL;
     default:
         return DX_UI_IGNORED;
     }

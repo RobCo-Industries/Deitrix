@@ -206,7 +206,7 @@ TEST(list_moves_and_ends)
 TEST(detail_view)
 {
     load(SMALL);
-    CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
     CHECK_STR(last_log(), "deitrix: inv open=knife");
     draw();
     CHECK_STR(fake.draws,
@@ -224,9 +224,9 @@ TEST(detail_view)
     CHECK(inside_body());
     CHECK_STR(inv->hint(inv->st), "UP/DOWN: count  SELECT: mark  BACK");
     /* An item without weight or note: no Weight row, no note. */
-    CHECK_INT(key(DX_UI_BACK), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_BACK), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
     CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY);
-    CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
     draw();
     CHECK(!has_text("Weight"));
     CHECK(has_text("0 loaf"));
@@ -296,7 +296,7 @@ TEST(mark_back_and_summary)
     CHECK_STR(last_log(), "deitrix: inv idle");
     CHECK_INT(key(DX_UI_DIAL), DX_UI_IGNORED);
     /* LEFT goes back, with the same row selected. */
-    CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
     CHECK_STR(last_log(), "deitrix: inv back row=1");
     draw();
     /* The row shows the mark and the new count; the weight stays. */
@@ -307,7 +307,7 @@ TEST(mark_back_and_summary)
     CHECK(has_text("2 entries, 1.5 kg"));
     /* The Back button goes back too. */
     key(DX_UI_SELECT);
-    CHECK_INT(key(DX_UI_BACK), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_BACK), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
     CHECK_STR(last_log(), "deitrix: inv back row=1");
     CHECK_INT(it->changes, changes + 2);
 }
@@ -450,4 +450,34 @@ TEST(limits_stay_inside_the_body)
     }
     /* The last category, UVWXY, holds two items. */
     CHECK_STR(last_log(), "deitrix: inv end row=1");
+}
+
+/* The held-key rule through the shell: a held SELECT opens the detail
+ * once, a held LEFT or BACK closes it once, and the category and the
+ * tab stay. */
+TEST(held_keys_open_and_close_once)
+{
+    static const uint32_t backs[2] = { DX_BTN_LEFT, DX_BTN_BACK };
+    dx_app_t app;
+    int i;
+
+    for (i = 0; i < 2; i++) {
+        load(SMALL);
+        CHECK_INT(dx_app_init(&app, dx_rom_screens, dx_rom_screen_count), 0);
+        dx_app_set_tab(&app, TAB_INV);
+        dx_app_step(&app);
+        steps(&app, fake_hold(DX_BTN_RIGHT, 0));
+        fake.log[0] = '\0';
+        steps(&app, fake_hold(DX_BTN_SELECT, 12));
+        CHECK_STR(fake.log, "deitrix: inv open=bread\n");
+        fake.log[0] = '\0';
+        steps(&app, fake_hold(backs[i], 12));
+        CHECK_INT(app.tab, TAB_INV);
+        CHECK_STR(fake.log, "deitrix: inv back row=0\n");
+        CHECK_STR(inv->hint(inv->st), "UP/DOWN: item  SELECT: open");
+        /* The next fresh press acts again: FOOD to TOOLS. */
+        steps(&app, fake_hold(DX_BTN_LEFT, 0));
+        CHECK_STR(last_log(), "deitrix: inv cat=0 row=0");
+        CHECK_INT(app.tab, TAB_INV);
+    }
 }

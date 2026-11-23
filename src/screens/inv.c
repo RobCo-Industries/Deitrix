@@ -165,7 +165,7 @@ static unsigned list_event(const dx_items_t *it, const dx_ui_event_t *ev)
         }
         s.detail = dx_inv_item_at(it, s.cat, l.sel);
         log_line("open=", it->items[s.detail].id, -1);
-        return DX_UI_HANDLED | DX_UI_DIRTY;
+        return DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL;
     }
     r = dx_list_event(&l, ev);
     if (r & DX_UI_HANDLED) {
@@ -187,7 +187,7 @@ static unsigned detail_event(dx_items_t *it, const dx_ui_event_t *ev)
     if (dx_ui_is_back(ev)) {
         s.detail = -1;
         log_line("back row=", NULL, s.sel[s.cat]);
-        return DX_UI_HANDLED | DX_UI_DIRTY;
+        return DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL;
     }
     switch (ev->type) {
     case DX_UI_UP:

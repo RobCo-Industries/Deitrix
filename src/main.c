@@ -71,6 +71,7 @@ int dx_app_init(dx_app_t *app, const dx_screen_t *const *screens, int count)
     app->services = NULL;
     app->service_count = 0;
     app->tab_changed = NULL;
+    dx_latch_init(&app->latch);
     enter(app);
     return 0;
 }
@@ -226,6 +227,9 @@ void dx_app_route(dx_app_t *app, const dx_ui_event_t *ev)
     unsigned result = DX_UI_IGNORED;
     int changed = 0;
 
+    if (dx_latch_swallow(&app->latch, ev)) {
+        return;
+    }
     if (ev->type == DX_UI_DIAL) {
         changed = change_tab(app, ev->delta);
     } else {
@@ -245,6 +249,7 @@ void dx_app_route(dx_app_t *app, const dx_ui_event_t *ev)
             changed = change_tab(app, 1);
         }
     }
+    dx_latch_note(&app->latch, ev, result, changed);
     dx_ui_sound(dx_ui_sound_for(ev, result, changed));
     wake_services(app);
 }

@@ -640,3 +640,34 @@ TEST(limits_stay_inside_the_body)
     CHECK(inside_body());
     CHECK(strstr(fake.log, "deitrix: radio shows Cannot play WWWWWWWWWWWWWWWWWWW6\n") != NULL);
 }
+
+/* The held-key rule through the shell. RADIO has no nested view: a held
+ * LEFT on a station changes the tab once, and a held LEFT on the
+ * Volume row still steps the volume on every repeat. */
+TEST(held_left_changes_the_tab_once)
+{
+    dx_app_t app;
+    int n;
+
+    load(SMALL);
+    shell_start(&app);
+    fake.log[0] = '\0';
+    for (n = fake_hold(DX_BTN_LEFT, 12); n > 0; n--) {
+        step(&app);
+    }
+    CHECK_INT(app.tab, TAB_RADIO - 1);
+    CHECK_STR(fake.log, "deitrix: tab=MAP\n");
+    dx_app_set_tab(&app, TAB_RADIO);
+    step(&app);
+    dx_radio_screen_reset();
+    dx_settings_set_station(dx_content_settings(), 4);
+    step(&app);
+    fake.log[0] = '\0';
+    push_key(DX_BTN_DOWN);
+    for (n = 2 + fake_hold(DX_BTN_LEFT, 3); n > 0; n--) {
+        step(&app);
+    }
+    CHECK_INT(app.tab, TAB_RADIO);
+    CHECK(strstr(fake.log, "deitrix: radio volume=70\ndeitrix: radio volume=60\n"
+                           "deitrix: radio volume=50\ndeitrix: radio volume=40\n") != NULL);
+}

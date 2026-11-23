@@ -468,3 +468,35 @@ TEST(zz_no_leaks)
     fake_reset();
     CHECK_INT(fake_live_blocks(), 0);
 }
+
+/* The held-key rule through the shell: a held SELECT opens the detail
+ * once, a held LEFT or BACK closes it once, and the map and the tab
+ * stay. */
+TEST(held_keys_open_and_close_once)
+{
+    static const uint32_t backs[2] = { DX_BTN_LEFT, DX_BTN_BACK };
+    int i, n;
+
+    for (i = 0; i < 2; i++) {
+        boot(SAMPLE);
+        to_map();
+        fake.log[0] = '\0';
+        for (n = fake_hold(DX_BTN_SELECT, 12); n > 0; n--) {
+            dx_app_step(&app);
+        }
+        CHECK_STR(last_view(), "deitrix: map detail LOCAL place=0");
+        CHECK(strstr(fake.log, "detail LOCAL place=0") ==
+              strstr(fake.log, "detail LOCAL"));
+        for (n = fake_hold(backs[i], 12); n > 0; n--) {
+            dx_app_step(&app);
+        }
+        CHECK_INT(app.tab, TAB_MAP);
+        CHECK_STR(last_view(), "deitrix: map shows LOCAL place=0");
+        /* The next fresh LEFT acts again: LOCAL is the first map, so
+         * the shell changes the tab. */
+        for (n = fake_hold(DX_BTN_LEFT, 0); n > 0; n--) {
+            dx_app_step(&app);
+        }
+        CHECK_INT(app.tab, TAB_MAP - 1);
+    }
+}

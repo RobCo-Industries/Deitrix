@@ -81,6 +81,18 @@ void fake_push(uint32_t type, uint32_t code, int32_t value)
     ev->value = value;
 }
 
+int fake_hold(uint32_t btn, int repeats)
+{
+    int i;
+
+    fake_push(DX_EV_BUTTON, btn, DX_PRESS_DOWN);
+    for (i = 0; i < repeats; i++) {
+        fake_push(DX_EV_BUTTON, btn, DX_PRESS_REPEAT);
+    }
+    fake_push(DX_EV_BUTTON, btn, DX_PRESS_RELEASE);
+    return repeats + 2;
+}
+
 void fake_clear_draws(void)
 {
     fake.text_count = 0;

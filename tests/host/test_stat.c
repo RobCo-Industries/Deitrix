@@ -457,3 +457,18 @@ TEST(zz_no_leaks)
     fake_reset();
     CHECK_INT(fake_live_blocks(), 0);
 }
+
+/* The held-key rule through the shell. STAT has no nested view, so a
+ * held LEFT on the first page changes the tab once and stays there, and
+ * a held RIGHT moves one page per event as before. */
+TEST(held_left_changes_the_tab_once)
+{
+    int n;
+
+    boot(FULL);
+    for (n = fake_hold(DX_BTN_LEFT, 12); n > 0; n--) {
+        dx_app_step(&app);
+    }
+    CHECK_INT(app.tab, dx_rom_screen_count - 1);
+    CHECK_STR(fake.log, "deitrix: tab=RADIO\n");
+}

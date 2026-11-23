@@ -175,6 +175,10 @@ int fake_live_blocks(void);
 /* Queues one event for dx_plat_wait. */
 void fake_push(uint32_t type, uint32_t code, int32_t value);
 
+/* Queues a held button as the kernel sends it: a press, `repeats`
+ * repeats, then the release. Returns the events queued. */
+int fake_hold(uint32_t btn, int repeats);
+
 /* Forgets the draw calls so far, keeps the inputs and the log. */
 void fake_clear_draws(void);
 
