@@ -38,6 +38,11 @@ int dx_ui_translate(const dx_event_t *ev, dx_ui_event_t *out)
     return 1;
 }
 
+int dx_ui_is_back(const dx_ui_event_t *ev)
+{
+    return ev->type == DX_UI_BACK || ev->type == DX_UI_LEFT;
+}
+
 int dx_ui_sound_for(const dx_ui_event_t *ev, unsigned result, int tab_changed)
 {
     if (tab_changed) {

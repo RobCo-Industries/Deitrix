@@ -52,7 +52,13 @@ The host fake gives a recorder instead. Each call becomes one line of a draw lis
 
 `dx_ui_translate()` turns a Pip-OS event into a `dx_ui_event_t`. A press gives an event and a repeat gives one with `repeat` set. A release gives none. A dial turn gives `DX_UI_DIAL` with its detents in `delta`. The dial push is SELECT.
 
-`DX_UI_BACK` exists, but no Pip-OS input produces it yet: the kernel keeps its Back key for itself. A screen can handle it today and will get it once Pip-OS passes it on.
+`DX_UI_BACK` exists, but no Pip-OS input produces it yet. ABI 1.1 does not pass the Back button to a ROM. A later ABI adds it as button 6. Until then the navigation rule is:
+
+- In a detail view or any nested level, LEFT means "back one level". The screen handles it. It handles RIGHT too, so neither key changes the tab.
+- At the top level of a tab, LEFT and RIGHT move between sub-tabs. When the screen ignores them, the shell changes the tab.
+- The dial push is SELECT. A dial turn always changes the tab.
+
+A screen that keeps a depth tests `dx_ui_is_back()`. It is true for `DX_UI_BACK` and for LEFT, repeats too. Such a screen gets the Back button for free once it exists. The translator still maps LEFT to `DX_UI_LEFT` only.
 
 The app shell routes each event:
 
@@ -156,7 +162,7 @@ The list, text, gauge, key and value, and sub-tab widgets are structs the screen
 
 ### The widget gallery
 
-`make gallery` builds a second ROM into `build/gallery/`, with its own card at `build/gallery/pipos/sd.img`. It is for the QEMU tests only and never goes on the default card. `tests/gallery/gallery.c` replaces `src/screens/` with one screen per widget, so the same app shell runs it: LIST, TEXT, BAR, KV, TABS, ICON and FONT. The sample data is fixed. Each list and text move logs a `gallery:` line for the tests.
+`make gallery` builds a second ROM into `build/gallery/`, with its own card at `build/gallery/pipos/sd.img`. It is for the QEMU tests only and never goes on the default card. `tests/gallery/gallery.c` replaces `src/screens/` with one screen per widget, so the same app shell runs it: LIST, TEXT, BAR, KV, TABS, ICON and FONT. The sample data is fixed. SELECT on a LIST row opens its detail, one level down, and LEFT comes back. Each list and text move and each detail key logs a `gallery:` line for the tests.
 
 ## Planned
 

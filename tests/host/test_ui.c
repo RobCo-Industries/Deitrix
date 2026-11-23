@@ -142,3 +142,24 @@ TEST(text_cut)
     CHECK_STR(fake.draws, "text 0 0 \"ABCDEF\" fg none s1\n"
                           "text 0 0 \"ABCDE~\" fg none s1\n");
 }
+
+TEST(is_back)
+{
+    static const int yes[] = { DX_UI_BACK, DX_UI_LEFT };
+    static const int no[] = { DX_UI_UP, DX_UI_DOWN, DX_UI_RIGHT, DX_UI_SELECT, DX_UI_DIAL };
+    unsigned i;
+    int rep;
+
+    for (rep = 0; rep <= 1; rep++) {
+        for (i = 0; i < sizeof(yes) / sizeof(yes[0]); i++) {
+            dx_ui_event_t ev = { yes[i], rep, 0 };
+
+            CHECK(dx_ui_is_back(&ev));
+        }
+        for (i = 0; i < sizeof(no) / sizeof(no[0]); i++) {
+            dx_ui_event_t ev = { no[i], rep, -1 };
+
+            CHECK(!dx_ui_is_back(&ev));
+        }
+    }
+}

@@ -84,6 +84,7 @@ static const dx_row_t supplies[] = {
 };
 
 static dx_list_t list;
+static int detail = -1; /* the row shown in detail, or -1 for the list */
 
 static void supply_row(void *user, int i, dx_row_t *out)
 {
@@ -100,17 +101,53 @@ static void list_enter(void *st)
     }
 }
 
+/* One level down: the detail of a row. LEFT goes back up. */
+static unsigned detail_event(const dx_ui_event_t *ev)
+{
+    if (dx_ui_is_back(ev)) {
+        log2("back", detail, "", -1);
+        detail = -1;
+        return DX_UI_HANDLED | DX_UI_DIRTY;
+    }
+    log2("detail", detail, "", -1);
+    /* RIGHT stays inside the level: no tab change. */
+    return ev->type == DX_UI_RIGHT ? DX_UI_HANDLED : DX_UI_IGNORED;
+}
+
 static unsigned list_event(void *st, const dx_ui_event_t *ev)
 {
-    unsigned r = dx_list_event(&list, ev);
+    unsigned r;
 
     (void)st;
+    if (detail >= 0) {
+        return detail_event(ev);
+    }
+    if (ev->type == DX_UI_SELECT && !(supplies[list.sel].flags & DX_ROW_DISABLED)) {
+        detail = list.sel;
+        log2("detail", detail, "", -1);
+        return DX_UI_HANDLED | DX_UI_DIRTY;
+    }
+    r = dx_list_event(&list, ev);
     if (r & DX_UI_HANDLED) {
         log2("list sel", list.sel, "top", list.top);
     } else if (ev->type == DX_UI_UP || ev->type == DX_UI_DOWN) {
         log2("list end", list.sel, "", -1);
     }
     return r;
+}
+
+static void detail_draw(const dx_ctx_t *ctx, dx_rect_t area)
+{
+    const dx_row_t *row = &supplies[detail];
+    dx_kv_row_t rows[3];
+    dx_kv_t kv;
+
+    rows[0] = (dx_kv_row_t){ "Item", row->label };
+    rows[1] = (dx_kv_row_t){ "Count", row->value };
+    rows[2] = (dx_kv_row_t){ "Marked", (row->flags & DX_ROW_MARKED) ? "Yes" : "No" };
+    caption(ctx, area, "Supplies, one row");
+    dx_kv_init(&kv, rows, 3);
+    dx_kv_draw(&kv, ctx, below_caption(area));
 }
 
 static void list_draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
@@ -122,6 +159,10 @@ static void list_draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
     dx_rect_t la = below_caption(area);
 
     (void)st;
+    if (detail >= 0) {
+        detail_draw(ctx, area);
+        return;
+    }
     caption(ctx, area, "Supplies, 12 rows");
     la.h = LIST_ROWS * DX_ROW_H;
     dx_list_draw(&list, ctx, la);
@@ -139,7 +180,7 @@ static void list_draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
 static const char *list_hint(void *st)
 {
     (void)st;
-    return "UP/DOWN: select  LEFT/RIGHT: tab";
+    return detail >= 0 ? "LEFT: back to the list" : "UP/DOWN: select  LEFT/RIGHT: tab";
 }
 
 static const dx_screen_t s_list = {

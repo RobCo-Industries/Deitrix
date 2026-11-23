@@ -19,6 +19,8 @@ LIST_END = re.compile(r"^gallery: list end=(\d+)\r?$", re.M)
 TEXT_TOP = re.compile(r"^gallery: text top=(\d+)\r?$", re.M)
 TEXT_END = re.compile(r"^gallery: text end=(\d+)\r?$", re.M)
 SUB = re.compile(r"^gallery: sub=(\d+)\r?$", re.M)
+DETAIL = re.compile(r"^gallery: detail=(\d+)\r?$", re.M)
+BACK = re.compile(r"^gallery: back=(\d+)\r?$", re.M)
 
 LIST_ROWS = 12
 LIST_WINDOW = 8
@@ -113,6 +115,29 @@ def test_gallery_list_and_text(board, kernel_image, gallery_card, tmp_path, need
         assert wait_tabs(vm, 2)[-1] == "LIST", vm.serial
         assert key(vm, "up", LIST_END) == "0"
         check_golden(screenshot(vm, tmp_path), "gallery_list")
+        no_exception(vm)
+
+
+def test_gallery_detail(board, kernel_image, gallery_card, tmp_path, need_mtools):
+    """SELECT on a list row opens one level down, LEFT comes back."""
+    with booted(kernel_image, board, sd=gallery_card) as vm:
+        wait_ready(vm)
+        for row in (1, 2):
+            assert key(vm, "down", SEL) == (str(row), "0")
+        assert key(vm, "select", DETAIL) == "2"
+        # UP changes nothing in the detail: once it logs, the frame is shown.
+        assert key(vm, "up", DETAIL) == "2"
+        check_golden(screenshot(vm, tmp_path), "gallery_detail")
+        # RIGHT stays inside the level: no tab change.
+        assert key(vm, "right", DETAIL) == "2"
+        assert tabs(vm) == [], vm.serial
+        # LEFT is back: one level up, still on LIST, the selection kept.
+        assert key(vm, "left", BACK) == "2"
+        assert tabs(vm) == [], vm.serial
+        assert key(vm, "up", SEL) == ("1", "0")
+        # At the top level LEFT changes the tab again.
+        send(vm, "key left")
+        assert wait_tabs(vm, 1)[-1] == "FONT", vm.serial
         no_exception(vm)
 
 

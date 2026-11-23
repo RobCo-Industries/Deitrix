@@ -45,7 +45,7 @@ enum {
     DX_UI_LEFT,
     DX_UI_RIGHT,
     DX_UI_SELECT,
-    DX_UI_BACK, /* no Pip-OS input produces it yet: see docs/ARCHITECTURE.md */
+    DX_UI_BACK, /* no Pip-OS input produces it in ABI 1.1: see below */
     DX_UI_DIAL,
 };
 
@@ -54,6 +54,21 @@ typedef struct dx_ui_event {
     int repeat;    /* 1 for a held button's repeat */
     int32_t delta; /* DX_UI_DIAL: signed detents */
 } dx_ui_event_t;
+
+/*
+ * Navigation, until Pip-OS passes the Back button on (a later ABI adds
+ * it as button 6):
+ * - In a detail view or any nested level, LEFT means "back one level".
+ *   The screen handles it, and RIGHT too, so neither changes the tab.
+ * - At the top level of a tab, LEFT and RIGHT move between sub-tabs.
+ *   When the screen ignores them, the shell changes the tab.
+ * - The dial push is SELECT. The dial turn always changes the tab.
+ * A screen with levels tests dx_ui_is_back() and gets the Back button
+ * through it once it exists.
+ */
+
+/* 1 for DX_UI_BACK and DX_UI_LEFT, repeats too, else 0. */
+int dx_ui_is_back(const dx_ui_event_t *ev);
 
 /*
  * 1 and *out for a press, a repeat or a dial turn. 0 for a release or
