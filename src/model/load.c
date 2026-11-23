@@ -84,6 +84,9 @@ void dx_load_reason(const dx_load_t *ld, dx_sb_t *sb)
     case DX_LOAD_TOO_LARGE:
         dx_sb_str(sb, "too large");
         break;
+    case DX_LOAD_TOO_SMALL:
+        dx_sb_str(sb, "too small");
+        break;
     case DX_LOAD_READ_ERROR:
         dx_sb_str(sb, "read error");
         break;

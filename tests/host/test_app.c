@@ -503,3 +503,171 @@ TEST(short_draw_waits_to_the_minute)
     dx_app_step(&app);
     CHECK_EQ(fake.last_timeout, 52000);
 }
+
+/* ---- Services ------------------------------------------------------------ */
+
+/* A service that counts its ticks and asks for a fixed interval. */
+static struct {
+    int inits, ticks, stops;
+    uint32_t every; /* 0: no wake */
+    uint32_t last;
+} sva, svb;
+
+static void sa_init(uint32_t now) { (void)now; sva.inits++; }
+static uint32_t sa_tick(uint32_t now)
+{
+    sva.ticks++;
+    sva.last = now;
+    return sva.every ? dx_ticks_add(now, sva.every) : 0;
+}
+static void sa_stop(void) { sva.stops++; }
+static uint32_t sb_tick(uint32_t now)
+{
+    svb.ticks++;
+    svb.last = now;
+    return svb.every ? dx_ticks_add(now, svb.every) : 0;
+}
+
+static const dx_service_t svc_a = { "a", sa_init, sa_tick, sa_stop };
+static const dx_service_t svc_b = { "b", NULL, sb_tick, NULL };
+static const dx_service_t *const two[] = { &svc_a, &svc_b };
+
+static void svc_start(dx_app_t *app, uint32_t ticks, uint32_t a, uint32_t b)
+{
+    fake_reset();
+    fake.ticks = ticks;
+    memset(&sva, 0, sizeof(sva));
+    memset(&svb, 0, sizeof(svb));
+    sva.every = a;
+    svb.every = b;
+    start(app);
+    CHECK_INT(dx_app_start_services(app, two, 2), 0);
+    CHECK_INT(sva.inits, 1);
+}
+
+TEST(services_tick_and_the_wait_takes_the_earliest)
+{
+    dx_app_t app;
+
+    svc_start(&app, 1000, 300, 700);
+    dx_app_step(&app); /* both tick at once */
+    CHECK_INT(sva.ticks, 1);
+    CHECK_INT(svb.ticks, 1);
+    CHECK_EQ(fake.last_timeout, 300);
+    fake.ticks = 1299;
+    dx_app_step(&app);
+    CHECK_INT(sva.ticks, 1);
+    CHECK_EQ(fake.last_timeout, 1);
+    fake.ticks = 1300;
+    dx_app_step(&app);
+    CHECK_INT(sva.ticks, 2);
+    CHECK_INT(svb.ticks, 1);
+    CHECK_EQ(fake.last_timeout, 300); /* a at 1600, b at 1700 */
+    fake.ticks = 1700;
+    dx_app_step(&app);
+    CHECK_INT(sva.ticks, 3);
+    CHECK_INT(svb.ticks, 2);
+    CHECK_EQ(fake.last_timeout, 300); /* a at 2000, b at 2400 */
+}
+
+TEST(services_without_a_wake_and_with_the_clock)
+{
+    dx_app_t app;
+
+    svc_start(&app, 1000, 0, 0);
+    dx_app_step(&app);
+    CHECK_INT(sva.ticks, 1);
+    CHECK_EQ(fake.last_timeout, DX_WAIT_FOREVER);
+    dx_app_step(&app);
+    CHECK_INT(sva.ticks, 1);
+    /* A minute change 5 s away comes before a service 9 s away. */
+    svc_start(&app, 1000, 9000, 0);
+    fake.clock_valid = 1;
+    fake.clock = T0; /* 55 s before the minute */
+    dx_app_step(&app);
+    CHECK_EQ(fake.last_timeout, 9000);
+    fake.clock = T0 + 50;
+    dx_app_step(&app);
+    CHECK_EQ(fake.last_timeout, 5000);
+}
+
+TEST(services_tick_after_each_event)
+{
+    dx_app_t app;
+
+    svc_start(&app, 1000, 5000, 0);
+    dx_app_step(&app);
+    CHECK_INT(sva.ticks, 1);
+    fake_push(DX_EV_BUTTON, DX_BTN_UP, DX_PRESS_DOWN);
+    dx_app_step(&app); /* takes the event */
+    fake.ticks = 1010;
+    dx_app_step(&app);
+    CHECK_INT(sva.ticks, 2);
+    CHECK_INT(svb.ticks, 2);
+    CHECK_INT(sva.last, 1010);
+}
+
+TEST(services_across_the_tick_wrap)
+{
+    dx_app_t app;
+
+    svc_start(&app, 0x7fffff00u, 0x200, 0);
+    dx_app_step(&app);
+    CHECK_INT(sva.ticks, 1);
+    CHECK_EQ(fake.last_timeout, 0x200);
+    fake.ticks = 0xffu; /* wrapped, 1 ms early */
+    dx_app_step(&app);
+    CHECK_INT(sva.ticks, 1);
+    CHECK_EQ(fake.last_timeout, 1);
+    fake.ticks = 0x100u;
+    dx_app_step(&app);
+    CHECK_INT(sva.ticks, 2);
+    CHECK_EQ(fake.last_timeout, 0x200);
+}
+
+TEST(services_table_checked_and_stopped)
+{
+    dx_app_t app;
+    const dx_service_t *const bad[] = { &svc_a, NULL };
+    static const dx_service_t no_tick = { "x", NULL, NULL, NULL };
+    const dx_service_t *const bad2[] = { &no_tick };
+
+    svc_start(&app, 1000, 0, 0);
+    CHECK_INT(dx_app_start_services(&app, bad, 2), -1);
+    CHECK_INT(dx_app_start_services(&app, bad2, 1), -1);
+    CHECK_INT(dx_app_start_services(&app, two, DX_SERVICES_MAX + 1), -1);
+    CHECK_INT(dx_app_start_services(&app, NULL, 1), -1);
+    CHECK_INT(dx_app_start_services(&app, NULL, 0), 0);
+    CHECK_INT(dx_app_start_services(&app, two, 2), 0);
+    dx_app_stop_services(&app);
+    CHECK_INT(sva.stops, 1);
+    dx_app_step(&app);
+    CHECK_INT(sva.ticks, 0);
+}
+
+static int told_tab = -1;
+
+static void tell(int tab)
+{
+    told_tab = tab;
+}
+
+TEST(set_tab_before_the_first_frame)
+{
+    dx_app_t app;
+
+    fake_reset();
+    start(&app);
+    app.tab_changed = tell;
+    dx_app_set_tab(&app, 4);
+    dx_app_set_tab(&app, 9);
+    dx_app_set_tab(&app, -1);
+    CHECK_INT(app.tab, 4);
+    CHECK_INT(told_tab, 4);
+    dx_app_step(&app);
+    CHECK_STR(fake.log, "deitrix: ready\n");
+    CHECK(fake_find_text("RADIO") != NULL);
+    fake_push(DX_EV_DIAL, 0, 1);
+    dx_app_step(&app);
+    CHECK_INT(told_tab, 0);
+}

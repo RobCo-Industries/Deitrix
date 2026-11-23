@@ -18,6 +18,7 @@ enum {
     DX_LOAD_PARSE,     /* the parser stopped at `line` with `code` */
     DX_LOAD_VERSION,   /* no "version = 1" */
     DX_LOAD_BROKEN,    /* a tune that breaks a rule, at `line` */
+    DX_LOAD_TOO_SMALL, /* a PCM track under 8000 bytes */
 };
 
 typedef struct dx_load {

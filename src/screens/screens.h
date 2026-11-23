@@ -20,4 +20,12 @@ extern const int dx_rom_screen_count;
 /* The body of a screen not built yet: its name in large text and a note. */
 void dx_placeholder_draw(const dx_ctx_t *ctx, dx_rect_t area, const char *name);
 
+/* Up to two lines from the model under the note. NULL draws nothing. */
+void dx_placeholder_lines(const dx_ctx_t *ctx, dx_rect_t area, const char *a, const char *b);
+
+/* "<file> missing", "<file> line N" and the like for a file that did
+ * not load, into buf of `cap` bytes. Returns buf. */
+struct dx_load;
+const char *dx_placeholder_reason(const struct dx_load *ld, const char *file, char *buf, int cap);
+
 #endif

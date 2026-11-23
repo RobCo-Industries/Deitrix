@@ -144,7 +144,7 @@ void dx_radio_set_pcm(dx_radio_t *r, int i, int32_t size)
     if ((uint32_t)size > DX_PCM_MAX) {
         s->file_load.status = DX_LOAD_TOO_LARGE;
     } else if ((uint32_t)size < DX_PCM_MIN) {
-        s->file_load.status = DX_LOAD_BROKEN;
+        s->file_load.status = DX_LOAD_TOO_SMALL;
     } else {
         s->playable = 1;
     }

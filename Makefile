@@ -77,7 +77,7 @@ HOST_INCLUDES := src $(BUILD)/gen
 include $(ROBCO_CORE)/mk/host.mk
 
 # host.mk only sees the headers at the top of src/.
-$(HOST_TESTS): $(wildcard src/*/*.h) tests/host/fake_platform.h $(EXPECT_H)
+$(HOST_TESTS): $(wildcard src/*/*.h) tests/host/fake_platform.h $(EXPECT_H) $(wildcard tests/host/*.inc)
 
 # QEMU runs and builds below share build/; keep top-level goals serial.
 .NOTPARALLEL:

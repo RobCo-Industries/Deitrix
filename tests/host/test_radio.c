@@ -92,7 +92,7 @@ TEST(availability)
     CHECK_EQ(r.stations[1].playable, 1);
     dx_radio_set_pcm(&r, 1, 7999);
     CHECK_EQ(r.stations[1].playable, 0);
-    CHECK_EQ(r.stations[1].file_load.status, DX_LOAD_BROKEN);
+    CHECK_EQ(r.stations[1].file_load.status, DX_LOAD_TOO_SMALL);
     dx_radio_set_pcm(&r, 1, 2097153);
     CHECK_EQ(r.stations[1].playable, 0);
     CHECK_EQ(r.stations[1].file_load.status, DX_LOAD_TOO_LARGE);

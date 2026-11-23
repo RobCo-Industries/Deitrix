@@ -4,10 +4,12 @@
  */
 #include "app.h"
 
+#include "content.h"
 #include "model/clock.h"
 #include "model/nav.h"
 #include "platform/platform.h"
 #include "screens/screens.h"
+#include "services/services.h"
 #include "ui/frame.h"
 
 #define LOG_MAX 32
@@ -66,8 +68,75 @@ int dx_app_init(dx_app_t *app, const dx_screen_t *const *screens, int count)
     app->drawn_tab = -1;
     app->drawn_min = DX_CLOCK_NONE;
     app->dirty = 0;
+    app->services = NULL;
+    app->service_count = 0;
+    app->tab_changed = NULL;
     enter(app);
     return 0;
+}
+
+int dx_app_start_services(dx_app_t *app, const dx_service_t *const *services, int count)
+{
+    uint32_t now = dx_plat_ticks();
+    int i;
+
+    if (count < 0 || count > DX_SERVICES_MAX || (count > 0 && services == NULL)) {
+        return -1;
+    }
+    for (i = 0; i < count; i++) {
+        if (services[i] == NULL || services[i]->tick == NULL) {
+            return -1;
+        }
+    }
+    app->services = services;
+    app->service_count = count;
+    for (i = 0; i < count; i++) {
+        if (services[i]->init != NULL) {
+            services[i]->init(now);
+        }
+        app->svc_on[i] = 1;
+        app->svc_wake[i] = now;
+    }
+    return 0;
+}
+
+void dx_app_stop_services(dx_app_t *app)
+{
+    int i;
+
+    for (i = app->service_count - 1; i >= 0; i--) {
+        if (app->services[i]->stop != NULL) {
+            app->services[i]->stop();
+        }
+        app->svc_on[i] = 0;
+    }
+}
+
+/* Every service runs on the next step: an event may have changed what
+ * it watches. */
+static void wake_services(dx_app_t *app)
+{
+    uint32_t now = dx_plat_ticks();
+    int i;
+
+    for (i = 0; i < app->service_count; i++) {
+        app->svc_on[i] = 1;
+        app->svc_wake[i] = now;
+    }
+}
+
+static void tick_services(dx_app_t *app, uint32_t ticks)
+{
+    int i;
+
+    for (i = 0; i < app->service_count; i++) {
+        if (app->svc_on[i] && dx_ticks_due(ticks, app->svc_wake[i])) {
+            uint32_t next = app->services[i]->tick(ticks);
+
+            app->svc_on[i] = next != 0;
+            app->svc_wake[i] = next;
+        }
+    }
 }
 
 static void log_tab(const char *name)
@@ -133,7 +202,18 @@ static int change_tab(dx_app_t *app, int32_t delta)
     }
     app->tab = next;
     enter(app);
+    if (app->tab_changed != NULL) {
+        app->tab_changed(next);
+    }
     return 1;
+}
+
+void dx_app_set_tab(dx_app_t *app, int tab)
+{
+    if (app->screens == NULL || tab < 0 || tab >= app->count || tab == app->tab) {
+        return;
+    }
+    change_tab(app, tab - app->tab);
 }
 
 void dx_app_route(dx_app_t *app, const dx_ui_event_t *ev)
@@ -162,29 +242,38 @@ void dx_app_route(dx_app_t *app, const dx_ui_event_t *ev)
         }
     }
     dx_ui_sound(dx_ui_sound_for(ev, result, changed));
+    wake_services(app);
 }
 
-/* The wait until the next minute change or the screen's wake time,
- * from the clocks read now. 0 when either has already passed. */
+/* The time from ticks to a wake time: 0 when it has passed. */
+static uint32_t until(uint32_t ticks, uint32_t wake)
+{
+    /* The counter wraps at 2^31: see dx_ticks_since in ui.h. */
+    return dx_ticks_due(ticks, wake) ? 0 : dx_ticks_since(ticks, wake);
+}
+
+/* The wait until the next minute change, the screen's wake time or a
+ * service's, from the clocks read now. 0 when one has already passed. */
 static uint32_t wait_time(const dx_app_t *app)
 {
     uint32_t now = 0;
     int valid = dx_plat_time(&now);
     uint32_t ticks = dx_plat_ticks();
     uint32_t timeout;
+    uint32_t t;
+    int i;
 
     if (dx_clock_minute(valid, now) != app->drawn_min) {
         timeout = 0; /* the minute changed during the tick or the draw */
     } else {
         timeout = valid ? dx_clock_wait_ms(now) : DX_WAIT_FOREVER;
     }
-    if (app->wake_on) {
-        /* The counter wraps at 2^31: see dx_ticks_since in ui.h. */
-        uint32_t until = dx_ticks_due(ticks, app->wake)
-                             ? 0 : dx_ticks_since(ticks, app->wake);
-
-        if (until < timeout) {
-            timeout = until;
+    if (app->wake_on && (t = until(ticks, app->wake)) < timeout) {
+        timeout = t;
+    }
+    for (i = 0; i < app->service_count; i++) {
+        if (app->svc_on[i] && (t = until(ticks, app->svc_wake[i])) < timeout) {
+            timeout = t;
         }
     }
     return timeout;
@@ -201,6 +290,7 @@ void dx_app_step(dx_app_t *app)
     dx_ui_event_t uev;
 
     app->ctx.now_ms = ticks;
+    tick_services(app, ticks);
     if (app->wake_on && dx_ticks_due(ticks, app->wake)) {
         unsigned flags = 0;
         uint32_t next = s->tick(s->st, ticks, &flags);
@@ -221,10 +311,20 @@ void dx_app_step(dx_app_t *app)
     }
 }
 
+static const dx_service_t *const rom_services[] = { &dx_service_radio, &dx_service_autosave };
+
+static void remember_tab(int tab)
+{
+    dx_settings_set_tab(dx_content_settings(), tab);
+}
+
 void dx_main(void)
 {
     static dx_app_t app;
+    int32_t volume;
 
+    /* The platform and the theme, then the content, then the saves on
+     * top. The level Pip-OS had at start is the volume default. */
     if (dx_app_init(&app, dx_rom_screens, dx_rom_screen_count) != 0) {
         /* A table the header cannot draw: stop here, the log says why. */
         for (;;) {
@@ -233,6 +333,15 @@ void dx_main(void)
             dx_plat_wait(&ev, DX_WAIT_FOREVER);
         }
     }
+    dx_content_load();
+    volume = dx_plat_volume(100);
+    dx_content_load_saves(volume < 0 ? 100 : (uint8_t)volume);
+    dx_radio_attach(dx_content_radio());
+    dx_autosave_attach(dx_content_settings(), dx_content_items());
+    dx_app_start_services(&app, rom_services,
+                          (int)(sizeof(rom_services) / sizeof(rom_services[0])));
+    dx_app_set_tab(&app, dx_content_settings()->last_tab);
+    app.tab_changed = remember_tab;
     for (;;) {
         dx_app_step(&app);
     }
