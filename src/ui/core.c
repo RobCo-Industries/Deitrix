@@ -35,7 +35,7 @@ int dx_ticks_due(uint32_t now, uint32_t wake)
 int dx_ui_translate(const dx_event_t *ev, dx_ui_event_t *out)
 {
     static const int buttons[] = {
-        DX_UI_UP, DX_UI_DOWN, DX_UI_LEFT, DX_UI_RIGHT, DX_UI_SELECT, DX_UI_SELECT,
+        DX_UI_UP, DX_UI_DOWN, DX_UI_LEFT, DX_UI_RIGHT, DX_UI_SELECT, DX_UI_SELECT, DX_UI_BACK,
     };
 
     out->repeat = 0;
@@ -48,7 +48,7 @@ int dx_ui_translate(const dx_event_t *ev, dx_ui_event_t *out)
         out->delta = ev->value;
         return 1;
     }
-    if (ev->type != DX_EV_BUTTON || ev->code > DX_BTN_DIAL) {
+    if (ev->type != DX_EV_BUTTON || ev->code > DX_BTN_BACK) {
         return 0;
     }
     if (ev->value != DX_PRESS_DOWN && ev->value != DX_PRESS_REPEAT) {

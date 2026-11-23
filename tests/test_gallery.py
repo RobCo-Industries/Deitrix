@@ -141,6 +141,42 @@ def test_gallery_detail(board, kernel_image, gallery_card, tmp_path, need_mtools
         no_exception(vm)
 
 
+def wait_back(vm, before):
+    """Waits for the back line after `before` of them, returns its row."""
+    return wait_count(vm, BACK, before + 1)[-1]
+
+
+def test_gallery_back_button(board, kernel_image, gallery_card, tmp_path, need_mtools):
+    """The Back button, ABI 1.2's button 6, goes back like LEFT: from the
+    script channel and from Backspace on the console. At the top level
+    it does not change the tab."""
+    with boot_rom(kernel_image, board, sd=gallery_card) as vm:
+        wait_ready(vm)
+        assert key(vm, "down", SEL) == ("1", "0")
+        assert key(vm, "select", DETAIL) == "1"
+        script(vm, "key back 1")
+        script(vm, "key back 0")
+        assert wait_back(vm, 0) == "1"
+        assert tabs(vm) == [], vm.serial
+        # Back at the list: the selection is kept, UP moves it.
+        assert key(vm, "up", SEL) == ("0", "0")
+        # Backspace on the console is Back too.
+        assert key(vm, "select", DETAIL) == "0"
+        vm.send("\x7f")
+        assert wait_back(vm, 1) == "0"
+        assert tabs(vm) == [], vm.serial
+        # At the top level the shell ignores Back. UP at row 0 logs the
+        # list end after it, so the Back press was taken by then.
+        press(vm, "back")
+        assert key(vm, "up", LIST_END) == "0"
+        vm.send("\x7f")
+        assert key(vm, "up", LIST_END) == "0"
+        assert tabs(vm) == [], vm.serial
+        assert len(BACK.findall(vm.serial)) == 2, vm.serial
+        golden(screenshot(vm, tmp_path), "gallery_list")
+        no_exception(vm)
+
+
 # The kernel repeats a held key first 500 ms after the press, then every
 # 100 ms. Held for HOLD_S, the list gets the press and, without a stall,
 # at least (HOLD_S - 0.5) / 0.1 repeats: 11 here, more than the list has.

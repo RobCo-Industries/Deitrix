@@ -80,6 +80,7 @@ TEST(translate_buttons)
         { DX_BTN_UP, DX_UI_UP },         { DX_BTN_DOWN, DX_UI_DOWN },
         { DX_BTN_LEFT, DX_UI_LEFT },     { DX_BTN_RIGHT, DX_UI_RIGHT },
         { DX_BTN_SELECT, DX_UI_SELECT }, { DX_BTN_DIAL, DX_UI_SELECT },
+        { DX_BTN_BACK, DX_UI_BACK },
     };
     dx_ui_event_t e;
     unsigned i;
@@ -105,7 +106,7 @@ TEST(translate_dial_and_unknown)
     CHECK_INT(tr(DX_EV_DIAL, 0, -1, &e), 1);
     CHECK_INT(e.delta, -1);
     CHECK_INT(tr(DX_EV_DIAL, 0, 0, &e), 0);
-    CHECK_INT(tr(DX_EV_BUTTON, 6, DX_PRESS_DOWN, &e), 0);
+    CHECK_INT(tr(DX_EV_BUTTON, 7, DX_PRESS_DOWN, &e), 0);
     CHECK_INT(tr(DX_EV_BUTTON, 0xffffffffu, DX_PRESS_DOWN, &e), 0);
     CHECK_INT(tr(DX_EV_BUTTON, DX_BTN_UP, 3, &e), 0);
     CHECK_INT(tr(7, DX_BTN_UP, DX_PRESS_DOWN, &e), 0);

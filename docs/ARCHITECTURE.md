@@ -50,15 +50,17 @@ The host fake gives a recorder instead. Each call becomes one line of a draw lis
 
 ### Events and routing
 
-`dx_ui_translate()` turns a Pip-OS event into a `dx_ui_event_t`. A press gives an event and a repeat gives one with `repeat` set. A release gives none. A dial turn gives `DX_UI_DIAL` with its detents in `delta`. The dial push is SELECT.
+`dx_ui_translate()` turns a Pip-OS event into a `dx_ui_event_t`. A press gives an event and a repeat gives one with `repeat` set. A release gives none. A dial turn gives `DX_UI_DIAL` with its detents in `delta`. The dial push is SELECT. Button 6, the Back button of ABI 1.2, gives `DX_UI_BACK`.
 
-`DX_UI_BACK` exists, but no Pip-OS input produces it yet. ABI 1.1 does not pass the Back button to a ROM. A later ABI adds it as button 6. Until then the navigation rule is:
+The navigation rule:
 
-- In a detail view or any nested level, LEFT means "back one level". The screen handles it. It handles RIGHT too, so neither key changes the tab.
-- At the top level of a tab, LEFT and RIGHT move between sub-tabs. When the screen ignores them, the shell changes the tab.
+- In a detail view or any nested level, BACK and LEFT both mean "back one level". The screen handles them. It handles RIGHT too, so no key changes the tab there.
+- At the top level of a tab, LEFT and RIGHT move between sub-tabs. When the screen ignores them, the shell changes the tab. The shell ignores BACK, so BACK never changes the tab. An ignored BACK plays the deny sound, like an ignored UP, DOWN or SELECT.
 - The dial push is SELECT. A dial turn always changes the tab.
 
-A screen that keeps a depth tests `dx_ui_is_back()`. It is true for `DX_UI_BACK` and for LEFT, repeats too. Such a screen gets the Back button for free once it exists. The translator still maps LEFT to `DX_UI_LEFT` only.
+A screen that keeps a depth tests `dx_ui_is_back()`. It is true for `DX_UI_BACK` and for LEFT, repeats too. So a device with a Back button and the QEMU console behave the same. On the console, Backspace or a lone Escape is Back, and LEFT works too.
+
+The SDK seals the ROM for ABI 1.2. The loader checks only the major version, so the ROM still runs on a 1.0 or 1.1 Pip-OS. That Pip-OS never sends button 6, and LEFT is the only way back.
 
 The app shell routes each event:
 
@@ -162,7 +164,7 @@ The list, text, gauge, key and value, and sub-tab widgets are structs the screen
 
 ### The widget gallery
 
-`make gallery` builds a second ROM into `build/gallery/`, with its own card at `build/gallery/pipos/sd.img`. It is for the QEMU tests only and never goes on the default card. `tests/gallery/gallery.c` replaces `src/screens/` with one screen per widget, so the same app shell runs it: LIST, TEXT, BAR, KV, TABS, ICON and FONT. The sample data is fixed. SELECT on a LIST row opens its detail, one level down, and LEFT comes back. Each list and text move and each detail key logs a `gallery:` line for the tests.
+`make gallery` builds a second ROM into `build/gallery/`, with its own card at `build/gallery/pipos/sd.img`. It is for the QEMU tests only and never goes on the default card. `tests/gallery/gallery.c` replaces `src/screens/` with one screen per widget, so the same app shell runs it: LIST, TEXT, BAR, KV, TABS, ICON and FONT. The sample data is fixed. SELECT on a LIST row opens its detail, one level down, and BACK or LEFT comes back. Each list and text move and each detail key logs a `gallery:` line for the tests.
 
 ## Planned
 

@@ -11,7 +11,8 @@
 
 /* Event types, button codes and press values, as in Pip-OS's ABI. */
 enum { DX_EV_NONE = 0, DX_EV_BUTTON = 1, DX_EV_DIAL = 2 };
-enum { DX_BTN_UP, DX_BTN_DOWN, DX_BTN_LEFT, DX_BTN_RIGHT, DX_BTN_SELECT, DX_BTN_DIAL };
+/* DX_BTN_BACK is new in ABI 1.2: a 1.0 or 1.1 Pip-OS never sends it. */
+enum { DX_BTN_UP, DX_BTN_DOWN, DX_BTN_LEFT, DX_BTN_RIGHT, DX_BTN_SELECT, DX_BTN_DIAL, DX_BTN_BACK };
 enum { DX_PRESS_RELEASE = 0, DX_PRESS_DOWN = 1, DX_PRESS_REPEAT = 2 };
 
 typedef struct dx_event {
