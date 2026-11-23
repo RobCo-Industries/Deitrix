@@ -75,20 +75,23 @@ $(HOST_TESTS): $(wildcard src/*/*.h) tests/host/fake_platform.h
 
 # ---- The card tree: content/ plus the generated radio tracks ------------
 
-# tools/mkpcm.py writes the two .PCM tracks; they are not in git. The
-# stamp sits outside the tree so it never reaches the card.
-CARD_TREE     := $(BUILD)/card
-CARD_STAMP    := $(BUILD)/card.stamp
-CONTENT_FILES := $(shell find content -type f)
+# tools/mkpcm.py writes the two .PCM tracks into build/pcm/; they are not
+# in git. The card tree is copied again on every run, so an edit in
+# content/ always reaches it, even within the same second.
+CARD_TREE  := $(BUILD)/card
+PCM_DIR    := $(BUILD)/pcm
+PCM_STAMP  := $(PCM_DIR)/.stamp
+
+$(PCM_STAMP): tools/mkpcm.py
+	$(PYTHON) tools/mkpcm.py $(PCM_DIR)
+	touch $@
 
 .PHONY: card-tree
-card-tree: $(CARD_STAMP)
-$(CARD_STAMP): $(CONTENT_FILES) tools/mkpcm.py
+card-tree: $(PCM_STAMP)
 	rm -rf $(CARD_TREE)
 	mkdir -p $(CARD_TREE)
 	cp -R content/. $(CARD_TREE)/
-	$(PYTHON) tools/mkpcm.py $(CARD_TREE)/PIPBOY/DATA/RADIO
-	touch $@
+	cp $(PCM_DIR)/*.PCM $(CARD_TREE)/PIPBOY/DATA/RADIO/
 
 # ---- Pip-OS: kernel, card, QEMU, real card --------------------------------
 
@@ -105,15 +108,15 @@ CARD        := $(PIPOS_BUILD)/sd.img
 kernel:
 	$(PIPOS_MAKE) $(KERNEL)
 
-sdimage: all $(CARD_STAMP)
+sdimage: all card-tree
 	$(PIPOS_MAKE) sdimage $(CARD_VARS)
 
-run: all $(CARD_STAMP)
+run: all card-tree
 	$(PIPOS_MAKE) run $(CARD_VARS) BOARD=$(BOARD) WINDOW=$(WINDOW)
 
 # Pip-OS's bootdir builds all of Pip-OS first, then writes the kernel,
 # config.txt, the firmware and a sample PIPOS.CFG. Deitrix adds its files.
-bootdir: all $(CARD_STAMP)
+bootdir: all card-tree
 	$(if $(strip $(DIR)),,$(error DIR is not set: make bootdir DIR=<path>))
 	$(PIPOS_MAKE) bootdir DIR=$(abspath $(DIR)) $(if $(FIRMWARE),FIRMWARE=$(FIRMWARE))
 	cp -R $(CARD_TREE)/. $(DIR)/
@@ -129,7 +132,7 @@ gallery:
 
 # Run by `make gallery`, with BUILD=build/gallery: its card is
 # build/gallery/pipos/sd.img.
-gallery-card: all $(CARD_STAMP)
+gallery-card: all card-tree
 	$(if $(filter 1,$(GALLERY)),,$(error run make gallery))
 	$(PIPOS_MAKE) sdimage $(CARD_VARS)
 
@@ -152,7 +155,7 @@ pbm2c-test:
 sdimage-test: sdimage
 	tests/host/sdimage_test.sh $(CARD) $(PIP_OUT) $(CARD_TREE)
 
-check-content: $(CARD_STAMP)
+check-content: card-tree
 	$(PYTHON) tools/check_content.py $(CARD_TREE)
 
 # The tests of the Python tools: unittest, so no pytest is needed.
