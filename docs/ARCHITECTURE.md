@@ -6,15 +6,25 @@ Deitrix is one ROM image. Pip-OS loads it at `0x00400000`, starts it in user mod
 
 ### `src/main.c`
 
-The entry and the main loop. `dx_main()` runs `dx_app_step()` forever. `src/app.h` declares the loop's state, so the host tests can run it one step at a time.
+The entry and the main loop. `dx_main()` starts the ROM, then runs `dx_app_step()` forever. `src/app.h` declares the loop's state and the service interface, so the host tests can run it one step at a time.
+
+### `src/content.c`
+
+The one copy of the model the ROM keeps. `dx_content_load()` reads every content file once at start, `dx_content_load_saves()` applies the saves on top. Screens read the model through small accessors, such as `dx_content_items()`. See [The data model](#the-data-model).
 
 ### `src/platform/`
 
-The only code that calls Pip-OS. `platform.c` defines `pip_main()` and wraps the system calls Deitrix uses behind `platform.h`: the scheme colour, the clock, the tick counter, `wait_event`, `log`, `tone` and the drawing table. Nothing outside this folder includes `<pipos/pip.h>`. The host tests link `tests/host/fake_platform.c` in its place.
+The only code that calls Pip-OS. `platform.c` defines `pip_main()` and wraps the system calls Deitrix uses behind `platform.h`: the scheme colour, the clock, the tick counter, `wait_event`, `log`, `tone`, the drawing table, whole-file reads, file handles, `dir_list`, the saves, the audio calls and the system information. It also wraps two libpip functions, `pip_ini_parse` and `pip_crc32`, as `dx_ini_parse` and `dx_crc32`. Nothing outside this folder includes a `<pipos/...>` header.
+
+The host tests link `tests/host/fake_platform.c` in its place. It has an in-memory card, a save store, a recorded audio voice that plays against its tick counter, and a settable clock. Its `dx_ini_parse` and `dx_crc32` call RobCo-Core's `ini.c` and `crc32.c`, the code libpip wraps, so the host tests run the same parser as the ROM.
 
 ### `src/model/`
 
-Pure data code, with no drawing and no system calls. `nav.c` moves between tabs with wrap-around. `clock.c` turns Unix seconds into the minute of the day, its `HH:MM` text and the wait to the next minute.
+Pure data code, with no drawing and no system calls. `nav.c` moves between tabs with wrap-around. `clock.c` turns Unix seconds into the minute of the day, its `HH:MM` text and the wait to the next minute. The other files are the data model: see [The data model](#the-data-model).
+
+### `src/services/`
+
+The background services: the radio and the autosave. See [Services](#services).
 
 ### `src/ui/`
 
@@ -22,7 +32,7 @@ The UI framework: the core types in `ui.h`, the frame every tab shares, and the 
 
 ### `src/screens/`
 
-One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. Today each draws the shared placeholder from `placeholder.c`: the tab's name in large text and "Not built yet."
+One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. Today each draws the shared placeholder from `placeholder.c`: the tab's name in large text, "Not built yet." and one or two lines from the model, such as "14 items in 4 categories". SELECT on RADIO cycles the radio: off, station 1, station 2 and so on, then off.
 
 ### `assets/`
 
@@ -73,7 +83,7 @@ A tab change calls `leave` on the old screen and `enter` on the new one, then re
 
 ### Sounds
 
-`dx_ui_sound()` plays a short tone through the platform: MOVE, SELECT, BACK or DENY. `dx_ui_sound_for()` picks it: MOVE for a tab change or a handled key that changed the screen, SELECT or BACK when the screen handled one, and DENY for UP, DOWN, SELECT or BACK that the screen ignored on a fresh press. Repeats never deny. `DX_UI_SOUND` in `ui.h` turns every tone off when set to 0.
+`dx_ui_sound()` plays a short tone through the platform: MOVE, SELECT, BACK or DENY. It plays nothing when the owner turned UI sounds off in the settings, or while the radio plays. `dx_ui_sound_for()` picks it: MOVE for a tab change or a handled key that changed the screen, SELECT or BACK when the screen handled one, and DENY for UP, DOWN, SELECT or BACK that the screen ignored on a fresh press. Repeats never deny. `DX_UI_SOUND` in `ui.h` turns every tone off when set to 0.
 
 ### Layout
 
@@ -139,10 +149,10 @@ const dx_screen_t dx_screen_count = { "COUNT", NULL, NULL, event, NULL, draw, NU
 Each step of `dx_app_step()`:
 
 1. Reads the clock and the tick counter. Without a clock, the minute is "none".
-2. Calls the screen's `tick` when its wake time has passed.
+2. Calls each service's `tick`, then the screen's `tick`, when their wake times have passed.
 3. Redraws when the tab or the minute changed or a screen asked for it: clear, header, body inside the clip, footer, then one `present`.
 4. Logs on serial after the `present`: `deitrix: ready` after the first frame, `deitrix: tab=<NAME>` after a frame for a new tab.
-5. Reads the clock and the tick counter again, since the tick and the draw take time. Waits in `wait_event` until the earlier of the next whole minute and the screen's wake time, or with no timeout when there is neither. When the minute changed or the wake time passed during the draw, the timeout is 0 and the next step starts at once. The loop compares and subtracts ticks only through `dx_ticks_due` and `dx_ticks_since`, which mask the difference to 31 bits as the Pip-OS ABI asks.
+5. Reads the clock and the tick counter again, since the tick and the draw take time. Waits in `wait_event` until the earliest of the next whole minute, the screen's wake time and the services' wake times, or with no timeout when there is none. When the minute changed or the wake time passed during the draw, the timeout is 0 and the next step starts at once. The loop compares and subtracts ticks only through `dx_ticks_due` and `dx_ticks_since`, which mask the difference to 31 bits as the Pip-OS ABI asks.
 6. Translates the event and routes it.
 
 The clock has whole seconds only, so the wait can end up to 1 s before the minute changes. Then the next step sees the same minute, does not redraw, and waits again, at most 1 s. The time is shown in UTC: Pip-OS has no time zone.
@@ -166,11 +176,75 @@ The list, text, gauge, key and value, and sub-tab widgets are structs the screen
 
 `make gallery` builds a second ROM into `build/gallery/`, with its own card at `build/gallery/pipos/sd.img`. It is for the QEMU tests only and never goes on the default card. `tests/gallery/gallery.c` replaces `src/screens/` with one screen per widget, so the same app shell runs it: LIST, TEXT, BAR, KV, TABS, ICON and FONT. The sample data is fixed. SELECT on a LIST row opens its detail, one level down, and BACK or LEFT comes back. Each list and text move and each detail key logs a `gallery:` line for the tests.
 
+## The data model
+
+### Modules
+
+Each content file has one module in `src/model/`. Each has a `load` function that takes the file's bytes, or the error from `dx_plat_read_file`, and fills a struct with fixed tables sized from the limits in [CONTENT.md](CONTENT.md). Nothing is allocated. A file that is ignored leaves its struct empty, with the reason in its `dx_load_t`: missing, too large, a read error, a parse error and its line, or a bad version.
+
+| Module | File | What it keeps |
+|---|---|---|
+| `profile.c` | PROFILE.INI | The owner's name and line, up to 6 gauges, 12 attributes and 8 about lines |
+| `items.c` | ITEMS.INI | Up to 5 categories and 64 items. The overlay: a count and a marked flag per item. `dx_items_set_count`, `dx_items_add` and `dx_items_toggle_marked` change it, `dx_items_total` sums a category |
+| `notes.c` | NOTES/ | Up to 32 notes in name order, each with its file name and title. `dx_notes_body` turns a note's bytes into its body |
+| `map.c` | MAP.INI | The local and world maps: box, title, up to 64 lines and 24 places each. `dx_map_fit` fits a box into a pixel rectangle |
+| `radio.c` | RADIO.INI and RADIO/ | Up to 6 stations. A tune's notes, parsed once by `dx_tun_parse`. Whether each station can play |
+| `saves.c` | DEITRIX.SAV, INV.SAV | The settings, and the encoding and decoding of both saves |
+| `load.c` | all INI files | The shared INI loading: the size, the parse, the version key, the reason text |
+| `util.c` | | Strings, numbers and names, with no C library |
+
+The INI modules use one rule for repeats: keys arrive in file order and the last one wins. So a repeated `g1` replaces the first, even when it is bad. A repeated section merges.
+
+The overlay and the settings each keep a `changes` counter. Every change that alters a value adds one. The autosave service watches the counters.
+
+`dx_map_fit` uses integers only. It picks the smaller of the two scales, `(w - 1) / box width` and `(h - 1) / box height`, as a fraction `num / den`. It centres the box on the other side. `dx_map_to_px` rounds each point to the nearest pixel, so the corners land on the rectangle's edges.
+
+### Loading at start
+
+`dx_content_load()` reads the files in this order: PROFILE.INI, ITEMS.INI, the notes, MAP.INI, RADIO.INI, then each station's file. Each file is independent: one that is ignored does not stop the others. Every file but a PCM track goes through one static 32 KiB buffer. The notes list comes from `dir_list`, 16 entries per call; the ROM reads each listed note once for its title. A PCM station takes its size from the listing of `RADIO/` and is not read at start.
+
+Each file logs one line on serial:
+
+```
+deitrix: load ITEMS.INI items=14 categories=4
+deitrix: load MAP.INI ignored: bad version
+deitrix: load RADIO/HEARTH.PCM bytes=256000
+deitrix: load DEITRIX.SAV ok tab=4 volume=80 sound=1 station=1
+```
+
+### Startup order
+
+`dx_main()` starts the ROM in this order:
+
+1. The app shell: the drawing table and the theme, then the screen table check.
+2. The content, as above.
+3. The saves, on top of the content. The volume default is the level Pip-OS had at start. The volume and the UI sound setting apply at once.
+4. The services: the radio and the autosave.
+5. The tab from the settings. Then the first frame and `deitrix: ready`.
+
+## Services
+
+A service is a `dx_service_t`: a name, `init`, `tick` and `stop`. `dx_app_start_services()` takes a table of up to 4. The shell calls a service's `tick` when its wake time passes, and once after every routed event, so a service sees a change at once. `tick` returns the next wake time, built with `dx_ticks_add()`, or 0 for none. The loop's wait is the earliest of the next minute change, the screen's wake time and every service's wake time.
+
+### The radio
+
+The radio plays whatever tab is shown. Its states are off, playing a tune and playing a PCM track. The screen calls `dx_radio_play`, `dx_radio_stop`, `dx_radio_current`, `dx_radio_state` and `dx_radio_set_volume`.
+
+- A tune goes to `play_seq` in one call. The service wakes when the tune's length has passed. If `audio_status` says the sound still plays, it checks again every 50 ms. Then it starts the tune again.
+- A PCM track streams from a file handle kept open. Chunks are 8000 bytes, 1000 ms each at 8000 Hz. The first goes to `sample`, the rest to `sample_queue`. One chunk plays, one waits in Pip-OS and one waits in the ROM's buffer. File handles cannot seek, so at the end of a looping track the ROM closes the file, opens it again and fills the rest of the chunk from the first byte. Every chunk is whole, so the joint has no gap.
+- While a track streams, the service wakes every 250 ms, a quarter of a chunk. `sample_queue` takes a chunk only once the one before starts to play. So the slot opens at most 250 ms before the service fills it, and at least 750 ms of sound are still queued. In the steady state a wake reads at most one chunk from the card.
+- `-PIP_EBUSY` keeps the chunk for the next wake. When `audio_status` says nothing plays before a chunk goes out, the queue ran dry: the service logs `deitrix: radio underrun` and that chunk starts the sound again.
+- A track with `loop = no` ends after its last chunk: the radio goes off.
+
+Pip-OS has one voice, and a UI tone would replace the radio. So while the radio plays, it blocks the UI tones with `dx_ui_sound_block()`. They come back when it stops.
+
+### The autosave
+
+The autosave writes DEITRIX.SAV and INV.SAV when their counters change. It writes 2 s after the last change, and at most 10 s after the first one, so a burst of changes writes once. It writes only the saves that changed. Each write logs `deitrix: save DEITRIX.SAV ok` or `failed`. A failed write is tried again 5 s later. After 3 failed retries it gives up until the next change and logs `deitrix: save gave up`. `dx_autosave_flush()` writes at once; the service's `stop` calls it. A write in QEMU takes 20 to 120 ms, and the UI waits only that long.
+
 ## Planned
 
 These are plans, not code:
 
-- A data model that reads the content files under `/PIPBOY/DATA/`, as [CONTENT.md](CONTENT.md) defines them.
-- Saves through the Pip-OS save calls, with the layouts in [CONTENT.md](CONTENT.md#saves).
 - The five screens with real content: STAT, INV, DATA, MAP and RADIO.
 - A holotape game.

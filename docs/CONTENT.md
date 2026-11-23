@@ -1,6 +1,6 @@
 # Content files
 
-Deitrix reads its content from the SD card and keeps changes in saves. This document is the contract for both. `tools/check_content.py` checks every rule below that a file can break. The ROM code that reads these files does not exist yet. It must follow this document.
+Deitrix reads its content from the SD card and keeps changes in saves. This document is the contract for both. `tools/check_content.py` checks every rule below that a file can break. The ROM's loaders in `src/model/` follow the same rules, and the host tests load every broken tree of the checker's test table through them.
 
 ## Contents
 
@@ -88,11 +88,11 @@ The owner's profile: a name, gauges, attributes and an about text. The ROM adds 
 |---|---|---|---|---|
 | `[owner]` | `name` | text | 1 to 24 characters | Empty: the name row is not shown. Longer: cut. |
 | `[owner]` | `line` | text, a free line under the name | 0 to 38 characters | Longer: cut |
-| `[gauges]` | `g1` to `g6` | `value,max,Name` | `max` 1 to 9999, `value` 0 to `max`, `Name` 1 to 16 characters | `max` not a number or 0: gauge dropped. `value` not a number: gauge dropped. `value` above `max`: clamped to `max`. Name empty: gauge dropped. Longer name: cut. |
-| `[attrs]` | `a1` to `a12` | `value,Name` | `value` 0 to 99, `Name` 1 to 16 characters | `value` not a number: dropped. Above 99: clamped to 99. Name empty: dropped. Longer: cut. |
+| `[gauges]` | `g1` to `g6` | `value,max,Name` | `max` 1 to 9999, `value` 0 to `max`, `Name` 1 to 16 characters | `max` not a number, 0 or above 9999: gauge dropped. Fewer than 3 fields: dropped. `value` not a number: gauge dropped. `value` above `max`: clamped to `max`. Name empty: gauge dropped. Longer name: cut. |
+| `[attrs]` | `a1` to `a12` | `value,Name` | `value` 0 to 99, `Name` 1 to 16 characters | `value` not a number or no `Name` field: dropped. Above 99: clamped to 99. Name empty: dropped. Longer: cut. |
 | `[about]` | `l1` to `l8` | text, one line each | 0 to 38 characters | Longer: cut. An empty line shows as a blank row. |
 
-The gauge's name is its label. The ROM draws the bar from `value` and `max` and may show `value/max` beside it. An empty profile, with no owner, gauge or attribute, still shows the device data.
+The gauge's name is its label. The ROM draws the bar from `value` and `max` and may show `value/max` beside it. An empty profile, with no owner, gauge or attribute, still shows the device data. When a numbered key repeats, the last one wins, even when it is bad: then the entry is dropped.
 
 ```ini
 version = 1
@@ -126,7 +126,7 @@ One key per category, in the order of the sub-tabs: `<key> = <LABEL>`.
 |---|---|---|
 | key | 1 to 12 of `a-z`, `0-9`, `_` | Category dropped |
 | label | 1 to 5 of `A-Z`, shown on the sub-tab | Category dropped, with its items |
-| count | At most 5 | The 6th and later are ignored |
+| count | At most 5 | The 6th and later are ignored. A category with a bad label still takes one of the 5 places. A repeated key keeps its first place and takes the last label. |
 
 ### `[item.<id>]`
 
@@ -137,12 +137,12 @@ One section per item, in the order of the list. `<id>` is 1 to 12 of `a-z`, `0-9
 | `name` | text | 1 to 30 characters | Item dropped | Empty: dropped. Longer: cut. |
 | `cat` | a category key | defined in `[categories]` | Item dropped | Unknown category: item dropped |
 | `count` | integer | 0 to 999 | 1 | Not a number: 1. Above 999: clamped to 999. |
-| `unit` | text after the count, such as `kg` or `pair` | 1 to 6 characters | No unit | Longer: cut |
+| `unit` | text after the count, such as `kg` or `pair` | 1 to 6 characters | No unit | Empty: no unit. Longer: cut. |
 | `weight` | integer, grams | 0 to 999999 | No weight | Not a number or above: no weight |
-| `note` | text for the detail view | 1 to 127 characters | No note | Longer is a parse error |
+| `note` | text for the detail view | 1 to 127 characters | No note | Empty: no note. Longer is a parse error. |
 | `note2` | the rest of the note | 1 to 127 characters | Note is `note` alone | Without `note`: ignored |
 
-The detail view shows `note`, a space, then `note2`, cut to 200 characters. Two keys exist because `ini.c` takes 127 bytes per value. The list row shows the name and, right-aligned, the count and unit, such as `20 m`. The ROM keeps changed counts and a marked flag per item in [INV.SAV](#invsav).
+The detail view shows `note`, a space, then `note2`, cut to 200 characters. `weight` is the weight of the whole entry as the file states it, such as 900 for six apples. A count the owner changes does not scale it. The total of a category adds the weights of its items. Two keys exist because `ini.c` takes 127 bytes per value. The list row shows the name and, right-aligned, the count and unit, such as `20 m`. The ROM keeps changed counts and a marked flag per item in [INV.SAV](#invsav).
 
 ```ini
 version = 1
@@ -170,12 +170,12 @@ unit = l
 
 Plain text files in `/PIPBOY/DATA/NOTES/`.
 
-- Each file is `<NAME>.TXT`. Any other file in the folder is ignored.
+- Each file is `<NAME>.TXT` with an upper-case 8.3 name. Any other file in the folder is ignored and does not count toward the 32.
 - The list is in name order: the byte order of the 8.3 names. Name your files `WALK01.TXT`, `WALK02.TXT` and so on to control it.
 - At most 32 notes. The 33rd in name order and later are not shown.
 - At most 4096 bytes per file. A larger file is not shown.
-- The first line is the title, shown in the list: 1 to 30 characters, not only spaces. A longer title is cut. A note with an empty title is not shown.
-- The rest of the file is the body. The ROM turns CRLF into LF, then shows the body in the text widget, wrapped at 38 columns by `dx_wrap` in `src/ui/text.c`: breaks on spaces, `\n` forces a break, a tab counts as one space, a word longer than a line is split.
+- The first line is the title, shown in the list: 1 to 30 characters, not only spaces and tabs. A longer title is cut. A note with an empty title is not shown.
+- The rest of the file is the body. The ROM reads it when the note opens. It turns CRLF into LF, shows any other control byte but tab as `?`, then shows the body in the text widget, wrapped at 38 columns by `dx_wrap` in `src/ui/text.c`: breaks on spaces, `\n` forces a break, a tab counts as one space, a word longer than a line is split.
 - The body wraps to at most 128 lines, the text widget's `DX_TEXT_MAX_LINES`. A blank line counts as a line. The widget cuts a longer body and shows `[text cut]`. The checker counts lines with the same rules as `dx_wrap`.
 
 ```text
@@ -198,7 +198,7 @@ One or two maps: `local`, and an optional `world`. Each map is drawn from polyli
 
 | Key | Value | Limit | Missing | Bad value |
 |---|---|---|---|---|
-| `title` | text | 1 to 24 characters | The map's name, `local` or `world` | Longer: cut |
+| `title` | text | 1 to 24 characters | The map's name, `local` or `world` | Empty: the map's name. Longer: cut. |
 | `box` | `x0,y0,x1,y1` | each 0 to 999, `x0 < x1`, `y0 < y1` | Map dropped | Map dropped |
 
 A file with neither map is an empty state. With both, the MAP tab shows `local` first.
@@ -330,8 +330,10 @@ Two equal notes in a row sound as one long note, since `play_seq` leaves no gap.
 
 - Raw 8-bit unsigned mono samples at 8000 Hz. 128 is silence. No header.
 - 8000 to 2097152 bytes: 1 second to 262 seconds.
-- The ROM streams the file in chunks of at most 65536 bytes: it plays the first with `sample`, then reads the next into a second buffer and hands it to `sample_queue` while the first plays.
-- A track with `loop = yes` must end where it starts: the last byte and the first byte differ by at most 16. Then the joint sounds like any other pair of samples, with no click.
+- The ROM streams the file in chunks of 8000 bytes, 1 second each. It plays the first with `sample` and hands each next one to `sample_queue`, which copies it, so one buffer is enough. One chunk plays, one waits in Pip-OS and one waits in the ROM.
+- At the end of a track with `loop = yes`, the ROM opens the file again and fills the rest of the chunk from its first byte. So every chunk is whole and the joint has no gap.
+- A track with `loop = yes` must end where it starts: the last byte and the first byte differ by at most 16. Then the joint sounds like any other pair of samples, with no click. The ROM does not check this: it would have to read the whole file at start. A track that breaks it plays with a click.
+- A track under 8000 bytes or above 2097152 bytes is listed and does not play.
 
 The sample tracks `HEARTH.PCM` and `DRIFT.PCM` are 256000 bytes each, 32 seconds. They are not in git: `tools/mkpcm.py` writes them into `build/pcm/`, and `make card-tree` copies them to `build/card/PIPBOY/DATA/RADIO/`.
 
@@ -358,7 +360,7 @@ The settings. `magic` is `DXST`. `count` is 1: one 8-byte record. Total size 20 
 | 12 | 1 | `last_tab` | 0 STAT, 1 INV, 2 DATA, 3 MAP, 4 RADIO | 0 |
 | 13 | 1 | `volume` | 0 to 100, the level for `volume` | The level Pip-OS had at ROM start |
 | 14 | 1 | `ui_sound` | 0 off, 1 on | 1 |
-| 15 | 1 | `last_station` | 1 to 6, the station number, or 0 for none | 0 |
+| 15 | 1 | `last_station` | 1 to 6, the station number, or 0 for none. The RADIO tab starts from it. The radio does not play at start. | 0 |
 | 16 | 4 | `reserved` | 0 | 0 |
 
 ### INV.SAV
@@ -376,19 +378,20 @@ The ROM writes one record per item in ITEMS.INI order, for every item.
 
 ### Reading a save
 
-The ROM never crashes on a save. It reads at most the maximum size, then:
+The ROM never crashes on a save. It reads at most one byte more than the maximum size, so a longer save shows up as the wrong size. Then:
 
 | Case | What the ROM does |
 |---|---|
 | No save | Uses the content defaults |
 | Wrong `magic`, `version` not 1, or `crc` wrong | Ignores the whole save and uses the defaults |
 | Size not `12 + record size * count`, or `count` above its limit | Ignores the whole save |
-| A field out of range | Uses that field's default; the rest of the save stands |
+| A field out of range | Uses that field's default; the rest of the save stands. `reserved` is not read. |
+| INV.SAV record whose `id` has a byte other than NUL after its first NUL | Drops the record |
 | INV.SAV record with an id not in ITEMS.INI | Drops the record. The next write leaves it out. |
 | Item in ITEMS.INI with no record | Uses the count from ITEMS.INI, not marked |
 | Two records with the same id | The first wins |
 
-A save is 1036 bytes at most, well below the 64 KiB limit of Pip-OS. The ROM writes a save only when a value changes, not on every key.
+A save is 1036 bytes at most, well below the 64 KiB limit of Pip-OS. The ROM writes a save only when a value changes, not on every key. It writes 2 seconds after the last change, and at most 10 seconds after the first one, so a burst of changes writes once. A failed write is tried again 5 seconds later, at most 3 times.
 
 ## Tools
 

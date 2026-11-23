@@ -4,19 +4,18 @@ Deitrix is the user environment of a wrist computer, the ROM that [Pip-OS](https
 
 ## Status
 
-Deitrix has a UI framework and five placeholder tabs. It boots on Pip-OS in QEMU and shows one frame:
+Deitrix has a UI framework, a data model and five placeholder tabs. It boots on Pip-OS in QEMU and shows one frame:
 
 - a tab bar with STAT, INV, DATA, MAP and RADIO, the active tab drawn as a filled block;
 - the time as `HH:MM` in UTC at the top right, or `--:--` when Pip-OS has no clock;
-- the active tab's name and "Not built yet." in the body;
+- the active tab's name, "Not built yet." and a line or two from the content, such as "14 items in 4 categories";
 - a key hint at the bottom.
 
-The dial, LEFT and RIGHT move between tabs and wrap at both ends. BACK and LEFT go back one level in a nested view. Nothing else reacts yet. The framework's widgets run in a test-only gallery ROM until the tabs use them. Nothing has been tried on real hardware.
+At start the ROM loads the content under `/PIPBOY/DATA/` on the card and its two saves. The formats are in [docs/CONTENT.md](docs/CONTENT.md). The dial, LEFT and RIGHT move between tabs and wrap at both ends. BACK and LEFT go back one level in a nested view. SELECT on RADIO cycles the stations: tunes through `play_seq`, PCM tracks streamed in chunks. The radio keeps playing on other tabs. The last tab and station are saved a moment after they change. The framework's widgets run in a test-only gallery ROM until the tabs use them. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
 
 ## Planned, not built
 
-- The five tabs with real content, read from `/PIPBOY/DATA/` on the card. The file formats, the sample content and the save layouts are in [docs/CONTENT.md](docs/CONTENT.md). The ROM does not read them yet.
-- Saves.
+- The five tabs with real content, on top of the data model.
 - A holotape game.
 
 ## Build
