@@ -506,6 +506,7 @@ TEST(autosave_retry_bounded)
     CHECK_INT(fake.save_writes, 4);
     CHECK_INT(wake, 0);
     CHECK_INT(dx_autosave_pending(), 0);
+    CHECK_INT(dx_autosave_unsaved(), 1);
     CHECK(strstr(fake.log, "deitrix: save gave up\n") != NULL);
     /* No screen shows the saves: no redraw, even when it gives up. */
     CHECK_INT(svc_flags, 0);
@@ -520,6 +521,151 @@ TEST(autosave_retry_bounded)
     CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), 0);
     CHECK_INT(fake.save_writes, 6);
     CHECK_INT(fake_find_save("DEITRIX")->data[12], 3);
+}
+
+static int count_in_log(const char *what)
+{
+    int n = 0;
+    const char *p = fake.log;
+
+    while ((p = strstr(p, what)) != NULL) {
+        n++;
+        p += strlen(what);
+    }
+    return n;
+}
+
+/* Runs the service's ticks for `ms`, waking when it asks to. */
+static void run_ticks(uint32_t ms)
+{
+    uint32_t end = fake.ticks + ms;
+
+    while (fake.ticks < end) {
+        uint32_t wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
+
+        fake.ticks = (wake != 0 && wake > fake.ticks && wake < end) ? wake : fake.ticks + 1000;
+    }
+}
+
+/* After the give-up the changes stay unsaved, the ticks stop writing,
+ * and each flush tries once more until the card works again. */
+TEST(autosave_gave_up_keeps_changes_unsaved)
+{
+    int i, writes;
+
+    save_setup();
+    fake.save_fail = 1000000;
+    dx_settings_set_tab(&settings, 1);
+    run_ticks(DX_SAVE_QUIET_MS + DX_SAVE_RETRIES * DX_SAVE_RETRY_MS + 1000);
+    CHECK_INT(fake.save_writes, 1 + DX_SAVE_RETRIES);
+    CHECK_INT(count_in_log("deitrix: save gave up\n"), 1);
+    CHECK_INT(dx_autosave_unsaved(), 1);
+    CHECK_INT(dx_autosave_pending(), 0);
+    /* An hour of ticks writes nothing more. */
+    run_ticks(3600u * 1000u);
+    CHECK_INT(fake.save_writes, 1 + DX_SAVE_RETRIES);
+    CHECK_INT(count_in_log("deitrix: save gave up\n"), 1);
+    /* Each flush makes one attempt and says the change is not saved. */
+    for (i = 0; i < 3; i++) {
+        writes = fake.save_writes;
+        CHECK_INT(dx_autosave_flush(fake.ticks), 1);
+        CHECK_INT(fake.save_writes, writes + 1);
+        CHECK_INT(dx_autosave_unsaved(), 1);
+    }
+    CHECK_INT(count_in_log("deitrix: save gave up\n"), 1);
+    run_ticks(60000);
+    CHECK_INT(fake.save_writes, 1 + DX_SAVE_RETRIES + 3);
+    /* The card works again: the next flush writes it. */
+    fake.save_fail = 0;
+    CHECK_INT(dx_autosave_flush(fake.ticks), 0);
+    CHECK_INT(fake.save_writes, 1 + DX_SAVE_RETRIES + 4);
+    CHECK_INT(dx_autosave_unsaved(), 0);
+    CHECK(fake_find_save("DEITRIX") != NULL && fake_find_save("DEITRIX")->data[12] == 1);
+    CHECK_INT(dx_autosave_flush(fake.ticks), 0);
+    CHECK_INT(fake.save_writes, 1 + DX_SAVE_RETRIES + 4);
+}
+
+/* A new change after a give-up starts a fresh round of retries. */
+TEST(autosave_change_after_give_up_retries_again)
+{
+    save_setup();
+    fake.save_fail = 1000000;
+    dx_settings_set_tab(&settings, 1);
+    run_ticks(DX_SAVE_QUIET_MS + DX_SAVE_RETRIES * DX_SAVE_RETRY_MS + 1000);
+    CHECK_INT(fake.save_writes, 1 + DX_SAVE_RETRIES);
+    dx_settings_set_tab(&settings, 2);
+    CHECK(dx_service_autosave.tick(fake.ticks, &svc_flags) != 0);
+    CHECK_INT(dx_autosave_pending(), 1);
+    run_ticks(DX_SAVE_QUIET_MS + DX_SAVE_RETRIES * DX_SAVE_RETRY_MS + 1000);
+    CHECK_INT(fake.save_writes, 2 * (1 + DX_SAVE_RETRIES));
+    CHECK_INT(count_in_log("deitrix: save gave up\n"), 2);
+    CHECK_INT(dx_autosave_unsaved(), 1);
+    /* A retry that works ends it. */
+    dx_settings_set_tab(&settings, 3);
+    fake.save_fail = 1;
+    run_ticks(DX_SAVE_QUIET_MS + DX_SAVE_RETRY_MS + 1000);
+    CHECK_INT(fake.save_writes, 2 * (1 + DX_SAVE_RETRIES) + 2);
+    CHECK_INT(dx_autosave_unsaved(), 0);
+    CHECK(fake_find_save("DEITRIX") != NULL && fake_find_save("DEITRIX")->data[12] == 3);
+}
+
+/* A save that fails does not hold back the other one. */
+TEST(autosave_saves_are_independent)
+{
+    save_setup();
+    fake.save_fail = 1000000;
+    fake.save_fail_only = DX_SETTINGS_NAME;
+    dx_settings_set_tab(&settings, 1);
+    dx_items_add(&items, 0, 2);
+    run_ticks(DX_SAVE_QUIET_MS + DX_SAVE_RETRIES * DX_SAVE_RETRY_MS + 1000);
+    CHECK(fake_find_save("INV") != NULL);
+    CHECK(fake_find_save("DEITRIX") == NULL);
+    CHECK_INT(count_in_log("deitrix: save INV.SAV ok\n"), 1);
+    CHECK_INT(count_in_log("deitrix: save DEITRIX.SAV failed\n"), 1 + DX_SAVE_RETRIES);
+    CHECK_INT(dx_autosave_unsaved(), 1);
+    /* A new INV change writes INV only: the stalled save waits for a
+     * flush or its own change. */
+    dx_items_add(&items, 0, 1);
+    run_ticks(DX_SAVE_QUIET_MS + 1000);
+    CHECK_INT(count_in_log("deitrix: save INV.SAV ok\n"), 2);
+    CHECK_INT(count_in_log("deitrix: save DEITRIX.SAV failed\n"), 1 + DX_SAVE_RETRIES);
+    CHECK_INT(dx_autosave_flush(fake.ticks), 1);
+    CHECK_INT(count_in_log("deitrix: save DEITRIX.SAV failed\n"), 2 + DX_SAVE_RETRIES);
+    CHECK_INT(count_in_log("deitrix: save INV.SAV ok\n"), 2);
+    fake.save_fail_only = NULL;
+    fake.save_fail = 0;
+}
+
+/* The retries keep their 5 s spacing across the tick wrap, and the
+ * give-up still stops them. */
+TEST(autosave_retries_across_the_tick_wrap)
+{
+    uint32_t wake;
+    int i;
+
+    save_setup();
+    fake.save_fail = 1000000;
+    fake.ticks = DX_TICKS_MASK - DX_SAVE_QUIET_MS - 4998;
+    dx_settings_set_tab(&settings, 1);
+    dx_service_autosave.tick(fake.ticks, &svc_flags);
+    fake.ticks = dx_ticks_add(fake.ticks, DX_SAVE_QUIET_MS);
+    wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
+    CHECK_INT(fake.save_writes, 1);
+    CHECK_INT(wake, 1); /* 5000 ms later, past the wrap */
+    for (i = 0; i < DX_SAVE_RETRIES; i++) {
+        uint32_t before = wake;
+
+        fake.ticks = (before + DX_TICKS_MASK) & DX_TICKS_MASK; /* 1 ms early */
+        CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), before);
+        CHECK_INT(fake.save_writes, 1 + i);
+        fake.ticks = before;
+        wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
+        CHECK_INT(fake.save_writes, 2 + i);
+    }
+    CHECK_INT(wake, 0);
+    CHECK_INT(count_in_log("deitrix: save gave up\n"), 1);
+    CHECK_INT(dx_autosave_unsaved(), 1);
+    fake.save_fail = 0;
 }
 
 TEST(autosave_across_the_tick_wrap)

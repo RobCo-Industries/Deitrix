@@ -186,7 +186,7 @@ static int no_profile(const dx_ctx_t *ctx, dx_rect_t r)
         message(ctx, r, "No profile on the card.", NULL);
     } else {
         message(ctx, r, "The profile was not read.",
-                dx_placeholder_reason(&p->load, "PROFILE.INI", why, sizeof(why)));
+                dx_file_reason(&p->load, "PROFILE.INI", why, sizeof(why)));
     }
     return 1;
 }

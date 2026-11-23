@@ -15,17 +15,16 @@ STAT is built: the owner and gauges, the attributes, and the device data. See [d
 
 INV is built: the items of ITEMS.INI by category, a detail per item, and counts and marks the owner changes, kept in INV.SAV. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#inv).
 
+DATA is built: the notes, the holotape launcher, and the clock with a time setter. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#data).
+
 MAP is built: the local and world maps with their places, and a detail per place. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#map).
 
 RADIO is built: the stations of RADIO.INI, what plays now, the volume and the UI sounds, kept in DEITRIX.SAV. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#radio).
 
-DATA is a placeholder. It shows the tab's name, "Not built yet." and the note count, or why the notes did not load.
-
-At start the ROM loads the content under `/PIPBOY/DATA/` on the card and its two saves. The formats are in [docs/CONTENT.md](docs/CONTENT.md). The dial, LEFT and RIGHT move between tabs and wrap at both ends. BACK and LEFT go back one level in a nested view. SELECT on RADIO cycles the stations: tunes through `play_seq`, PCM tracks streamed in chunks. The radio keeps playing on other tabs. The last tab and station are saved a moment after they change. A test-only gallery ROM shows every widget of the framework. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
+At start the ROM loads the content under `/PIPBOY/DATA/` on the card and its two saves. The formats are in [docs/CONTENT.md](docs/CONTENT.md). The dial, LEFT and RIGHT move between tabs and wrap at both ends. On STAT, INV, DATA and MAP, LEFT and RIGHT move between the sub-tabs first. On RADIO the Volume and UI sounds rows take them. BACK and LEFT go back one level in a nested view. SELECT on RADIO starts or stops the station under the cursor: tunes play through `play_seq`, PCM tracks stream in chunks. The radio keeps playing on other tabs. The last tab and station are saved a moment after they change. A test-only gallery ROM shows every widget of the framework. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
 
 ## Planned, not built
 
-- The five tabs with real content, on top of the data model.
 - A holotape game.
 
 ## Build

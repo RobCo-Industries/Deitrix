@@ -11,14 +11,14 @@ clock tests add QEMU's ds1338 RTC with a fixed start time.
 """
 
 import pathlib
-import re
 import time
 
 from pipos_testing import TIMEOUT, booted, check_golden, no_exception, screenshot, script
+from conftest import serial_line
 
 GOLDEN_DIR = pathlib.Path(__file__).resolve().parent / "golden"
-TAB_LINE = re.compile(r"^deitrix: tab=(\w+)\r?$", re.M)
-READY_LINE = re.compile(r"^deitrix: ready\r?$", re.M)
+TAB_LINE = serial_line(r"deitrix: tab=(\w+)")
+READY_LINE = serial_line(r"deitrix: ready")
 RTC_DEVICE = ["-device", "ds1338,bus=i2c-bus.1,address=0x68"]
 
 

@@ -60,7 +60,7 @@ TEST(no_redraw_without_change)
     fake_reset();
     start(&app);
     dx_app_step(&app);
-    /* Keys the placeholder ignores, a release, then a timeout. */
+    /* Keys STATUS ignores, a release, then a timeout. */
     fake_push(DX_EV_BUTTON, DX_BTN_UP, DX_PRESS_DOWN);
     fake_push(DX_EV_BUTTON, DX_BTN_UP, DX_PRESS_RELEASE);
     dx_app_step(&app);

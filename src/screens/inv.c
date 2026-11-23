@@ -325,7 +325,7 @@ static void draw_empty(const dx_items_t *it, const dx_ctx_t *ctx, dx_rect_t area
 
     dx_text_centered(ctx, y - DX_ROW_H / 2, "No items on the card.", ctx->theme.fg, 1);
     if (it->load.status != DX_LOAD_OK) {
-        dx_placeholder_reason(&it->load, "ITEMS.INI", reason, sizeof(reason));
+        dx_file_reason(&it->load, "ITEMS.INI", reason, sizeof(reason));
         dx_text_centered(ctx, y + DX_ROW_H, reason, ctx->theme.dim, 1);
     }
 }

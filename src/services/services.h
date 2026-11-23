@@ -48,7 +48,8 @@ int dx_radio_failed(void);
 /* ---- Autosave ---------------------------------------------------------- */
 
 /* A save waits for 2 s with no change, and at most 10 s after the first
- * change. A failed write is tried again 5 s later, at most 3 times. */
+ * change. A failed write is tried again 5 s later, at most 3 times.
+ * Then the service stops trying until the next change or flush. */
 #define DX_SAVE_QUIET_MS 2000u
 #define DX_SAVE_MAX_MS   10000u
 #define DX_SAVE_RETRY_MS 5000u
@@ -59,10 +60,14 @@ extern const dx_service_t dx_service_autosave;
 /* The model the autosave watches. Call before the services start. */
 void dx_autosave_attach(dx_settings_t *settings, dx_items_t *items);
 
-/* Writes every changed save now. Returns 0 when nothing is left to write. */
+/* Tries once to write every save not on the card, even after the retries
+ * gave up. Returns 0 when every save is on the card. */
 int dx_autosave_flush(uint32_t now_ms);
 
-/* 1 while a change waits to be written. */
+/* 1 while the service plans to write a change. 0 after it gave up. */
 int dx_autosave_pending(void);
+
+/* 1 while a change is not on the card, even after the retries gave up. */
+int dx_autosave_unsaved(void);
 
 #endif

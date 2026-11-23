@@ -7,16 +7,15 @@ line: the shell draws before it takes the next event. At the list that
 key is Back, in the detail it is RIGHT.
 """
 
-import re
 import time
 
 from test_deitrix import boot_rom, golden, tabs, wait_ready, wait_tabs
 from test_model import card_target, mtools, wait_line
 from pipos_testing import TIMEOUT, no_exception, press, screenshot, script
+from conftest import serial_line
 
-# Whole lines only: the serial buffer can end in the middle of one.
-INV = re.compile(r"^deitrix: inv (.*?)\r?\n", re.M)
-COUNT = re.compile(r"^deitrix: inv count=(\d+)\r?\n", re.M)
+INV = serial_line(r"deitrix: inv (.*?)")
+COUNT = serial_line(r"deitrix: inv count=(\d+)")
 
 
 def inv_lines(vm):

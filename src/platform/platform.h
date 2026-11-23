@@ -153,6 +153,53 @@ typedef struct dx_sysinfo {
 /* Fills *out. 0, or -1 with *out zeroed. */
 int dx_plat_sysinfo(dx_sysinfo_t *out);
 
+/* ---- Setting the clock ----------------------------------------------------- */
+
+/* Kernel error codes the seam passes on, as -PIP_E*. */
+#define DX_EPERM   (-1)
+#define DX_ENOENT  (-2)
+#define DX_EIO     (-5)
+#define DX_EFAULT  (-14)
+#define DX_EINVAL  (-22)
+#define DX_ENOEXEC (-40)
+
+/*
+ * Sets the clock to unix_seconds. Pip-OS also writes the clock chip
+ * when one answered at boot. Returns 0, or DX_EIO when the chip write
+ * failed: the clock keeps the new time then. The ABI does not say
+ * whether a chip is present.
+ */
+int32_t dx_plat_set_time(uint32_t unix_seconds);
+
+/* ---- Holotapes: the .HTP files in /PIPBOY/HOLO --------------------------- */
+
+enum { DX_HOLO_GAME = 0, DX_HOLO_UTILITY = 1, DX_HOLO_DATA = 2 };
+
+#define DX_HOLO_MAX       32
+#define DX_HOLO_TITLE_MAX 63
+#define DX_HOLO_ICON_SIZE 128 /* 32x32, 1 bit, rows of 4 bytes */
+
+typedef struct dx_holo {
+    char file[DX_NAME83_SIZE];          /* the name holo_launch takes */
+    uint8_t kind;                       /* DX_HOLO_*, or another subtype */
+    uint8_t has_icon;                   /* 1 when the icon has a set bit */
+    char title[DX_HOLO_TITLE_MAX + 1];  /* empty when the tape has none */
+    uint8_t icon[DX_HOLO_ICON_SIZE];
+} dx_holo_t;
+
+/* Lists the holotapes into out, at most max (1 to DX_HOLO_MAX).
+ * Returns the count, or a negative error. */
+int32_t dx_plat_holo_list(dx_holo_t *out, uint32_t max);
+
+/*
+ * Runs the holotape `file` with the argument string args. Returns its
+ * exit status, 0 to 255, or a negative error: DX_EFAULT when it
+ * faulted or was killed, DX_ENOEXEC when it failed validation, DX_EIO
+ * on a read error, DX_ENOENT when it is not there. The ROM's drawing
+ * state comes back, but the back buffer holds what the tape drew.
+ */
+int32_t dx_plat_holo_launch(const char *file, const char *args);
+
 /* ---- Library code: libpip on the target, RobCo-Core on the host ----------- */
 
 /* As pip_ini_parse in <pipos/ini.h>: one call per key in file order.
