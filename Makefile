@@ -179,17 +179,6 @@ gallery-card: all card-tree
 	$(if $(filter 1,$(GALLERY)),,$(error run make gallery))
 	$(PIPOS_MAKE) sdimage $(CARD_VARS)
 
-# ---- The SDK's sample ROM, for the holotape tests --------------------------
-
-# Pip-OS's hello example lists the tapes on the card and runs the one
-# picked with SELECT. The Culvert tests put it on a copy of the card.
-HELLO_BUILD := $(abspath $(BUILD))/hello
-
-.PHONY: hello
-hello:
-	$(MAKE) --no-print-directory -C $(PIP_OS)/sdk/examples/hello PIPOS_SDK=$(abspath $(PIPOS_SDK)) \
-	    BUILD=$(HELLO_BUILD) PYTHON=$(PYTHON)
-
 # ---- Checks and tests ------------------------------------------------------
 
 .PHONY: test test-target check-pins check-pins-test pbm2c-test sdimage-test venv
@@ -237,5 +226,5 @@ $(VENV)/.installed: $(ROBCO_CORE)/tests/requirements.txt
 test: test-host
 	$(MAKE) --no-print-directory test-target
 
-test-target: sdimage kernel gallery hello $(CV_SOLVE) venv
+test-target: sdimage kernel gallery $(CV_SOLVE) venv
 	$(VENV)/bin/pytest tests -v --board $(BOARD) --build-dir $(BUILD)

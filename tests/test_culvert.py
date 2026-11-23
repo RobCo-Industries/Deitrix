@@ -1,9 +1,8 @@
-"""The Culvert holotape in QEMU: title, play, solve, pause, quit, the save.
+"""The Culvert holotape in QEMU, started from Deitrix as a user does.
 
-Deitrix has no tape launcher yet, so these tests put the SDK's hello
-example ROM on a copy of the card, as PIPBOY/ROM1.ROM. It lists the
-tapes in /PIPBOY/HOLO and runs the one picked with SELECT, as a user
-would. The card holds only CULVERT.HTP, so SELECT starts it.
+Each test boots the Deitrix ROM with the default card, which holds
+CULVERT.HTP. It goes to DATA, then TAPES, and SELECT runs the tape.
+When the tape ends, Deitrix shows the TAPES list again with the result.
 
 The tape logs one "culvert: ..." line per step, after the frame is on
 screen. So a test that waits for the line of a key sees its frame.
@@ -17,25 +16,30 @@ import time
 import pytest
 from PIL import ImageDraw
 
-from conftest import ROOT, _built
+from conftest import ROOT, _built, serial_line
 
-from test_deitrix import golden
-from test_model import card_target, mtools, wait_line
-from pipos_testing import TIMEOUT, booted, minimal_env, no_exception, press, screenshot, script
+from test_data import TAPE_RC, TAPES_LINE, to_tapes
+from test_deitrix import boot_rom, golden, rom_running, wait_ready, wait_tabs
+from test_inv import change_knife
+from test_model import AUDIO, card_target, mtools, wait_line
+from test_stat import count, settled, wait_count
+from pipos_testing import TIMEOUT, minimal_env, no_exception, press, screenshot, script
 
 LINE = re.compile(r"^culvert: (.*?)\r?\n", re.M)
-HELLO_LIST = re.compile(r"^hello: 1 holotapes on the card\r?$", re.M)
 AUDIO_TONE = re.compile(r"^@RC stage=pipos ev=audio op=tone hz=(\d+)", re.M)
+SHOWN = serial_line(r"deitrix: radio shows (.*?)")
+RADIO_KEY = serial_line(r"deitrix: radio (.*?)")
+SAVE_OK = serial_line(r"deitrix: save (\S+) ok")
+DEITRIX_LOAD = serial_line(r"deitrix: load DEITRIX\.SAV ok tab=(\d+) volume=(\d+) sound=(\d+) "
+                           r"station=(\d+)")
+# The UI tones of src/ui/core.c: MOVE, SELECT, BACK, DENY.
+UI_HZ = {1400, 1900, 900, 180}
 # The time, right of the moves in the status row, in screen pixels.
 TIME_BOX = (480, 426, 640, 480)
-
-
-@pytest.fixture
-def tape_card(request, card, need_mtools):
-    """The card with the hello ROM in place of Deitrix."""
-    hello = _built(request, "hello", "ROM1.ROM")
-    mtools("mcopy", "-o", "-i", card_target(card), hello, "::/PIPBOY/ROM1.ROM")
-    return card
+LISTED = ("0", "0", "1", "")
+ENDED = ("0", "0", "1", "Tape ended, status 0.")
+# RADIO rows on the sample card: 0 to 4 the stations, 6 UI sounds.
+ROW_SOUND = 6
 
 
 @pytest.fixture
@@ -77,6 +81,18 @@ def key(vm, name, want):
     return got
 
 
+def radio_key(vm, name, want):
+    before = count(vm, RADIO_KEY)
+    press(vm, name)
+    got = [k for k in wait_count(vm, RADIO_KEY, before + 1)[before:]
+           if not k.startswith(("shows ", "underrun"))]
+    while not got:
+        time.sleep(0.05)
+        got = [k for k in RADIO_KEY.findall(vm.serial)[before:]
+               if not k.startswith(("shows ", "underrun"))]
+    assert got[0] == want, f"{name}: {got[0]!r} != {want!r}\n{vm.serial}"
+
+
 def shot(vm, tmp_path, name, mask_time=True):
     img = screenshot(vm, tmp_path)
     if mask_time:
@@ -85,23 +101,36 @@ def shot(vm, tmp_path, name, mask_time=True):
     return img
 
 
-def launch(vm, title_name="culvert_title", tmp_path=None):
-    """Picks the tape in hello and waits for the title."""
+def launch(vm, load="load rc=-2", tmp_path=None, title_name="culvert_title"):
+    """SELECT on the tape in TAPES; waits for the title."""
     before = len(lines(vm))
     press(vm, "select")
-    assert wait_next(vm, before).startswith("load rc="), vm.serial
+    assert wait_next(vm, before) == load, vm.serial
     assert wait_next(vm, before + 1) == "title", vm.serial
     if tmp_path is not None:
         shot(vm, tmp_path, title_name, mask_time=False)
 
 
-def boot(kernel_image, board, card):
-    vm = booted(kernel_image, board, sd=card, wait="jump")
-    return vm
+def ended(vm, runs=1):
+    """Waits for the TAPES list after the tape's end, with its result."""
+    want = runs
+    deadline = time.monotonic() + TIMEOUT
+    while vm.serial.count("deitrix: data tape rc=0") < want:
+        assert time.monotonic() < deadline, vm.serial
+        time.sleep(0.05)
+    at = [m.start() for m in re.finditer("deitrix: data tape rc=0", vm.serial)][want - 1]
+    deadline = time.monotonic() + TIMEOUT
+    while ENDED not in TAPES_LINE.findall(vm.serial[at:]):
+        assert time.monotonic() < deadline, vm.serial[at:]
+        time.sleep(0.05)
+    assert TAPE_RC.findall(vm.serial)[-1] == "0", vm.serial
 
 
-def wait_hello(vm):
-    vm.wait_for(HELLO_LIST, timeout=TIMEOUT)
+def quit_from_play(vm):
+    key(vm, "back", "pause")
+    key(vm, "down", "menu item=1")
+    key(vm, "down", "menu item=2")
+    key(vm, "select", "exit rc=0")
 
 
 def go(vm, pos, x, y):
@@ -141,10 +170,20 @@ def finish(vm):
     wait_line(vm, "culvert: done")
 
 
-def test_culvert_play(board, kernel_image, tape_card, solver, tmp_path):
-    with boot(kernel_image, board, tape_card) as vm:
-        wait_hello(vm)
+def test_culvert_play(board, kernel_image, card, solver, tmp_path, need_mtools):
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        # A station plays first: RADIO is one detent back from STAT.
+        script(vm, "dial -1")
+        wait_line(vm, "deitrix: tab=RADIO")
+        press(vm, "select")
+        wait_line(vm, "deitrix: radio station=1")
+        assert to_tapes(vm, "dial 3") == LISTED
+        golden(settled(vm, tmp_path), "culvert_tapes")
+        mark = len(vm.serial)
         launch(vm, tmp_path=tmp_path)
+        start = vm.serial.index("ev=holo_start", mark)
+        assert "deitrix: data launch CULVERT.HTP" in vm.serial[mark:start], vm.serial
         # The title: UP at the top changes nothing, DOWN moves to Quit and back.
         key(vm, "up", "idle")
         key(vm, "down", "menu item=1")
@@ -174,86 +213,146 @@ def test_culvert_play(board, kernel_image, tape_card, solver, tmp_path):
         assert key(vm, "select", r"level n=1 .*") == seed, vm.serial
         moves = solve(vm, solver, 1, tmp_path, "culvert_mid")
         assert moves > 0
-        mark = vm.serial.rindex("culvert: solved")
+        solved = vm.serial.rindex("culvert: solved")
         finish(vm)
         shot(vm, tmp_path, "culvert_solved")
-        tones = [int(hz) for hz in AUDIO_TONE.findall(vm.serial[mark:])]
-        assert tones[:3] == [784, 988, 1175], vm.serial[mark:]
+        # The radio stopped for the tape, and the tape's own tune plays.
+        ops = [m[1] for m in AUDIO.finditer(vm.serial, mark)]
+        assert "stop" in ops, vm.serial[mark:]
+        tones = [int(hz) for hz in AUDIO_TONE.findall(vm.serial[solved:])]
+        assert tones[:3] == [784, 988, 1175], vm.serial[solved:]
         wait_line(vm, "culvert: save rc=30")
         key(vm, "select", r"level n=2 w=5 h=4 seed=0x[0-9a-f]{8}")
-        # Pause, then Quit: the tape ends with 0 and hello redraws its list.
+        # Pause, then Quit: the tape ends with 0 and Deitrix shows TAPES.
         key(vm, "back", "pause")
         key(vm, "down", "menu item=1")
         key(vm, "down", "menu item=2")
         key(vm, "down", "idle")
         key(vm, "select", "exit rc=0")
-        wait_line(vm, "hello: CULVERT.HTP: exit status 0")
+        ended(vm)
+        golden(settled(vm, tmp_path), "culvert_tapes_return")
+        rom_running(vm)
         draws = re.search(r"^culvert stats: grid draws=(\d+) ms=(\d+)\r?$", vm.serial, re.M)
         assert draws and int(draws.group(1)) > 0, vm.serial
         print(f"{board}: {draws.group(0).strip()}")
+        # The radio did not start again, and RADIO says it is off.
+        after = vm.serial.index("deitrix: data tape rc=0")
+        assert "op=seq" not in vm.serial[after:], vm.serial[after:]
+        before = count(vm, SHOWN)
+        script(vm, "dial 2")
+        assert wait_count(vm, SHOWN, before + 1)[-1] == "Off", vm.serial
         no_exception(vm)
 
 
-def test_culvert_save(board, kernel_image, tape_card, solver, tmp_path):
-    """Solve level 1, quit; the next start offers Continue (level 2)."""
-    with boot(kernel_image, board, tape_card) as vm:
-        wait_hello(vm)
+def test_culvert_save(board, kernel_image, card, solver, tmp_path, need_mtools):
+    """Deitrix's saves and the tape's save live side by side: a count and
+    UI sounds changed before the launch hold after the tape's save, after
+    the return and after a reboot; the tape's next start offers level 2."""
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        script(vm, "dial 1")
+        assert wait_tabs(vm, 1)[-1] == "INV", vm.serial
+        change_knife(vm)
+        script(vm, "dial -2")
+        assert wait_tabs(vm, 2)[-1] == "RADIO", vm.serial
+        for row in range(1, ROW_SOUND + 1):
+            radio_key(vm, "down", f"row={row}")
+        radio_key(vm, "select", "sound=0")
+        assert to_tapes(vm, "dial 3") == LISTED
         launch(vm)
+        # The launch flushed both of Deitrix's saves first.
+        launched = vm.serial.index("deitrix: data launch CULVERT.HTP")
+        assert set(SAVE_OK.findall(vm.serial[:launched])) >= {"DEITRIX.SAV", "INV.SAV"}, \
+            vm.serial
         key(vm, "select", r"level n=1 .*")
         solve(vm, solver, 1)
         wait_line(vm, "culvert: save rc=30")
         finish(vm)
-        key(vm, "back", "pause")
-        key(vm, "down", "menu item=1")
-        key(vm, "down", "menu item=2")
-        key(vm, "select", "exit rc=0")
-        wait_line(vm, "hello: CULVERT.HTP: exit status 0")
-        # Started again: the save loads and the title offers level 2.
-        before = len(lines(vm))
-        press(vm, "select")
-        assert wait_next(vm, before) == "load rc=30", vm.serial
-        assert wait_next(vm, before + 1) == "title", vm.serial
-        shot(vm, tmp_path, "culvert_title_continue", mask_time=False)
+        quit_from_play(vm)
+        ended(vm)
+        # UI sounds are still off: a walk to RADIO plays no UI tone.
+        mark = len(vm.serial)
+        script(vm, "dial 2")
+        assert wait_tabs(vm, 4)[-1] == "RADIO", vm.serial
+        radio_key(vm, "up", "row=5")
+        script(vm, "state")
+        time.sleep(0.5)
+        tones = {int(hz) for hz in AUDIO_TONE.findall(vm.serial[mark:])}
+        assert not tones & UI_HZ, vm.serial[mark:]
+        # Back to DATA, which kept TAPES. Started again: the save loads and
+        # the title offers level 2.
+        before = count(vm, TAPES_LINE)
+        script(vm, "dial 3")
+        assert wait_tabs(vm, 5)[-1] == "DATA", vm.serial
+        assert wait_count(vm, TAPES_LINE, before + 1)[-1][:3] == LISTED[:3], vm.serial
+        launch(vm, load="load rc=30", tmp_path=tmp_path, title_name="culvert_title_continue")
         key(vm, "select", r"level n=2 .*")
-        # Quit from the pause menu again.
-        key(vm, "back", "pause")
+        quit_from_play(vm)
+        ended(vm, runs=2)
+        no_exception(vm)
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        assert DEITRIX_LOAD.findall(vm.serial)[0][2] == "0", vm.serial
+        wait_line(vm, "deitrix: load INV.SAV ok records=14")
+        # The boot opens on DATA, the last tab; RIGHT shows TAPES.
+        before = count(vm, TAPES_LINE)
+        press(vm, "right")
+        assert wait_count(vm, TAPES_LINE, before + 1)[-1] == LISTED, vm.serial
+        launch(vm, load="load rc=30")
         key(vm, "down", "menu item=1")
         key(vm, "down", "menu item=2")
         key(vm, "select", "exit rc=0")
-        wait_line(vm, "hello: CULVERT.HTP: exit status 0", timeout=TIMEOUT)
-        assert vm.serial.count("hello: CULVERT.HTP: exit status 0") == 2, vm.serial
+        ended(vm)
         no_exception(vm)
 
 
-def test_culvert_corrupt_save(board, kernel_image, tape_card, tmp_path):
+def test_culvert_held_select_at_launch(board, kernel_image, card, need_mtools):
+    """SELECT held for 1.5 s on the tape starts it once, and the held key
+    neither starts a game nor picks a menu item on the title."""
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        assert to_tapes(vm) == LISTED
+        script(vm, "key select 1")
+        time.sleep(1.5)
+        script(vm, "key select 0")
+        wait_line(vm, "culvert: title")
+        script(vm, "state")
+        time.sleep(0.5)
+        assert lines(vm) == ["load rc=-2", "title"], vm.serial
+        assert vm.serial.count("ev=holo_start") == 1, vm.serial
+        key(vm, "down", "menu item=1")
+        key(vm, "select", "exit rc=0")
+        ended(vm)
+        no_exception(vm)
+
+
+def test_culvert_corrupt_save(board, kernel_image, card, tmp_path, need_mtools):
     """A corrupt CULVERT.SAV starts fresh, with no error on screen."""
     bad = tmp_path / "CULVERT.SAV"
     bad.write_bytes(b"CVLT" + bytes([1, 9, 5, 0]) + bytes(18) + b"\x00\x00\x00\x00")
-    target = card_target(tape_card)
+    target = card_target(card)
     subprocess.run(["mmd", "-i", target, "::/PIPBOY/SAVE"],
                    env=minimal_env(MTOOLS_SKIP_CHECK="1"), capture_output=True)
     mtools("mcopy", "-o", "-i", target, str(bad), "::/PIPBOY/SAVE/CULVERT.SAV")
-    with boot(kernel_image, board, tape_card) as vm:
-        wait_hello(vm)
-        launch(vm, tmp_path=tmp_path)
-        assert "culvert: load rc=30" in vm.serial, vm.serial
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        assert to_tapes(vm) == LISTED
+        launch(vm, load="load rc=30", tmp_path=tmp_path)
         key(vm, "select", r"level n=1 .*")
         key(vm, "back", "pause")
         key(vm, "up", "idle")
         key(vm, "select", "resume")
-        key(vm, "back", "pause")
-        key(vm, "down", "menu item=1")
-        key(vm, "down", "menu item=2")
-        key(vm, "select", "exit rc=0")
-        wait_line(vm, "hello: CULVERT.HTP: exit status 0")
+        quit_from_play(vm)
+        ended(vm)
         no_exception(vm)
 
 
-def test_culvert_quit_from_title(board, kernel_image, tape_card):
-    with boot(kernel_image, board, tape_card) as vm:
-        wait_hello(vm)
+def test_culvert_quit_from_title(board, kernel_image, card, need_mtools):
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        assert to_tapes(vm) == LISTED
         launch(vm)
         key(vm, "down", "menu item=1")
         key(vm, "select", "exit rc=0")
-        wait_line(vm, "hello: CULVERT.HTP: exit status 0")
+        ended(vm)
         no_exception(vm)
