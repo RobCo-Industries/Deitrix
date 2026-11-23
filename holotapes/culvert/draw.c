@@ -1,7 +1,8 @@
 /*
  * Culvert's screens. The logical surface is 320x240: a title row, the
  * grid and a status row. Connected pipes draw in full brightness, the
- * others dim. See docs/CULVERT.md.
+ * others dim. A text cell is 8 by 16 pixels per scale step, with the
+ * glyph in rows 4 to 13. See docs/CULVERT.md.
  */
 #include <pipos/pip.h>
 
@@ -13,7 +14,7 @@
 #define GRID_W   296
 #define GRID_H   176
 #define TILE_MAX 40
-#define STATUS_Y 222
+#define STATUS_Y 217
 #define CHAR_W   8
 
 static uint32_t fg, dim, faint;
@@ -143,8 +144,8 @@ void cv_draw_grid(const cv_game_t *g)
 static void draw_header(void)
 {
     fill(0, 0, SCREEN_W, 28, 0);
-    text(GRID_X, 6, "CULVERT", fg, 2);
-    text(SCREEN_W - GRID_X - text_w("BACK: menu", 1), 10, "BACK: menu", dim, 1);
+    text(GRID_X, -3, "CULVERT", fg, 2);
+    text(SCREEN_W - GRID_X - text_w("BACK: menu", 1), 5, "BACK: menu", dim, 1);
     fill(0, 27, SCREEN_W, 1, faint);
 }
 
@@ -171,7 +172,7 @@ static void draw_item(int y, int w, const char *s, int selected)
     int x = (SCREEN_W - w) / 2;
 
     if (selected) {
-        fill(x, y - 5, w, 18, fg);
+        fill(x, y, w, 18, fg);
         text_center(y, s, 0, 1);
     } else {
         text_center(y, s, fg, 1);
@@ -204,16 +205,16 @@ static void draw_title(const cv_game_t *g)
     int i;
 
     pip_clear(0);
-    text_center(30, "CULVERT", fg, 4);
+    text_center(4, "CULVERT", fg, 4);
     for (i = 0; i < 7; i++) {
         draw_piece(76 + i * 24, 76, 24, strip[i], i < 4 ? fg : dim, i == 0);
     }
-    text_center(114, "Turn the pipes. Fill every tile.", dim, 1);
+    text_center(112, "Turn the pipes. Fill every tile.", dim, 1);
     for (i = 0; i < cv_menu_count(g); i++) {
-        draw_item(146 + i * 22, 192, item_text(g, cv_menu_item(g, i), buf, sizeof buf),
+        draw_item(140 + i * 22, 192, item_text(g, cv_menu_item(g, i), buf, sizeof buf),
                   i == g->menu);
     }
-    text_center(222, "UP/DOWN: choose  SELECT: confirm", dim, 1);
+    text_center(218, "UP/DOWN: choose  SELECT: confirm", dim, 1);
 }
 
 static void draw_box(int w, int h)
@@ -233,9 +234,9 @@ static void draw_pause(const cv_game_t *g)
     int y = GRID_Y + (GRID_H - 108) / 2;
 
     draw_box(184, 108);
-    text_center(y + 12, "PAUSED", fg, 2);
+    text_center(y + 2, "PAUSED", fg, 2);
     for (i = 0; i < cv_menu_count(g); i++) {
-        draw_item(y + 44 + i * 22, 152, item_text(g, cv_menu_item(g, i), buf, sizeof buf),
+        draw_item(y + 36 + i * 22, 152, item_text(g, cv_menu_item(g, i), buf, sizeof buf),
                   i == g->menu);
     }
 }
@@ -250,8 +251,8 @@ static void draw_done(const cv_game_t *g)
     cv_fmt_u32(num, g->moves);
     pip_snprintf(line, sizeof line, "Level %u done in %s move%s", (unsigned)g->lv.level, num,
                  g->moves == 1 ? "" : "s");
-    text_center(y + 16, line, fg, 1);
-    text_center(y + 36, "SELECT: next level", dim, 1);
+    text_center(y + 10, line, fg, 1);
+    text_center(y + 32, "SELECT: next level", dim, 1);
 }
 
 static void draw_play(const cv_game_t *g, uint32_t now)

@@ -98,6 +98,12 @@ include $(ROBCO_CORE)/mk/host.mk
 # host.mk only sees the headers at the top of src/.
 $(HOST_TESTS): $(wildcard src/*/*.h) $(wildcard $(CV_DIR)/*.h) tests/host/fake_platform.h tests/host/tfmt.h $(EXPECT_H) $(wildcard tests/host/*.inc)
 
+# The turns that solve a Culvert level, for the QEMU tests.
+CV_SOLVE := $(BUILD)/host/culvert_solve
+$(CV_SOLVE): tests/tools/culvert_solve.c $(CV_DIR)/logic.c $(CV_DIR)/logic.h
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=gnu11 -Wall -Wextra -Werror -O1 -I $(CV_DIR) -o $@ $< $(CV_DIR)/logic.c
+
 # QEMU runs and builds below share build/; keep top-level goals serial.
 .NOTPARALLEL:
 
@@ -173,6 +179,17 @@ gallery-card: all card-tree
 	$(if $(filter 1,$(GALLERY)),,$(error run make gallery))
 	$(PIPOS_MAKE) sdimage $(CARD_VARS)
 
+# ---- The SDK's sample ROM, for the holotape tests --------------------------
+
+# Pip-OS's hello example lists the tapes on the card and runs the one
+# picked with SELECT. The Culvert tests put it on a copy of the card.
+HELLO_BUILD := $(abspath $(BUILD))/hello
+
+.PHONY: hello
+hello:
+	$(MAKE) --no-print-directory -C $(PIP_OS)/sdk/examples/hello PIPOS_SDK=$(abspath $(PIPOS_SDK)) \
+	    BUILD=$(HELLO_BUILD) PYTHON=$(PYTHON)
+
 # ---- Checks and tests ------------------------------------------------------
 
 .PHONY: test test-target check-pins check-pins-test pbm2c-test sdimage-test venv
@@ -220,5 +237,5 @@ $(VENV)/.installed: $(ROBCO_CORE)/tests/requirements.txt
 test: test-host
 	$(MAKE) --no-print-directory test-target
 
-test-target: sdimage kernel gallery venv
+test-target: sdimage kernel gallery hello $(CV_SOLVE) venv
 	$(VENV)/bin/pytest tests -v --board $(BOARD) --build-dir $(BUILD)

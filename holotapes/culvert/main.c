@@ -53,7 +53,7 @@ static void log_step(const cv_game_t *g)
         pip_printf("culvert: idle\n");
         break;
     case CV_LOG_EXIT:
-        pip_printf("culvert: grid draws=%u ms=%u\n", (unsigned)grid_draws, (unsigned)grid_ms);
+        pip_printf("culvert stats: grid draws=%u ms=%u\n", (unsigned)grid_draws, (unsigned)grid_ms);
         pip_printf("culvert: exit rc=0\n");
         break;
     default:
@@ -71,7 +71,7 @@ static void save(const cv_game_t *g)
     pip_printf("culvert: save rc=%d\n", (int)rc);
 }
 
-/* Draws, plays, saves and logs one step. The log line comes after the
+/* Draws, logs, plays and saves one step. The log line comes after the
  * frame is on screen, so a test that waits for it sees the frame. */
 static void apply(const cv_game_t *g)
 {
@@ -83,6 +83,7 @@ static void apply(const cv_game_t *g)
         grid_draws++;
         grid_ms += cv_elapsed(t0, pip_ticks_ms());
     }
+    log_step(g);
     if (g->fx & CV_FX_TUNE) {
         pip_play_seq(solved_tune, sizeof solved_tune / sizeof solved_tune[0]);
     } else if (g->fx & CV_FX_CONNECT) {
@@ -93,7 +94,6 @@ static void apply(const cv_game_t *g)
     if (g->fx & CV_FX_SAVE) {
         save(g);
     }
-    log_step(g);
 }
 
 int pip_main(const pipos_startup_t *startup)
