@@ -5,6 +5,7 @@
 #   make test                 test-host, then the QEMU tests on every board
 #   make test BOARD=raspi0    the QEMU tests on one board
 #   make test-target          the QEMU tests only
+#   make holotapes            build/holo/CULVERT.HTP, the Culvert holotape
 #   make gallery              build/gallery/: the widget gallery ROM and its
 #                             card, for the QEMU tests only
 #   make check-pins           CI pins and doc links match the submodules
@@ -57,6 +58,20 @@ VERSION      := 0.1.0
 SRCS         := $(DX_SRCS) $(ICONS_C)
 CFLAGS_EXTRA := -Isrc -DDX_VERSION=$(VERSION)
 include $(PIPOS_SDK)/pipos-app.mk
+
+# ---- Holotapes ---------------------------------------------------------------
+
+# Each tape has its own Makefile with the SDK's pipos-app.mk, built into
+# build/holo/. `make` builds them with the ROM; the card gets them through
+# Pip-OS's TAPE= list.
+HOLO_BUILD := $(abspath $(BUILD))/holo
+TAPES      := $(HOLO_BUILD)/CULVERT.HTP
+
+.PHONY: holotapes
+holotapes:
+	$(MAKE) --no-print-directory -C holotapes/culvert BUILD=$(HOLO_BUILD) CI=$(CI) PYTHON=$(PYTHON)
+
+all: holotapes
 
 $(ICONS_C): tools/pbm2c.py $(ICONS)
 	$(PYTHON) tools/pbm2c.py $@ $(ICONS)
@@ -119,12 +134,12 @@ card-tree: $(PCM_FILES)
 
 # Pip-OS's own Makefile, building into build/pipos, through the interface
 # of its ROM_DEVELOPMENT.md, "Using Pip-OS from another repository". ROM
-# and TAPE pick the card's ROM and holotape. CARD_DIR is the card tree,
+# and TAPE pick the card's ROM and holotapes. CARD_DIR is the card tree,
 # copied to the card root after the standard files. Pip-OS checks the
 # staged card: a case clash stops the build, a name longer than 8.3 warns.
 PIPOS_BUILD := $(abspath $(BUILD))/pipos
 PIPOS_MAKE  := $(MAKE) --no-print-directory -C $(PIP_OS) BUILD=$(PIPOS_BUILD) PYTHON=$(PYTHON)
-CARD_VARS   := ROM=$(abspath $(PIP_OUT)) TAPE=none CARD_DIR=$(abspath $(CARD_TREE))
+CARD_VARS   := ROM=$(abspath $(PIP_OUT)) TAPE="$(TAPES)" CARD_DIR=$(abspath $(CARD_TREE))
 KERNEL      := $(PIPOS_BUILD)/pipos.img
 CARD        := $(PIPOS_BUILD)/sd.img
 
@@ -181,7 +196,7 @@ pbm2c-test:
 	$(PYTHON) tests/host/test_pbm2c.py
 
 sdimage-test: sdimage
-	tests/host/sdimage_test.sh $(CARD) $(PIP_OUT) $(CARD_TREE)
+	tests/host/sdimage_test.sh $(CARD) $(PIP_OUT) $(CARD_TREE) $(TAPES)
 
 # content/ alone: the generated tracks may be missing there. card-tree
 # checks the built tree, where they must be present.
