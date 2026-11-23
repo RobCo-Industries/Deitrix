@@ -29,18 +29,24 @@ static void enter(dx_app_t *app)
     app->wake = dx_plat_ticks();
 }
 
-void dx_app_init(dx_app_t *app, const dx_screen_t *const *screens, int count)
+int dx_app_init(dx_app_t *app, const dx_screen_t *const *screens, int count)
 {
     int i;
 
-    if (count > DX_MAX_TABS) {
-        count = DX_MAX_TABS;
-    }
     app->screens = screens;
-    app->count = count;
+    app->count = 0;
+    if (count < 1 || count > DX_MAX_TABS) {
+        dx_plat_log("deitrix: refused: the tab table needs 1 to 8 screens\n");
+        return -1;
+    }
     for (i = 0; i < count; i++) {
         app->names[i] = screens[i]->name;
     }
+    if (dx_frame_tab_cut(app->names, count) == 0) {
+        dx_plat_log("deitrix: refused: tab names need 1 to 5 letters\n");
+        return -1;
+    }
+    app->count = count;
     app->ctx.gfx = dx_plat_gfx();
     app->ctx.theme = dx_theme_from_fg(dx_plat_fg());
     app->ctx.now_ms = 0;
@@ -49,6 +55,7 @@ void dx_app_init(dx_app_t *app, const dx_screen_t *const *screens, int count)
     app->drawn_min = DX_CLOCK_NONE;
     app->dirty = 0;
     enter(app);
+    return 0;
 }
 
 static void log_tab(const char *name)
@@ -192,7 +199,14 @@ void dx_main(void)
 {
     static dx_app_t app;
 
-    dx_app_init(&app, dx_rom_screens, dx_rom_screen_count);
+    if (dx_app_init(&app, dx_rom_screens, dx_rom_screen_count) != 0) {
+        /* A table the header cannot draw: stop here, the log says why. */
+        for (;;) {
+            dx_event_t ev;
+
+            dx_plat_wait(&ev, DX_WAIT_FOREVER);
+        }
+    }
     for (;;) {
         dx_app_step(&app);
     }

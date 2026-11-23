@@ -147,6 +147,25 @@ TEST(clock_lost_shows_dashes)
     CHECK(fake_find_text("--:--") != NULL);
 }
 
+TEST(init_refuses_a_bad_table)
+{
+    static const dx_screen_t ok = { "OK", NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+    static const dx_screen_t big = { "TOOLONG", NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+    static const dx_screen_t *const bad[] = { &ok, &big };
+    static const dx_screen_t *const nine[] = { &ok, &ok, &ok, &ok, &ok, &ok, &ok, &ok, &ok };
+    dx_app_t app;
+
+    fake_reset();
+    CHECK_INT(dx_app_init(&app, bad, 2), -1);
+    CHECK_STR(fake.log, "deitrix: refused: tab names need 1 to 5 letters\n");
+    fake_reset();
+    CHECK_INT(dx_app_init(&app, nine, 9), -1);
+    CHECK_STR(fake.log, "deitrix: refused: the tab table needs 1 to 8 screens\n");
+    fake_reset();
+    CHECK_INT(dx_app_init(&app, nine, 8), 0);
+    CHECK_STR(fake.log, "");
+}
+
 TEST(scheme_colour_used)
 {
     dx_app_t app;

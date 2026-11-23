@@ -20,6 +20,7 @@
 #define DX_FOOTER_Y    220 /* text row of the key hint */
 #define DX_ROW_H       DX_FONT_H
 #define DX_MAX_TABS    8
+#define DX_TAB_NAME_MAX 5 /* letters in a tab label */
 
 typedef struct dx_rect {
     int x, y, w, h;

@@ -77,11 +77,21 @@ A tab change calls `leave` on the old screen and `enter` on the new one, then re
 | Body | 22 to 214 |
 | Footer: a rule at row 215 and the hint at row 220 | 215 to 239 |
 
-A row of text is 16 px, the font cell. At scale 1 the screen holds 40 columns of 8 px. With many tabs the header narrows the space around each label so the last one ends before the clock.
+A row of text is 16 px, the font cell. At scale 1 the screen holds 40 columns of 8 px.
+
+The tab labels must end 8 px before the clock, at x 268. The header puts 8 px on each side of a label. When the labels do not fit, it narrows that space, down to 2 px. When they still do not fit, it cuts every label to 4 letters, then to 3. `dx_frame_tab_cut()` gives the letters it keeps. The limits are 8 tabs and 5 letters per name, and with them 3 letters always fit:
+
+| Tabs of 5 letters | Letters shown |
+|---|---|
+| 1 to 6 | 5 |
+| 7 | 4 |
+| 8 | 3 |
+
+`dx_app_init()` refuses a table with no screens, more than 8, or a name that is empty or longer than 5 letters. It logs `deitrix: refused: ...` and the ROM stops there.
 
 ### The screen interface
 
-A screen is a `dx_screen_t`: a tab label of at most 5 letters, six callbacks and a state pointer. Any callback may be NULL.
+A screen is a `dx_screen_t`: a tab label of 1 to 5 letters, six callbacks and a state pointer. Any callback may be NULL.
 
 - `enter` and `leave` run when the tab becomes active and when it stops.
 - `event` gets each routed event.
