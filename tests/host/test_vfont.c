@@ -24,6 +24,12 @@ TEST(glyphs_inside_cell)
             continue;
         }
         while (*g != '\0') {
+            if (*g == '*') {
+                /* A filled square: two corners follow. */
+                CHECK(pts == 0);
+                g++;
+                continue;
+            }
             if (*g == '|') {
                 /* A stroke has at least two points. */
                 CHECK(pts >= 2);
@@ -118,6 +124,42 @@ TEST(draw_list_small)
     CHECK_INT(dx_vfont_weight(1), 1);
     CHECK_INT(dx_vfont_weight(2), 1);
     CHECK_INT(dx_vfont_weight(3), 2);
+}
+
+/* The dots of ':' and '.' are filled squares at every size, as wide as
+ * the strokes. */
+TEST(dots_are_filled)
+{
+    int unit;
+
+    for (unit = 1; unit <= 8; unit++) {
+        int wt = dx_vfont_weight(unit);
+        dx_ctx_t c;
+
+        fake_reset();
+        c = fake_ctx();
+        dx_vfont_draw(&c, 10, 20, ":.", unit, fake.theme.fg);
+        CHECK_INT(fake.rect_count, 3);
+        CHECK(fake.draws[0] == 'r' && strstr(fake.draws, "line") == NULL);
+        if (fake.rect_count != 3) {
+            continue;
+        }
+        CHECK_INT(fake.rects[0].x, 10);
+        CHECK_INT(fake.rects[0].y, 20 + unit);
+        CHECK_INT(fake.rects[0].w, unit + wt);
+        CHECK_INT(fake.rects[0].h, unit + wt);
+        CHECK_INT(fake.rects[1].y, 20 + 4 * unit);
+        CHECK_INT(fake.rects[2].x, 10 + 3 * unit);
+        CHECK_INT(fake.rects[2].y, 20 + 5 * unit);
+        CHECK_INT(fake.rects[0].filled + fake.rects[1].filled + fake.rects[2].filled, 3);
+    }
+    fake_reset();
+    {
+        dx_ctx_t c = fake_ctx();
+
+        dx_vfont_draw(&c, 0, 0, "1:2", 8, fake.theme.fg);
+    }
+    CHECK(strstr(fake.draws, "rect 48 8 10 10 fg fill\nrect 48 32 10 10 fg fill\n") != NULL);
 }
 
 /* Every line of the whole set stays in the string's box. */

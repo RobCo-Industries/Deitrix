@@ -58,11 +58,11 @@ const char *dx_vfont_glyph(char c)
     case ' ':
         return "";
     case ':':
-        return "0111120201|0414150504";
+        return "*0112|*0415";
     case '-':
         return "0343";
     case '.':
-        return "0515160605";
+        return "*0516";
     case '/':
         return "0640";
     case '%':
@@ -115,6 +115,17 @@ static void draw_glyph(const dx_ctx_t *ctx, int x, int y, const char *g, int uni
         if (*g == '|') {
             have = 0;
             g++;
+            continue;
+        }
+        if (*g == '*') {
+            /* A filled square between two corners, as wide as strokes
+             * around the same corners would reach. */
+            int x0 = x + (g[1] - '0') * unit, y0 = y + (g[2] - '0') * unit;
+            int x1 = x + (g[3] - '0') * unit, y1 = y + (g[4] - '0') * unit;
+
+            ctx->gfx->rect(x0, y0, x1 - x0 + weight, y1 - y0 + weight, color, 1);
+            have = 0;
+            g += 5;
             continue;
         }
         gx = x + (g[0] - '0') * unit;

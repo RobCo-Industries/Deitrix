@@ -151,7 +151,7 @@ The list, text, gauge, key and value, and sub-tab widgets are structs the screen
 - `kv.h`: read-only key and value rows, the values in one column after the longest key.
 - `subtabs.h`: a row of up to 5 labels under the header. LEFT and RIGHT move between them. At either end they return `DX_UI_IGNORED`, so the shell changes the main tab. The active label is bright and underlined.
 - `icon.h`: draws a 1-bit icon from `assets/` centred in an area. `dx_icon_find()` looks one up by its file name.
-- `vfont.h`: a stroke font for large text: digits, A to Z, space and `: - . / %`. Each glyph is a few polylines on a grid 4 units wide and 6 high, drawn with `line` at any unit size. From unit 3 the strokes are 2 px wide. A character the font lacks draws as a crossed box. `dx_vfont_width()` measures a string.
+- `vfont.h`: a stroke font for large text: digits, A to Z, space and `: - . / %`. Each glyph is a few polylines on a grid 4 units wide and 6 high, drawn with `line` at any unit size. From unit 3 the strokes are 2 px wide. The dots of `:` and `.` are filled squares, drawn with `rect`, as wide as the strokes around them would be. A character the font lacks draws as a crossed box. `dx_vfont_width()` measures a string.
 - `frame.h`: the header and the footer every tab shares.
 
 ### The widget gallery

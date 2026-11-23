@@ -1,7 +1,7 @@
 /*
  * A stroke font for large text: digits, A to Z, space and ": - . / %".
  * Each glyph is a few polylines on a grid 4 units wide and 6 high,
- * drawn with lines at any whole unit size. Unit 4 gives a 16x24 px cell.
+ * drawn with lines at any whole unit size. Dots are filled squares. Unit 4 gives a 16x24 px cell.
  */
 #ifndef DX_UI_VFONT_H
 #define DX_UI_VFONT_H
@@ -13,7 +13,8 @@
 
 /*
  * The strokes of c: polylines separated by '|', each point two digits,
- * x then y. Lowercase letters use the capitals. NULL for a character
+ * x then y. '*' and two points is a filled square between those
+ * corners: the dots of ':' and '.'. Lowercase letters use the capitals. NULL for a character
  * the font lacks; dx_vfont_draw draws a crossed box for it.
  */
 const char *dx_vfont_glyph(char c);
