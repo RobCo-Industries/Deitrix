@@ -273,6 +273,43 @@ deitrix: stat about Deitrix=0.1.0 | Pip-OS=7.1.0 | ABI=1.2 | SoC=BCM2836 | RAM=9
 
 ABOUT logs its line on each frame, so once a second. `model/profile.h` and `ui/gauge.h` both define `struct dx_gauge`, so `stat.c` cannot include both. `src/screens/stat_draw.c` draws the name and the gauges from plain values for it.
 
+### DATA
+
+`src/screens/data.c` has three sub-tabs: NOTES, TAPES and CLOCK. It holds the sub-tabs and NOTES. `data_tapes.c` holds TAPES and `data_clock.c` holds CLOCK. LEFT and RIGHT move between the sub-tabs at the top level. At NOTES, LEFT goes to the previous tab, and at CLOCK, RIGHT goes to the next. Leaving the tab closes an open note or the setter, and drops the TAPES result line and the CLOCK status line. The sub-tab and the list selections stay.
+
+NOTES lists the notes the model loaded, in name order, by title. Ten rows fit. UP and DOWN move the selection. SELECT opens the note: its title, a faint rule, then the body in the text widget, 38 columns and 9 lines. UP and DOWN scroll it. A body over 128 wrapped lines ends with `[text cut]`. The body comes from `dx_content_note_body` into a 4 KiB buffer the screen owns. A read error shows "The note could not be read." under the title. BACK or LEFT returns to the list with the same note selected. RIGHT does nothing there. With no notes the list shows "No notes on the card.". When the folder could not be read it shows "The notes were not read." and the reason.
+
+TAPES lists the holotapes from `dx_plat_holo_list`, the seam's `holo_enumerate`. A row shows the title, or the file name when the title is empty, and the kind at the right: GAME, UTIL or DATA. The selected tape's 32x32 icon sits at the top right when it has one. The list is read when the sub-tab opens and after each launch, and the selection stays on the same file. With no tapes it shows "No holotapes on the card.".
+
+SELECT runs the selected tape:
+
+1. A data tape is not run: the result line says "Data tapes cannot be started.". Pip-OS would refuse it with `-PIP_ENOEXEC`, and that answer for a data tape gives the same line.
+2. `dx_radio_stop()` stops the radio. Pip-OS stops the sound when a tape starts, so the service must not think it still plays. After the tape the radio stays off.
+3. `dx_autosave_flush()` writes any change that waits, so a tape that crashes the device loses nothing.
+4. `dx_plat_holo_launch(file, "")` runs the tape. The ROM waits inside the call.
+5. The listing is read again and the whole frame redraws, since the back buffer holds what the tape drew.
+
+The result line shows under the list until the selection moves or the sub-tab is left: "Tape ended, status N." for an exit status, "Tape was stopped by the system." for a fault, "Not a holotape." for a file that fails validation, "Card error." for a read error, "Tape not found." when the file vanished, and "The tape could not start." for any other error.
+
+CLOCK shows the time as `HH:MM:SS` in the stroke font at unit 6, the date and the weekday under it, and "The clock runs in UTC.". `src/model/data_time.c` computes the weekday and converts Unix seconds to fields and back for 2000 to 2099. Without a clock the page shows `--:--:--` and "No clock. SELECT sets the time.". The tick reads the clock every 250 ms and asks for a redraw only when the second changed. On NOTES and TAPES the tick returns 0.
+
+SELECT opens the setter: year, month, day, hour and minute in one row, the active field inverse. It starts from the clock, or from 2026-01-01 00:00 when there is no clock or its year is outside 2000 to 2099. UP and DOWN change the active field, repeats too. Each field wraps at its ends: year 2000 to 2099, month 1 to 12, day 1 to the month's length, hour 0 to 23, minute 0 to 59. A change of year or month clamps the day. RIGHT moves to the next field and LEFT to the previous one. On the first field a fresh LEFT cancels, like BACK; a held LEFT stops there. SELECT stores the time with 0 seconds through `dx_plat_set_time`, the seam's `set_time`. Pip-OS also writes the clock chip when one answered at boot. On success the setter closes and the page shows "Time set; kept only with a clock chip.". The ABI does not say whether a chip is present, so the line cannot say which. A failed chip write shows "The clock chip did not take the time." and keeps the setter open. The clock keeps the new time then, as Pip-OS documents.
+
+The tab logs one line when a frame shows another view, just before the present. A launch logs the file before the call and the result after it. A store logs the seconds and the result:
+
+```
+deitrix: data notes sel=2 top=0 count=4
+deitrix: data note SHOP01.TXT top=0 lines=12
+deitrix: data tapes sel=0 top=0 count=2 | Tape ended, status 42.
+deitrix: data launch LINETEST.HTP
+deitrix: data tape rc=42
+deitrix: data clock 09:30:07 2026-11-23 Monday | 
+deitrix: data setter field=1 2026-02-01 07:00 | 
+deitrix: data set_time 1769929200 rc=0
+```
+
+The CLOCK page logs once a second while the time runs. DATA writes no save. The only state it changes outside the screen is the clock, through `set_time`.
+
 ## Planned
 
 These are plans, not code:

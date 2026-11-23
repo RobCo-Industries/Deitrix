@@ -13,6 +13,8 @@ Deitrix has a UI framework, a data model and five placeholder tabs. It boots on 
 
 STAT is built: the owner and gauges, the attributes, and the device data. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#stat).
 
+DATA is built: the notes, the holotape launcher, and the clock with a time setter. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#data).
+
 At start the ROM loads the content under `/PIPBOY/DATA/` on the card and its two saves. The formats are in [docs/CONTENT.md](docs/CONTENT.md). The dial, LEFT and RIGHT move between tabs and wrap at both ends. BACK and LEFT go back one level in a nested view. SELECT on RADIO cycles the stations: tunes through `play_seq`, PCM tracks streamed in chunks. The radio keeps playing on other tabs. The last tab and station are saved a moment after they change. The framework's widgets run in a test-only gallery ROM until the tabs use them. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
 
 ## Planned, not built
