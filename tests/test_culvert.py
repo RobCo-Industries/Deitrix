@@ -165,6 +165,24 @@ def solve(vm, solver, level, tmp_path=None, mid_name=None):
     raise AssertionError(f"level {level} not solved after {moves} moves\n{vm.serial}")
 
 
+def tune_after(vm, at):
+    """Asserts the solve tune plays after serial offset `at`.
+
+    The kernel prints a tone's trace from its audio tick, so the tone of
+    the last turn may land after the "solved" line. What holds is that the
+    tune's three notes play in a row: the first 784 Hz after `at`, then
+    988 Hz and 1175 Hz, with no other tone between them."""
+    deadline = time.monotonic() + TIMEOUT
+    while True:
+        tones = [int(hz) for hz in AUDIO_TONE.findall(vm.serial[at:])]
+        if 784 in tones and len(tones) >= tones.index(784) + 3:
+            break
+        assert time.monotonic() < deadline, vm.serial[at:]
+        time.sleep(0.05)
+    first = tones.index(784)
+    assert tones[first:first + 3] == [784, 988, 1175], vm.serial[at:]
+
+
 def finish(vm):
     """Waits for the end of the flourish."""
     wait_line(vm, "culvert: done")
@@ -219,8 +237,7 @@ def test_culvert_play(board, kernel_image, card, solver, tmp_path, need_mtools):
         # The radio stopped for the tape, and the tape's own tune plays.
         ops = [m[1] for m in AUDIO.finditer(vm.serial, mark)]
         assert "stop" in ops, vm.serial[mark:]
-        tones = [int(hz) for hz in AUDIO_TONE.findall(vm.serial[solved:])]
-        assert tones[:3] == [784, 988, 1175], vm.serial[solved:]
+        tune_after(vm, solved)
         wait_line(vm, "culvert: save rc=30")
         key(vm, "select", r"level n=2 w=5 h=4 seed=0x[0-9a-f]{8}")
         # Pause, then Quit: the tape ends with 0 and Deitrix shows TAPES.
