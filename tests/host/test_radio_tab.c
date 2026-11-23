@@ -190,8 +190,7 @@ TEST(start_stop_and_switch)
               "text 12 72 \"Gone\" dim none s1\n"
               "line 0 124 319 124 faint\n"
               "text 12 130 \"Playing Morning\" fg none s1\n"
-              "text 12 146 \"MORN\" dim none s1\n"
-              "text 220 146 \"track 1 of 1\" dim none s1\n"
+              "text 12 146 \"tune\" dim none s1\n"
               "line 0 168 319 168 faint\n"
               "text 12 174 \"Volume\" fg none s1\n"
               "rect 108 177 176 10 dim outline\n"
@@ -217,7 +216,8 @@ TEST(start_stop_and_switch)
     draw();
     CHECK_INT(text_y("ON AIR"), 40);
     CHECK(has_text("Playing Hearth"));
-    CHECK(has_text("HEARTH"));
+    CHECK(has_text("recording"));
+    CHECK(!has_text("HEARTH"));
     CHECK(strstr(fake.log, "deitrix: radio shows Playing Hearth\n") != NULL);
     /* SELECT on the playing station stops it; the station stays picked. */
     changes = set->changes;
@@ -277,7 +277,8 @@ TEST(block_follows_the_track_and_its_wrap)
     }
     CHECK_INT(dx_radio_current(), 1);
     CHECK(fake_find_text("Playing Hearth") != NULL);
-    CHECK(fake_find_text("track 1 of 1") != NULL);
+    CHECK(fake_find_text("recording") != NULL);
+    CHECK(fake_find_text("track 1 of 1") == NULL);
     /* The track is two chunks long: 6 s of play wrap it three times.
      * Nothing shown changes, so no frame. */
     fake_clear_draws();
@@ -413,6 +414,40 @@ TEST(volume_to_both_limits)
     CHECK_INT(set->changes, changes + 12);
 }
 
+/* A held SELECT on a station starts it once, and a held SELECT on the
+ * station on air stops it once. Held BACK does nothing. */
+TEST(held_select_starts_and_stops_once)
+{
+    dx_settings_t *set = dx_content_settings();
+    uint32_t changes;
+    int i;
+
+    load(SMALL);
+    changes = set->changes;
+    CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY);
+    for (i = 0; i < 5; i++) {
+        CHECK_INT(send(DX_UI_SELECT, 1), DX_UI_IGNORED);
+        CHECK_INT(send(DX_UI_BACK, 1), DX_UI_IGNORED);
+    }
+    CHECK_INT(dx_radio_current(), 0);
+    CHECK_INT(fake.seq_count, 1);
+    CHECK_INT(fake_audio_ops(FAKE_AU_STOP), 0);
+    CHECK_INT(set->changes, changes + 1);
+    CHECK(strstr(fake.log, "deitrix: radio station=1\n") == fake.log);
+    CHECK(strstr(fake.log + 1, "deitrix: radio station=") == NULL);
+    CHECK_STR(last_log(), "deitrix: radio idle");
+    fake.log[0] = '\0';
+    CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY);
+    for (i = 0; i < 5; i++) {
+        CHECK_INT(send(DX_UI_SELECT, 1), DX_UI_IGNORED);
+    }
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    CHECK_INT(fake.seq_count, 1);
+    CHECK_INT(fake_audio_ops(FAKE_AU_STOP), 1);
+    CHECK(strstr(fake.log, "deitrix: radio off\n") == fake.log);
+    CHECK(strstr(fake.log, "station=") == NULL);
+}
+
 TEST(ui_sounds_toggle)
 {
     dx_settings_t *set = dx_content_settings();
@@ -441,7 +476,11 @@ TEST(ui_sounds_toggle)
     /* A held key does not toggle again, and never changes the tab. */
     CHECK_INT(send(DX_UI_SELECT, 1), DX_UI_HANDLED);
     CHECK_INT(send(DX_UI_RIGHT, 1), DX_UI_HANDLED);
+    CHECK_INT(send(DX_UI_LEFT, 1), DX_UI_HANDLED);
+    CHECK_INT(send(DX_UI_BACK, 1), DX_UI_IGNORED);
+    CHECK_STR(last_log(), "deitrix: radio idle");
     CHECK_INT(set->ui_sound, 0);
+    CHECK_INT(set->changes, changes + 1);
     CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY);
     CHECK_INT(set->ui_sound, 1);
     dx_ui_sound(DX_SND_MOVE);

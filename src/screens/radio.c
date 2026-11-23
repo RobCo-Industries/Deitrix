@@ -23,7 +23,6 @@
 #define BAR_H    10
 #define GAP      8
 #define LOG_CAP  64 /* "deitrix: radio shows Cannot play ", a name of 20, "\n" */
-#define TRACK    "track 1 of 1"
 #define MARK     "ON AIR"
 
 static int sel = -1; /* the cursor: a station, then VOLUME, then SOUND; -1 before the first use */
@@ -208,15 +207,10 @@ static void station_row(void *user, int index, dx_row_t *out)
     out->flags = s->playable ? 0u : DX_ROW_DISABLED;
 }
 
-/* The file name without its extension: "HEARTH" for HEARTH.PCM. */
-static void file_stem(const char *file, char *out, int cap)
+/* The station's kind in plain words, from RADIO.INI's kind. */
+static const char *kind_words(const dx_station_t *s)
 {
-    int i;
-
-    for (i = 0; i < cap - 1 && file[i] != '\0' && file[i] != '.'; i++) {
-        out[i] = file[i];
-    }
-    out[i] = '\0';
+    return s->kind == DX_KIND_PCM ? "recording" : "tune";
 }
 
 /* The station the last frame showed: its index, -1 for off, -2 - i for
@@ -246,22 +240,17 @@ static void draw_now(const dx_radio_t *r, const dx_ctx_t *ctx, dx_rect_t area)
 {
     const dx_theme_t *t = &ctx->theme;
     int y = area.y + DX_RADIO_NOW_DY;
-    int right = area.x + area.w - PAD_R;
     int cur = dx_radio_current();
     int bad = dx_radio_failed();
     char a[44];
     dx_sb_t sb;
 
     if (cur >= 0 && cur < station_count(r)) {
-        char stem[DX_NAME83_SIZE];
-
         dx_sb_init(&sb, a, sizeof(a));
         dx_sb_str(&sb, "Playing ");
         dx_sb_str(&sb, r->stations[cur].name);
         ctx->gfx->text(area.x + PAD_L, y, a, t->fg, DX_COLOR_NONE, 1);
-        file_stem(r->stations[cur].file, stem, sizeof(stem));
-        ctx->gfx->text(area.x + PAD_L, y + DX_ROW_H, stem, t->dim, DX_COLOR_NONE, 1);
-        ctx->gfx->text(right - dx_text_width(TRACK, 1), y + DX_ROW_H, TRACK, t->dim,
+        ctx->gfx->text(area.x + PAD_L, y + DX_ROW_H, kind_words(&r->stations[cur]), t->dim,
                        DX_COLOR_NONE, 1);
         log_shown(cur, "Playing ", r->stations[cur].name);
     } else if (bad >= 0 && bad < station_count(r)) {
