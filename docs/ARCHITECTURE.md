@@ -24,7 +24,7 @@ Pure data code, with no drawing and no system calls. `nav.c` moves between tabs 
 
 ### `src/services/`
 
-The background services: the radio and the autosave. See [Services](#services).
+The background services: the radio, the autosave and the uptime. See [Services](#services).
 
 ### `src/ui/`
 
@@ -273,7 +273,7 @@ deitrix: load DEITRIX.SAV ok tab=4 volume=80 sound=1 station=1
 1. The app shell: the drawing table and the theme, then the screen table check.
 2. The content, as above.
 3. The saves, on top of the content. The volume default is the level Pip-OS had at start. The volume and the UI sound setting apply at once.
-4. The services: the radio and the autosave.
+4. The services: the radio, the autosave and the uptime.
 5. The tab from the settings. Then the first frame and `deitrix: ready`.
 
 ## Services
@@ -301,6 +301,10 @@ The autosave writes DEITRIX.SAV and INV.SAV when their counters change. It write
 
 The unsaved mark tells the owner that changes are not on the card. It is a `!` in the normal colour, just left of the clock. It does not blink. It shows once a change has waited 12 s without reaching the card, `DX_SAVE_MARK_MS`: the longest wait of a healthy save, 10 s, plus 2 s. So a card that works never shows it. It stays while the changes are not saved, also after the autosave gave up. It goes as soon as every change is on the card, after the next change or a holotape's save. The service's tick turns it on and off, asks for a redraw and logs `deitrix: unsaved mark on` or `off`. It then stops its retries, so a broken card is not hit again and again. The changes stay marked as not saved. A new change to that save starts a fresh round of retries. `dx_autosave_flush()` writes at once. It tries every save that is not on the card once, even after a give-up. It returns 0 only when every save is on the card. The service's `stop` calls it. `dx_autosave_unsaved()` returns 1 while a change is not on the card. `dx_autosave_pending()` returns 1 only while the service plans a write, so it is 0 after a give-up. A write in QEMU takes 20 to 120 ms, and the UI waits only that long. No screen shows the saves, so the autosave never asks for a redraw.
 
+### The uptime
+
+`src/services/uptime.c` samples `ticks_ms` at least once an hour, `DX_UPTIME_SAMPLE_MS`, and counts its wraps at 2^31. A fall of more than 2^30 between two samples is a wrap. `dx_uptime_s()` gives the whole seconds since the start and samples too. It divides without 64-bit arithmetic, since the ROM has no libgcc.
+
 ## Screens
 
 ### STAT
@@ -315,7 +319,7 @@ When PROFILE.INI is missing, STATUS and ATTRS show "No profile on the card.". Wh
 
 The device rows come from `dx_plat_sysinfo()`. "Pip-OS" is `pipos_version` and "ABI" is `abi_version`. "SoC" is `soc` as BCM2835, BCM2836 or BCM2837. "RAM" is `mem_size`: the RAM the firmware gives the ARM, in MiB. The Deitrix version is `VERSION` in the Makefile, the version the SDK seals the ROM with. The Makefile passes it to the code as `DX_VERSION`. `src/model/stat_fmt.c` writes every value as text.
 
-The uptime is `ticks_ms`, shown as `d hh:mm:ss`. Pip-OS has no other uptime source, and `ticks_ms` wraps at 2^31 ms. So after 24 days 20:31:23 the uptime shown starts again at `0d 00:00:00`. The time comes from `get_time`, or reads "no clock".
+The uptime is shown as `d hh:mm:ss`. Pip-OS's only uptime source is `ticks_ms`, which wraps at 2^31 ms, 24 days 20:31:23. The uptime service counts the wraps, see [The uptime](#the-uptime), so the page shows the true uptime past that. The time comes from `get_time`, or reads "no clock".
 
 Only ABOUT ticks. Its tick wakes on each whole second of `ticks_ms` and asks for a redraw when the uptime second or the clock changed. On STATUS or ATTRS the tick returns 0, so the shell stops it. The shell ticks the screen after each event, so a move to ABOUT starts it at once. A frame of ABOUT reads the clock itself, so the time can show up to 1 s late.
 

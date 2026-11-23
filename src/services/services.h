@@ -1,6 +1,6 @@
 /*
  * The background services of the app shell: the radio, which keeps
- * playing whatever tab is shown, and the autosave.
+ * playing whatever tab is shown, the autosave and the uptime.
  */
 #ifndef DX_SERVICES_SERVICES_H
 #define DX_SERVICES_SERVICES_H
@@ -77,5 +77,21 @@ int dx_autosave_unsaved(void);
  * the card for DX_SAVE_MARK_MS. The service's tick turns it on and off,
  * logs "deitrix: unsaved mark on" or "off", and asks for a redraw. */
 int dx_autosave_marked(void);
+
+/* ---- Uptime ------------------------------------------------------------ */
+
+/* The service samples ticks_ms this often at least: far less than the
+ * 24.8 days between two wraps. */
+#define DX_UPTIME_SAMPLE_MS 3600000u
+
+extern const dx_service_t dx_service_uptime;
+
+/* The whole seconds since the start, past the wraps of ticks_ms at 2^31,
+ * and the ms into the current second in *ms_in_s when not NULL. Samples
+ * now_ms, as the service does. */
+uint32_t dx_uptime_s(uint32_t now_ms, uint32_t *ms_in_s);
+
+/* Starts the count again at now_ms with no wrap, for the host tests. */
+void dx_uptime_reset(uint32_t now_ms);
 
 #endif

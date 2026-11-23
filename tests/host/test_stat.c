@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "app.h"
+#include "services/services.h"
 #include "content.h"
 #include "fake_platform.h"
 #include "screens/screens.h"
@@ -85,6 +86,7 @@ static void boot(const char *profile)
     }
     dx_content_load();
     dx_stat_reset();
+    dx_uptime_reset(fake.ticks);
     fake.log[0] = '\0';
     CHECK_INT(dx_app_init(&app, dx_rom_screens, dx_rom_screen_count), 0);
     dx_app_step(&app);
@@ -417,8 +419,8 @@ TEST(about_day_and_tick_wrap)
     fake_clear_draws();
     dx_app_step(&app);
     CHECK(fake_find_text("1d 00:00:00") != NULL);
-    /* The tick counter wraps at 2^31: Pip-OS has nothing else, so the
-     * uptime shown starts again from 0d 00:00:00 after 24.8 days. */
+    /* The tick counter wraps at 2^31. The uptime service counts the
+     * wraps, so the uptime goes on past 24.8 days. */
     /* Days later: a new visit to ABOUT, just before the wrap. */
     fake.ticks = 0x7fffffffu - 100;
     key(DX_UI_LEFT);
@@ -432,8 +434,9 @@ TEST(about_day_and_tick_wrap)
     fake.ticks = 352;
     fake_clear_draws();
     dx_app_step(&app);
-    CHECK(fake_find_text("0d 00:00:00") != NULL);
-    CHECK_INT(app.wake, 1000);
+    /* 2^31 + 352 ms: the uptime goes on, the next second 1 s later. */
+    CHECK(fake_find_text("24d 20:31:24") != NULL);
+    CHECK_INT(app.wake, 1352);
 }
 
 /* Every view with the full profile stays inside the body. */

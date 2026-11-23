@@ -778,3 +778,40 @@ TEST(radio_across_the_tick_wrap)
     CHECK_INT(dx_radio_underruns(), 0);
     CHECK_INT(fake.au_crc, stream_crc(40000, fake.au_bytes));
 }
+
+/* ---- Uptime -------------------------------------------------------------- */
+
+TEST(uptime_across_one_and_two_wraps)
+{
+    unsigned flags = 0;
+    uint32_t ms = 0;
+
+    dx_uptime_reset(0);
+    dx_service_uptime.init(0);
+    /* The service samples at least once an hour. */
+    CHECK_INT(dx_service_uptime.tick(1000, &flags), 1000 + DX_UPTIME_SAMPLE_MS);
+    CHECK_INT(flags, 0);
+    CHECK_INT(dx_uptime_s(0x7fffffffu, &ms), 2147483);
+    CHECK_INT(ms, 647);
+    /* One wrap: 2^31 + 352 ms. */
+    CHECK_INT(dx_service_uptime.tick(352, &flags), 352 + DX_UPTIME_SAMPLE_MS);
+    CHECK_INT(dx_uptime_s(352, &ms), 2147484);
+    CHECK_INT(ms, 0);
+    /* Hourly samples up to the next wrap, then past it: 2^32 + 10 ms. */
+    {
+        uint32_t t = 352;
+
+        while (t < 0x7fffffffu - DX_UPTIME_SAMPLE_MS) {
+            t = dx_service_uptime.tick(t, &flags);
+        }
+    }
+    CHECK_INT(dx_uptime_s(0x7fffffffu, &ms), 4294967);
+    CHECK_INT(ms, 295);
+    CHECK_INT(dx_uptime_s(10, &ms), 4294967);
+    CHECK_INT(ms, 306);
+    CHECK_INT(dx_uptime_s(1000, NULL), 4294968);
+    /* A clock read a little out of order is not a wrap. */
+    CHECK_INT(dx_uptime_s(900, NULL), 4294968);
+    CHECK_INT(dx_uptime_s(2000, NULL), 4294969);
+    CHECK_INT(flags, 0);
+}

@@ -323,7 +323,8 @@ void dx_app_step(dx_app_t *app)
     }
 }
 
-static const dx_service_t *const rom_services[] = { &dx_service_radio, &dx_service_autosave };
+static const dx_service_t *const rom_services[] = { &dx_service_radio, &dx_service_autosave,
+                                                    &dx_service_uptime };
 
 static void remember_tab(int tab)
 {

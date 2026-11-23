@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Changed
 
+- STAT's ABOUT page shows the true uptime past 24.8 days: a new uptime service counts the wraps of `ticks_ms`.
 - The profile's gauge type is `dx_profile_gauge_t`, apart from the gauge widget. The widget has a selected, inverse mode, and RADIO's Volume row uses it.
 - STAT's ABOUT page logs its device line when it shows and once per uptime minute, not every second.
 - The header shows a `!` left of the clock while changes have not reached the card for 12 s, for example on a card that cannot be written.
