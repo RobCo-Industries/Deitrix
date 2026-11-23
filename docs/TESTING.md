@@ -6,7 +6,9 @@
 |---|---|---|
 | Host unit tests | `make test-host` | Pure code in `src/model/`, `src/ui/`, `src/screens/` and the app shell, against a fake platform; `tools/pbm2c.py` |
 | Pin checks | `make check-pins`, part of `test-host` | The CI workflow pins and the commit links in the docs |
-| Card check | `make sdimage-test`, part of `test-host` | The card holds the ROM, the kernel, `PIPOS.CFG` and every file of `content/` |
+| Content check | `make check-content`, part of `test-host` | `build/card/` follows [CONTENT.md](CONTENT.md) |
+| Tool tests | `make tools-test`, part of `test-host` | `tools/check_content.py`, `tools/tun2notes.py` and `tools/mkpcm.py` |
+| Card check | `make sdimage-test`, part of `test-host` | The card holds the ROM, the kernel, `PIPOS.CFG` and every file of `build/card/` with the same bytes; `build/card/` holds every file of `content/` and both PCM tracks |
 | QEMU tests | `make test-target` | The ROM and the widget gallery on Pip-OS on `raspi0`, `raspi1ap`, `raspi2b` and `raspi3b` |
 
 `make test` runs `test-host`, then `test-target`. `BOARD=raspi0` limits the QEMU tests to one board.
@@ -30,6 +32,14 @@ CI builds the host tests with GCC and `-Werror`, so GCC-only warnings such as `-
 | `test_vfont.c` | Every glyph inside its cell, no two glyphs alike, the crossed box for unknown characters, filled dots at every size, widths, a draw list |
 
 `tests/host/test_pbm2c.py` tests the PBM converter: parsing, bit packing, the generated table, bad input and the files in `assets/`. `make test-host` runs it.
+
+`tests/tools/` tests the content tools with Python's `unittest`, so they need no pytest. `make tools-test` runs them.
+
+| File | Covers |
+|---|---|
+| `test_check_content.py` | The sample tree passes; a table of broken trees, one per rule of [CONTENT.md](CONTENT.md), each with its message and line; the INI reader against `ini.c`'s rules; the line count against `dx_wrap` |
+| `test_tun2notes.py` | The sample tunes stay inside `play_seq`'s limits and last 8 to 30 seconds; note names, lengths, dots, tempo, the repeat, every error; the WAV output |
+| `test_mkpcm.py` | Each track's SHA-256, its length, no clipping, the DC level, the loop joint, the command line |
 
 To add one, write `tests/host/test_<name>.c` with `TEST(name) { CHECK(...); }` from RobCo-Core's `rc_test.h`. `make test-host` finds it.
 

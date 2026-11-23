@@ -15,8 +15,7 @@ The dial, LEFT and RIGHT move between tabs and wrap at both ends. Nothing else r
 
 ## Planned, not built
 
-- The five tabs with real content.
-- Content files read from `/PIPBOY/DATA/` on the card.
+- The five tabs with real content, read from `/PIPBOY/DATA/` on the card. The file formats, the sample content and the save layouts are in [docs/CONTENT.md](docs/CONTENT.md). The ROM does not read them yet.
 - Saves.
 - A holotape game.
 
@@ -49,7 +48,7 @@ The terminal has no dial key. The script channel's `dial <n>` command turns the 
 ## Test
 
 ```sh
-make test-host     # host unit tests, pin checks, card check
+make test-host     # host unit tests, tool tests, pin, content and card checks
 make test          # the above, then the QEMU tests on four boards
 make test BOARD=raspi0
 ```
@@ -59,13 +58,14 @@ See [docs/TESTING.md](docs/TESTING.md).
 ## Docs
 
 - [docs/BUILD.md](docs/BUILD.md): tools, make targets, card layout.
+- [docs/CONTENT.md](docs/CONTENT.md): content files, tunes, PCM tracks and saves.
 - [docs/TESTING.md](docs/TESTING.md): test layers, goldens.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): source layout and main loop.
 - [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md).
 
 ## Assets
 
-All artwork, fonts, sounds and text in this repo are original. Nothing is copied from the Fallout games.
+All artwork, fonts, sounds, music, maps and text in this repo are original. Nothing is copied from the Fallout games.
 
 ## Licence
 
