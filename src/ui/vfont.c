@@ -58,11 +58,11 @@ const char *dx_vfont_glyph(char c)
     case ' ':
         return "";
     case ':':
-        return "0102|0405";
+        return "0111120201|0414150504";
     case '-':
         return "0343";
     case '.':
-        return "0506";
+        return "0515160605";
     case '/':
         return "0640";
     case '%':
@@ -87,8 +87,25 @@ int dx_vfont_width(const char *s, int unit)
     return w;
 }
 
+int dx_vfont_weight(int unit)
+{
+    return unit >= 3 ? 2 : 1;
+}
+
+/* A weight 2 stroke is the line again 1 px right and 1 px down. */
+static void stroke(const dx_ctx_t *ctx, int x0, int y0, int x1, int y1, int weight,
+                   uint32_t color)
+{
+    ctx->gfx->line(x0, y0, x1, y1, color);
+    if (weight > 1) {
+        ctx->gfx->line(x0 + 1, y0, x1 + 1, y1, color);
+        ctx->gfx->line(x0, y0 + 1, x1, y1 + 1, color);
+    }
+}
+
 static void draw_glyph(const dx_ctx_t *ctx, int x, int y, const char *g, int unit, uint32_t color)
 {
+    int weight = dx_vfont_weight(unit);
     int have = 0;
     int px = 0, py = 0;
 
@@ -103,7 +120,7 @@ static void draw_glyph(const dx_ctx_t *ctx, int x, int y, const char *g, int uni
         gx = x + (g[0] - '0') * unit;
         gy = y + (g[1] - '0') * unit;
         if (have) {
-            ctx->gfx->line(px, py, gx, gy, color);
+            stroke(ctx, px, py, gx, gy, weight, color);
         }
         px = gx;
         py = gy;

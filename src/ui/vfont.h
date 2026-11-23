@@ -24,6 +24,12 @@ int dx_vfont_advance(char c);
 /* The width of s in pixels at `unit`: the sum of its advances. */
 int dx_vfont_width(const char *s, int unit);
 
+/*
+ * The stroke width in pixels: 2 from unit 3, else 1. A glyph's strokes
+ * fill its cell plus weight - 1 pixels right and down.
+ */
+int dx_vfont_weight(int unit);
+
 /* Draws s with its top left at x, y. Returns the width. */
 int dx_vfont_draw(const dx_ctx_t *ctx, int x, int y, const char *s, int unit, uint32_t color);
 

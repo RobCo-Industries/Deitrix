@@ -107,8 +107,17 @@ TEST(draw_list_small)
     c = fake_ctx();
     CHECK_INT(dx_vfont_draw(&c, 0, 30, "L-", 4, fake.theme.fg), 48);
     CHECK_STR(fake.draws, "line 0 30 0 54 fg\n"
+                          "line 1 30 1 54 fg\n"
+                          "line 0 31 0 55 fg\n"
                           "line 0 54 16 54 fg\n"
-                          "line 24 42 40 42 fg\n");
+                          "line 1 54 17 54 fg\n"
+                          "line 0 55 16 55 fg\n"
+                          "line 24 42 40 42 fg\n"
+                          "line 25 42 41 42 fg\n"
+                          "line 24 43 40 43 fg\n");
+    CHECK_INT(dx_vfont_weight(1), 1);
+    CHECK_INT(dx_vfont_weight(2), 1);
+    CHECK_INT(dx_vfont_weight(3), 2);
 }
 
 /* Every line of the whole set stays in the string's box. */
@@ -123,6 +132,7 @@ TEST(draw_inside_box)
         fake_reset();
         c = fake_ctx();
         w = dx_vfont_draw(&c, 5, 7, supported, unit, fake.theme.fg);
-        CHECK(fake_points_inside((dx_rect_t){ 5, 7, w, DX_VFONT_H * unit + 1 }));
+        CHECK(fake_points_inside(
+            (dx_rect_t){ 5, 7, w, DX_VFONT_H * unit + dx_vfont_weight(unit) }));
     }
 }
