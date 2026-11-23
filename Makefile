@@ -9,7 +9,10 @@
 #                             card, for the QEMU tests only
 #   make check-pins           CI pins and doc links match the submodules
 #   make sdimage              build/pipos/sd.img: the Pip-OS kernel, its sample
-#                             PIPOS.CFG, ROM1.ROM and the content/ tree
+#                             PIPOS.CFG, ROM1.ROM and the card tree
+#   make card-tree            build/card/: content/ plus the generated radio
+#                             tracks, the tree that goes to the card root
+#   make check-content        tools/check_content.py on build/card/
 #   make run                  boot the card in QEMU on this terminal
 #                             (BOARD=<name>, WINDOW=1 opens the display)
 #   make bootdir DIR=<path>   the files of a real card (FIRMWARE=0 leaves
@@ -70,6 +73,23 @@ $(HOST_TESTS): $(wildcard src/*/*.h) tests/host/fake_platform.h
 # QEMU runs and builds below share build/; keep top-level goals serial.
 .NOTPARALLEL:
 
+# ---- The card tree: content/ plus the generated radio tracks ------------
+
+# tools/mkpcm.py writes the two .PCM tracks; they are not in git. The
+# stamp sits outside the tree so it never reaches the card.
+CARD_TREE     := $(BUILD)/card
+CARD_STAMP    := $(BUILD)/card.stamp
+CONTENT_FILES := $(shell find content -type f)
+
+.PHONY: card-tree
+card-tree: $(CARD_STAMP)
+$(CARD_STAMP): $(CONTENT_FILES) tools/mkpcm.py
+	rm -rf $(CARD_TREE)
+	mkdir -p $(CARD_TREE)
+	cp -R content/. $(CARD_TREE)/
+	$(PYTHON) tools/mkpcm.py $(CARD_TREE)/PIPBOY/DATA/RADIO
+	touch $@
+
 # ---- Pip-OS: kernel, card, QEMU, real card --------------------------------
 
 # Pip-OS's own Makefile, building into build/pipos. ROM and TAPE pick the
@@ -77,7 +97,7 @@ $(HOST_TESTS): $(wildcard src/*/*.h) tests/host/fake_platform.h
 # tree copied to the card root before the ROM.
 PIPOS_BUILD := $(abspath $(BUILD))/pipos
 PIPOS_MAKE  := $(MAKE) --no-print-directory -C $(PIP_OS) BUILD=$(PIPOS_BUILD) PYTHON=$(PYTHON)
-CARD_VARS   := ROM=$(abspath $(PIP_OUT)) TAPE=none SDIMAGE_DIR=$(abspath content)
+CARD_VARS   := ROM=$(abspath $(PIP_OUT)) TAPE=none SDIMAGE_DIR=$(abspath $(CARD_TREE))
 KERNEL      := $(PIPOS_BUILD)/pipos.img
 CARD        := $(PIPOS_BUILD)/sd.img
 
@@ -85,18 +105,18 @@ CARD        := $(PIPOS_BUILD)/sd.img
 kernel:
 	$(PIPOS_MAKE) $(KERNEL)
 
-sdimage: all
+sdimage: all $(CARD_STAMP)
 	$(PIPOS_MAKE) sdimage $(CARD_VARS)
 
-run: all
+run: all $(CARD_STAMP)
 	$(PIPOS_MAKE) run $(CARD_VARS) BOARD=$(BOARD) WINDOW=$(WINDOW)
 
 # Pip-OS's bootdir builds all of Pip-OS first, then writes the kernel,
 # config.txt, the firmware and a sample PIPOS.CFG. Deitrix adds its files.
-bootdir: all
+bootdir: all $(CARD_STAMP)
 	$(if $(strip $(DIR)),,$(error DIR is not set: make bootdir DIR=<path>))
 	$(PIPOS_MAKE) bootdir DIR=$(abspath $(DIR)) $(if $(FIRMWARE),FIRMWARE=$(FIRMWARE))
-	cp -R content/. $(DIR)/
+	cp -R $(CARD_TREE)/. $(DIR)/
 	cp $(PIP_OUT) $(DIR)/PIPBOY/ROM1.ROM
 
 # ---- The widget gallery: a second ROM and card, for tests only ----------
@@ -109,13 +129,14 @@ gallery:
 
 # Run by `make gallery`, with BUILD=build/gallery: its card is
 # build/gallery/pipos/sd.img.
-gallery-card: all
+gallery-card: all $(CARD_STAMP)
 	$(if $(filter 1,$(GALLERY)),,$(error run make gallery))
 	$(PIPOS_MAKE) sdimage $(CARD_VARS)
 
 # ---- Checks and tests ------------------------------------------------------
 
 .PHONY: test test-target check-pins check-pins-test pbm2c-test sdimage-test venv
+.PHONY: check-content tools-test
 
 check-pins:
 	$(ROBCO_CORE)/tools/check_pins.sh .github/workflows/ci.yml
@@ -129,10 +150,17 @@ pbm2c-test:
 	$(PYTHON) tests/host/test_pbm2c.py
 
 sdimage-test: sdimage
-	tests/host/sdimage_test.sh $(CARD) $(PIP_OUT)
+	tests/host/sdimage_test.sh $(CARD) $(PIP_OUT) $(CARD_TREE)
+
+check-content: $(CARD_STAMP)
+	$(PYTHON) tools/check_content.py $(CARD_TREE)
+
+# The tests of the Python tools: unittest, so no pytest is needed.
+tools-test:
+	$(PYTHON) -m unittest discover -s tests/tools -p 'test_*.py'
 
 # The C host tests come from host.mk's test-host; these run first.
-test-host: check-pins check-pins-test pbm2c-test sdimage-test
+test-host: check-pins check-pins-test pbm2c-test check-content tools-test sdimage-test
 
 VENV := .venv
 venv: $(VENV)/.installed
