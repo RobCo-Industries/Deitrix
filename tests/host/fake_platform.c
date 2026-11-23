@@ -1,4 +1,5 @@
 #include "fake_platform.h"
+#include "tfmt.h"
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -99,7 +100,7 @@ static const char *color_name(uint32_t c, char buf[12])
     if (c == fake.theme.bg) {
         return "bg";
     }
-    snprintf(buf, 12, "#%06x", (unsigned)c);
+    tfmt(buf, 12, "#%06x", (unsigned)c);
     return buf;
 }
 
@@ -112,7 +113,7 @@ static void emit(const char *fmt, ...)
         return;
     }
     va_start(ap, fmt);
-    vsnprintf(fake.draws + n, sizeof(fake.draws) - n, fmt, ap);
+    tvfmt(fake.draws + n, sizeof(fake.draws) - n, fmt, ap);
     va_end(ap);
     n = strlen(fake.draws);
     if (n < sizeof(fake.draws) - 1) {
@@ -169,7 +170,7 @@ static void f_text(int x, int y, const char *s, uint32_t fg, uint32_t bg, int sc
         t->scale = scale;
         t->fg = fg;
         t->bg = bg;
-        snprintf(t->text, sizeof(t->text), "%s", s);
+        tfmt(t->text, sizeof(t->text), "%s", s);
     }
     point(x, y);
     point(x + (int)strlen(s) * DX_FONT_W * scale - 1, y + DX_FONT_H * scale - 1);
@@ -275,7 +276,7 @@ int dx_plat_wait(dx_event_t *ev, uint32_t timeout_ms)
 
 void dx_plat_log(const char *text)
 {
-    strncat(fake.log, text, sizeof(fake.log) - strlen(fake.log) - 1);
+    tfmt(fake.log + strlen(fake.log), sizeof(fake.log) - strlen(fake.log), "%s", text);
 }
 
 void dx_plat_tone(uint32_t freq_hz, uint32_t duration_ms)
@@ -314,7 +315,7 @@ static fake_file_t *new_file(const char *path)
         }
         i = fake.file_count++;
     }
-    snprintf(fake.files[i].path, sizeof(fake.files[i].path), "%s", path);
+    tfmt(fake.files[i].path, sizeof(fake.files[i].path), "%s", path);
     return &fake.files[i];
 }
 
@@ -366,8 +367,8 @@ int fake_load_tree(const char *dir, const char *prefix)
         }
         struct stat st;
 
-        snprintf(disk, sizeof(disk), "%s/%s", dir, e->d_name);
-        snprintf(card, sizeof(card), "%s/%s", prefix, e->d_name);
+        tfmt(disk, sizeof(disk), "%s/%s", dir, e->d_name);
+        tfmt(card, sizeof(card), "%s/%s", prefix, e->d_name);
         if (stat(disk, &st) != 0) {
             closedir(d);
             return -1;
@@ -563,7 +564,7 @@ void fake_put_save(const char *name, const void *data, uint32_t size)
 
     if (s == NULL) {
         s = &fake.saves[fake.save_count++];
-        snprintf(s->name, sizeof(s->name), "%s", name);
+        tfmt(s->name, sizeof(s->name), "%s", name);
     }
     if (size > FAKE_SAVE_MAX) {
         size = FAKE_SAVE_MAX;

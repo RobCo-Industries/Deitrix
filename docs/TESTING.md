@@ -20,7 +20,13 @@ Each `tests/host/test_<name>.c` builds into one program with RobCo-Core's `mk/ho
 
 `tests/host/gen_expect.py` writes `build/gen/expect.h` before the host tests build. It holds the notes `tools/tun2notes.py` makes of each sample tune and of about 50 edge cases, or the line of the error. It also holds every broken tree of `tests/tools/test_check_content.py`, as the files each one changes.
 
-CI builds the host tests with GCC and `-Werror`, so GCC-only warnings such as `-Wformat-truncation` fail there. Apple clang does not report them. If a GCC is installed, run the same check with `make CI=1 test-host HOST_CC=gcc-15` (use your GCC's name).
+### Formatted writes
+
+CI builds the host tests with GCC and `-Werror`. GCC's `-Wformat-truncation` fails a `snprintf` whose output may not fit and whose result is unused. Apple clang does not run that analysis, so such a call passes locally and fails in CI.
+
+The rule: in `tests/host/`, format with `tfmt()` or `tvfmt()` from `tests/host/tfmt.h`. They work like `snprintf` but stop the test run with a message when the output does not fit. `src/` calls no libc formatter. `make check-format`, part of `make test-host`, fails on a direct `sprintf`, `snprintf`, `vsnprintf`, `vsprintf`, `strcpy`, `strcat`, `strncpy` or `strncat` anywhere else.
+
+For other GCC-only warnings, CI is the check. If a GCC is installed, run `make CI=1 test-host HOST_CC=gcc-15` (use your GCC's name).
 
 | File | Covers |
 |---|---|

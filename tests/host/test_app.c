@@ -1,5 +1,6 @@
 /* The app shell, one step at a time against the fake platform. */
 #include "rc_test.h"
+#include "tfmt.h"
 
 #include <string.h>
 
@@ -218,7 +219,7 @@ static probe_t pa, pb;
 
 static void note(probe_t *p, const char *s)
 {
-    strncat(p->trace, s, sizeof(p->trace) - strlen(p->trace) - 1);
+    tfmt(p->trace + strlen(p->trace), sizeof(p->trace) - strlen(p->trace), "%s", s);
 }
 
 static void p_enter(void *st)

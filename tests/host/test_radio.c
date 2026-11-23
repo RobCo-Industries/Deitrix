@@ -1,5 +1,6 @@
 /* RADIO.INI, station availability, and the .TUN parser against the tool. */
 #include "rc_test.h"
+#include "tfmt.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -53,7 +54,7 @@ TEST(stations_dropped)
     size_t i;
 
     for (i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
-        snprintf(text, sizeof(text), "version = 1\n[station.1]\n%s", bad[i]);
+        tfmt(text, sizeof(text), "version = 1\n[station.1]\n%s", bad[i]);
         load(text);
         CHECK_EQ(r.load.status, DX_LOAD_OK);
         CHECK_EQ(r.count, 0);
@@ -168,7 +169,7 @@ TEST(sample)
     for (i = 0; i < 3; i++) {
         char path[64];
 
-        snprintf(path, sizeof(path), "/PIPBOY/DATA/RADIO/%s", r.stations[i].file);
+        tfmt(path, sizeof(path), "/PIPBOY/DATA/RADIO/%s", r.stations[i].file);
         n = dx_plat_read_file(path, buf, sizeof(buf));
         dx_radio_set_tune(&r, i, buf, n);
         CHECK_EQ(r.stations[i].playable, 1);

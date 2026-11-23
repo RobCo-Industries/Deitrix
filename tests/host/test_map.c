@@ -1,5 +1,6 @@
 /* MAP.INI and the fit of a box into pixels. */
 #include "rc_test.h"
+#include "tfmt.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -49,7 +50,7 @@ TEST(map_dropped)
     size_t i;
 
     for (i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
-        snprintf(text, sizeof(text), "version = 1\n%s", bad[i]);
+        tfmt(text, sizeof(text), "version = 1\n%s", bad[i]);
         load(text);
         CHECK_EQ(m.load.status, DX_LOAD_OK);
         CHECK_EQ(m.count, 0);

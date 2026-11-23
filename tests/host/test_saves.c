@@ -1,5 +1,6 @@
 /* DEITRIX.SAV and INV.SAV: the byte layouts, round trips and corruption. */
 #include "rc_test.h"
+#include "tfmt.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -105,11 +106,11 @@ TEST(inv_round_trip)
 
     for (round = 0; round < 50; round++) {
         int items = (int)(rnd() % 65);
-        int len = snprintf(text, sizeof(text), "version = 1\n[categories]\nm = MISC\n");
+        int len = tfmt(text, sizeof(text), "version = 1\n[categories]\nm = MISC\n");
 
         for (i = 0; i < items; i++) {
             /* Ids of 1 to 12 characters. */
-            len += snprintf(text + len, sizeof(text) - (size_t)len,
+            len += tfmt(text + len, sizeof(text) - (size_t)len,
                             "[item.%.*s%d]\nname = T\ncat = m\ncount = %u\n",
                             (int)(rnd() % 10), "abcdefghij", i, rnd() % 1000);
         }

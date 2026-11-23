@@ -2,6 +2,7 @@
  * without data, the saves at start, and every broken tree of the
  * checker's test table. */
 #include "rc_test.h"
+#include "tfmt.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,7 +63,7 @@ TEST(sample_content)
     tool_tune("MORNING.TUN", &c[0], &ms[0]);
     tool_tune("WALK.TUN", &c[1], &ms[1]);
     tool_tune("LULLABY.TUN", &c[2], &ms[2]);
-    snprintf(want, sizeof(want), SAMPLE_LOG, c[0], ms[0], c[1], ms[1], c[2], ms[2]);
+    tfmt(want, sizeof(want), SAMPLE_LOG, c[0], ms[0], c[1], ms[1], c[2], ms[2]);
     CHECK_STR(fake.log, want);
     n = dx_content_notes();
     CHECK_STR(n->notes[0].file, "GARDEN01.TXT");
@@ -207,10 +208,10 @@ static void lines_not_in(const char *a, const char *b, const char *mark, char *o
         size_t n = e != NULL ? (size_t)(e - a + 1) : strlen(a);
         char line[256];
 
-        snprintf(line, sizeof(line), "%.*s", (int)n, a);
+        tfmt(line, sizeof(line), "%.*s", (int)n, a);
         if (strstr(b, line) == NULL) {
-            strncat(out, mark, cap - strlen(out) - 1);
-            strncat(out, line, cap - strlen(out) - 1);
+            tfmt(out + strlen(out), cap - strlen(out), "%s", mark);
+            tfmt(out + strlen(out), cap - strlen(out), "%s", line);
         }
         a += n;
     }
@@ -242,7 +243,7 @@ TEST(broken_trees)
 
     sample_card();
     dx_content_load();
-    snprintf(base_log, sizeof(base_log), "%s", fake.log);
+    tfmt(base_log, sizeof(base_log), "%s", fake.log);
     for (i = 0; i < sizeof(BROKEN) / sizeof(BROKEN[0]); i++) {
         const char *want = NULL;
 

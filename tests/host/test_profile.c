@@ -1,5 +1,6 @@
 /* PROFILE.INI: one case per rule of docs/CONTENT.md, and the sample. */
 #include "rc_test.h"
+#include "tfmt.h"
 
 #include <string.h>
 
@@ -73,7 +74,7 @@ TEST(gauges_dropped)
     size_t i;
 
     for (i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
-        snprintf(text, sizeof(text), V "[gauges]\n%s\n", bad[i]);
+        tfmt(text, sizeof(text), V "[gauges]\n%s\n", bad[i]);
         load(text);
         CHECK_EQ(p.load.status, DX_LOAD_OK);
         CHECK_EQ(p.gauge_count, 0);

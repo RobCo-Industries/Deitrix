@@ -1,5 +1,6 @@
 /* NOTES: the list in name order, the titles and the body. */
 #include "rc_test.h"
+#include "tfmt.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -13,7 +14,7 @@ static void offer(const char *name, uint32_t size, int dir)
     dx_dirent_t e;
 
     memset(&e, 0, sizeof(e));
-    snprintf(e.name, sizeof(e.name), "%s", name);
+    tfmt(e.name, sizeof(e.name), "%s", name);
     e.size = size;
     e.is_dir = (uint8_t)dir;
     dx_notes_offer(&n, &e);
@@ -51,7 +52,7 @@ TEST(first_32_in_name_order)
     dx_notes_begin(&n);
     /* 40 notes offered from the last to the first. */
     for (i = 39; i >= 0; i--) {
-        snprintf(name, sizeof(name), "N%02d.TXT", i);
+        tfmt(name, sizeof(name), "N%02d.TXT", i);
         offer(name, 5, 0);
     }
     CHECK_EQ(n.count, 32);
@@ -60,12 +61,12 @@ TEST(first_32_in_name_order)
     /* And in mixed order. */
     dx_notes_begin(&n);
     for (i = 0; i < 40; i++) {
-        snprintf(name, sizeof(name), "N%02d.TXT", (i * 17) % 40);
+        tfmt(name, sizeof(name), "N%02d.TXT", (i * 17) % 40);
         offer(name, 5, 0);
     }
     CHECK_EQ(n.count, 32);
     for (i = 0; i < 32; i++) {
-        snprintf(name, sizeof(name), "N%02d.TXT", i);
+        tfmt(name, sizeof(name), "N%02d.TXT", i);
         CHECK_STR(n.notes[i].file, name);
     }
 }

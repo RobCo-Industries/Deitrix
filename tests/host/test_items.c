@@ -1,5 +1,6 @@
 /* ITEMS.INI and the overlay: one case per rule of docs/CONTENT.md. */
 #include "rc_test.h"
+#include "tfmt.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -82,7 +83,7 @@ TEST(items_dropped)
     size_t i;
 
     for (i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
-        snprintf(text, sizeof(text), HEAD "%s", bad[i]);
+        tfmt(text, sizeof(text), HEAD "%s", bad[i]);
         load(text);
         CHECK_EQ(it.load.status, DX_LOAD_OK);
         CHECK_EQ(it.item_count, 0);
@@ -117,7 +118,7 @@ TEST(note_cut_to_200)
     n1[100] = '\0';
     memset(n2, 'y', 100);
     n2[100] = '\0';
-    snprintf(text, sizeof(text), HEAD "[item.a]\nname = A\ncat = food\nnote = %s\nnote2 = %s\n",
+    tfmt(text, sizeof(text), HEAD "[item.a]\nname = A\ncat = food\nnote = %s\nnote2 = %s\n",
              n1, n2);
     load(text);
     CHECK_EQ((int)strlen(it.items[0].note), 200);
@@ -140,19 +141,19 @@ TEST(sections_merge_and_order)
 
 TEST(item_limit)
 {
-    int n = snprintf(text, sizeof(text), "version = 1\n[categories]\nm = MISC\n");
+    int n = tfmt(text, sizeof(text), "version = 1\n[categories]\nm = MISC\n");
     int i;
 
     for (i = 0; i < 66; i++) {
-        n += snprintf(text + n, sizeof(text) - (size_t)n, "[item.i%d]\nname = T\ncat = m\n", i);
+        n += tfmt(text + n, sizeof(text) - (size_t)n, "[item.i%d]\nname = T\ncat = m\n", i);
     }
     load(text);
     CHECK_EQ(it.item_count, 64);
     CHECK_STR(it.items[63].id, "i63");
     /* A bad id does not take a slot. */
-    n = snprintf(text, sizeof(text), "version = 1\n[categories]\nm = MISC\n[item.Bad]\nname = T\n");
+    n = tfmt(text, sizeof(text), "version = 1\n[categories]\nm = MISC\n[item.Bad]\nname = T\n");
     for (i = 0; i < 64; i++) {
-        n += snprintf(text + n, sizeof(text) - (size_t)n, "[item.i%d]\nname = T\ncat = m\n", i);
+        n += tfmt(text + n, sizeof(text) - (size_t)n, "[item.i%d]\nname = T\ncat = m\n", i);
     }
     load(text);
     CHECK_EQ(it.item_count, 64);
@@ -208,7 +209,7 @@ TEST(file_ignored)
     load("version = 2\n[categories]\nm = MISC\n");
     CHECK_EQ(it.load.status, DX_LOAD_VERSION);
     CHECK_EQ(it.cat_count, 0);
-    snprintf(text, sizeof(text), HEAD "[item.a]\nname = A\ncat = food\nnote = %0130d\n", 0);
+    tfmt(text, sizeof(text), HEAD "[item.a]\nname = A\ncat = food\nnote = %0130d\n", 0);
     load(text);
     CHECK_EQ(it.load.status, DX_LOAD_PARSE); /* a note above 127 is a parse error */
     CHECK_EQ(it.item_count, 0);

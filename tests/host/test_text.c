@@ -1,5 +1,6 @@
 /* Text wrapping and the scrolled text block. */
 #include "rc_test.h"
+#include "tfmt.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -177,7 +178,7 @@ static const char *last_line(dx_text_t *t)
     if (fake.text_count < 1) {
         return "";
     }
-    strncpy(out, fake.texts[fake.text_count - 1].text, sizeof(out) - 1);
+    tfmt(out, sizeof(out), "%s", fake.texts[fake.text_count - 1].text);
     return out;
 }
 
@@ -251,7 +252,7 @@ static char *numbered(int n)
     int i, o = 0;
 
     for (i = 0; i < n; i++) {
-        o += snprintf(s + o, NUMBERED_LINE, i + 1 < n ? "L%d\n" : "L%d", i);
+        o += tfmt(s + o, NUMBERED_LINE, i + 1 < n ? "L%d\n" : "L%d", i);
     }
     return s;
 }

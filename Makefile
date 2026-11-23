@@ -72,12 +72,12 @@ $(EXPECT_H): tests/host/gen_expect.py tools/tun2notes.py tests/tools/test_check_
 	$(PYTHON) tests/host/gen_expect.py $@
 
 HOST_TEST_DIR := tests/host
-HOST_SRCS     := $(PURE_SRCS) $(ICONS_C) tests/host/fake_platform.c
+HOST_SRCS     := $(PURE_SRCS) $(ICONS_C) tests/host/fake_platform.c tests/host/tfmt.c
 HOST_INCLUDES := src $(BUILD)/gen
 include $(ROBCO_CORE)/mk/host.mk
 
 # host.mk only sees the headers at the top of src/.
-$(HOST_TESTS): $(wildcard src/*/*.h) tests/host/fake_platform.h $(EXPECT_H) $(wildcard tests/host/*.inc)
+$(HOST_TESTS): $(wildcard src/*/*.h) tests/host/fake_platform.h tests/host/tfmt.h $(EXPECT_H) $(wildcard tests/host/*.inc)
 
 # QEMU runs and builds below share build/; keep top-level goals serial.
 .NOTPARALLEL:
@@ -157,7 +157,7 @@ gallery-card: all card-tree
 # ---- Checks and tests ------------------------------------------------------
 
 .PHONY: test test-target check-pins check-pins-test pbm2c-test sdimage-test venv
-.PHONY: check-content tools-test
+.PHONY: check-content tools-test check-format
 
 # RobCo-Core's scripts: the CI pins, then the doc links once per pinned
 # repository, Pip-OS and the RobCo-Core inside it.
@@ -168,6 +168,10 @@ check-pins:
 
 check-pins-test:
 	tests/host/check_pins_test.sh
+
+# No unchecked libc string writer in src/ or tests/host/ (docs/TESTING.md).
+check-format:
+	$(PYTHON) tests/host/check_format_calls.py
 
 pbm2c-test:
 	$(PYTHON) tests/host/test_pbm2c.py
@@ -185,7 +189,7 @@ tools-test:
 	$(PYTHON) -m unittest discover -s tests/tools -p 'test_*.py'
 
 # The C host tests come from host.mk's test-host; these run first.
-test-host: check-pins check-pins-test pbm2c-test check-content tools-test sdimage-test
+test-host: check-format check-pins check-pins-test pbm2c-test check-content tools-test sdimage-test
 
 VENV := .venv
 venv: $(VENV)/.installed
