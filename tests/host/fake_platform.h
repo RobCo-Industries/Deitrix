@@ -30,6 +30,7 @@
 typedef struct fake_file {
     char path[FAKE_PATH_MAX];
     const uint8_t *data;
+    uint8_t *owned;     /* data when the fake owns it, else NULL */
     uint32_t size;
     uint8_t fill;
 } fake_file_t;
@@ -131,8 +132,17 @@ typedef struct fake_platform {
 
 extern fake_platform_t fake;
 
-/* Clears every field, with fg 0x33e066, its theme and no clock. */
+/* Frees what the fake owns, then clears every field, with fg 0x33e066,
+ * its theme and no clock. It also runs when the program ends. */
 void fake_reset(void);
+
+/* The one allocator of tests/host/: counts live blocks. Aborts when out
+ * of memory. When the program ends, after a last fake_reset(), any live
+ * block fails the run with its count. */
+void *fake_alloc(size_t size);
+void fake_free(void *p);
+/* Blocks from fake_alloc not yet freed. */
+int fake_live_blocks(void);
 
 /* Queues one event for dx_plat_wait. */
 void fake_push(uint32_t type, uint32_t code, int32_t value);
@@ -149,15 +159,21 @@ dx_ctx_t fake_ctx(void);
 /* 1 when every recorded point lies inside r. */
 int fake_points_inside(dx_rect_t r);
 
-/* Adds a file to the fake card. data is not copied. */
+/* Adds a file to the fake card. data is not copied: it must outlive the
+ * file. */
 void fake_add_file(const char *path, const void *data, uint32_t size);
+/* Adds a file whose bytes come from fake_alloc; the fake frees them when
+ * the file is replaced or removed, or at fake_reset(). */
+void fake_add_owned(const char *path, uint8_t *data, uint32_t size);
+/* Adds a file with an owned copy of data. */
+void fake_add_copy(const char *path, const void *data, uint32_t size);
 /* Adds a file of `size` bytes, all `fill`. */
 void fake_add_fill(const char *path, uint32_t size, uint8_t fill);
 /* Adds a NUL-terminated text as a file. */
 void fake_add_text(const char *path, const char *text);
 /* Adds every file under the disk folder `dir` to the card under
  * `prefix`, recursively. Returns the file count, -1 on an error. The
- * bytes stay allocated until the program ends. */
+ * fake owns the bytes. */
 int fake_load_tree(const char *dir, const char *prefix);
 /* Removes a file. */
 void fake_remove_file(const char *path);

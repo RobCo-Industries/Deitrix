@@ -20,6 +20,10 @@ Each `tests/host/test_<name>.c` builds into one program with RobCo-Core's `mk/ho
 
 `tests/host/gen_expect.py` writes `build/gen/expect.h` before the host tests build. It holds the notes `tools/tun2notes.py` makes of each sample tune and of about 50 edge cases, or the line of the error. It also holds every broken tree of `tests/tools/test_check_content.py`, as the files each one changes.
 
+### Leaks
+
+CI runs LeakSanitizer with GCC's AddressSanitizer; Apple clang on macOS does not. So the tests allocate only through `fake_alloc()` and `fake_free()`, which count live blocks, and the fake owns every card file it loads or is handed with `fake_add_owned()`. Each test program ends with `fake_reset()` and fails, with the count, when a block is still live; `make check-format` fails on a direct `malloc`, `calloc`, `realloc`, `strdup` or `free` in `tests/host/` outside `fake_platform.c`.
+
 ### Formatted writes
 
 CI builds the host tests with GCC and `-Werror`. GCC's `-Wformat-truncation` fails a `snprintf` whose output may not fit and whose result is unused. Apple clang does not run that analysis, so such a call passes locally and fails in CI.

@@ -27,20 +27,19 @@ static void setup(uint32_t track_size, int loop2)
         "[station.3]\nname = Once\nkind = pcm\nfile = O.PCM\nloop = no\n"
         "[station.4]\nname = Gone\nkind = pcm\nfile = G.PCM\n";
     static const char tune[] = "version 1\nC4 D4 R/8\n";
-    static uint8_t *track;
+    uint8_t *track;
     uint32_t i;
 
     fake_reset();
     dx_ui_sound_block(0);
     dx_radio_load(&radio, (const uint8_t *)ini, (int32_t)strlen(ini));
     dx_radio_set_tune(&radio, 0, (const uint8_t *)tune, (int32_t)strlen(tune));
-    free(track);
-    track = malloc(track_size);
+    track = fake_alloc(track_size);
     for (i = 0; i < track_size; i++) {
         track[i] = (uint8_t)(i * 7 + i / 300);
     }
-    fake_add_file("/PIPBOY/DATA/RADIO/L.PCM", track, track_size);
-    fake_add_file("/PIPBOY/DATA/RADIO/O.PCM", track, track_size);
+    fake_add_copy("/PIPBOY/DATA/RADIO/O.PCM", track, track_size);
+    fake_add_owned("/PIPBOY/DATA/RADIO/L.PCM", track, track_size);
     dx_radio_set_pcm(&radio, 1, (int32_t)track_size);
     dx_radio_set_pcm(&radio, 2, (int32_t)track_size);
     dx_radio_set_pcm(&radio, 3, DX_FILE_MISSING);

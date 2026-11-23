@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <robco/crc32.h>
 #include <robco/ini.h>
@@ -16,8 +17,51 @@ fake_platform_t fake;
 static void audio_log(int op, uint32_t n, uint32_t first);
 static void audio_start(uint32_t ms);
 
+static int live_blocks;
+
+void *fake_alloc(size_t size)
+{
+    void *p = malloc(size != 0 ? size : 1);
+
+    if (p == NULL) {
+        fprintf(stderr, "fake_alloc: out of memory\n");
+        abort();
+    }
+    live_blocks++;
+    return p;
+}
+
+void fake_free(void *p)
+{
+    if (p != NULL) {
+        live_blocks--;
+        free(p);
+    }
+}
+
+int fake_live_blocks(void)
+{
+    return live_blocks;
+}
+
+/* Every test program links this file: after main returns, release the
+ * card and fail the run when a block is still live. */
+__attribute__((destructor)) static void fake_check_live(void)
+{
+    fake_reset();
+    if (live_blocks != 0) {
+        printf("fake: %d block(s) still live at exit\n", live_blocks);
+        fflush(stdout);
+        _exit(1);
+    }
+    printf("fake: no block live at exit\n");
+}
+
 void fake_reset(void)
 {
+    for (int i = 0; i < fake.file_count; i++) {
+        fake_free(fake.files[i].owned);
+    }
     memset(&fake, 0, sizeof(fake));
     fake.fg = 0x33e066u;
     fake.theme = dx_theme_from_fg(fake.fg);
@@ -314,7 +358,10 @@ static fake_file_t *new_file(const char *path)
             return NULL;
         }
         i = fake.file_count++;
+    } else {
+        fake_free(fake.files[i].owned);
     }
+    fake.files[i].owned = NULL;
     tfmt(fake.files[i].path, sizeof(fake.files[i].path), "%s", path);
     return &fake.files[i];
 }
@@ -328,6 +375,28 @@ void fake_add_file(const char *path, const void *data, uint32_t size)
         f->size = size;
         f->fill = 0;
     }
+}
+
+void fake_add_owned(const char *path, uint8_t *data, uint32_t size)
+{
+    fake_file_t *f = new_file(path);
+
+    if (f == NULL) {
+        fake_free(data);
+        return;
+    }
+    f->data = data;
+    f->owned = data;
+    f->size = size;
+    f->fill = 0;
+}
+
+void fake_add_copy(const char *path, const void *data, uint32_t size)
+{
+    uint8_t *b = fake_alloc(size);
+
+    memcpy(b, data, size);
+    fake_add_owned(path, b, size);
 }
 
 void fake_add_fill(const char *path, uint32_t size, uint8_t fill)
@@ -390,15 +459,15 @@ int fake_load_tree(const char *dir, const char *prefix)
         }
         size = (long)st.st_size;
         rewind(f);
-        buf = malloc((size_t)size + 1);
-        if (buf == NULL || fread(buf, 1, (size_t)size, f) != (size_t)size) {
+        buf = fake_alloc((size_t)size + 1);
+        if (fread(buf, 1, (size_t)size, f) != (size_t)size) {
             fclose(f);
             closedir(d);
-            free(buf);
+            fake_free(buf);
             return -1;
         }
         fclose(f);
-        fake_add_file(card, buf, (uint32_t)size);
+        fake_add_owned(card, buf, (uint32_t)size);
         count++;
     }
     closedir(d);
@@ -410,6 +479,7 @@ void fake_remove_file(const char *path)
     int i = find_file(path);
 
     if (i >= 0) {
+        fake_free(fake.files[i].owned);
         fake.files[i] = fake.files[fake.file_count - 1];
         fake.file_count--;
     }

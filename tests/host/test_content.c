@@ -189,11 +189,11 @@ static void broken_card(const broken_case_t *c)
         if (f->data == NULL && f->size < 0) {
             fake_remove_file(f->path);
         } else if (f->data == NULL) {
-            uint8_t *b = malloc((size_t)f->size);
+            uint8_t *b = fake_alloc((size_t)f->size);
 
             memset(b, f->first, (size_t)f->size);
             b[f->size - 1] = (uint8_t)f->last;
-            fake_add_file(f->path, b, (uint32_t)f->size);
+            fake_add_owned(f->path, b, (uint32_t)f->size);
         } else {
             fake_add_file(f->path, f->data, (uint32_t)f->size);
         }

@@ -6,6 +6,12 @@ flags a snprintf whose output may not fit; the local Apple clang does
 not, so such a call passes here and fails in CI. Formatted writes in
 tests/host/ go through tfmt() (tests/host/tfmt.c, the one file allowed
 to call vsnprintf). src/ has no libc formatter at all.
+
+It also fails on a direct heap call in tests/host/. CI's LeakSanitizer
+finds leaks; the local Apple clang does not. So tests allocate through
+fake_alloc() and fake_free() (tests/host/fake_platform.c, the one file
+allowed to call the libc allocator), which count live blocks, and each
+test program fails at exit when one is live.
 """
 import pathlib
 import re
@@ -14,6 +20,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 ALLOWED = {ROOT / "tests/host/tfmt.c"}
 CALL = re.compile(r"\b(v?s(?:n)?printf|strcpy|strcat|strncpy|strncat)\s*\(")
+ALLOC_ALLOWED = {ROOT / "tests/host/fake_platform.c"}
+ALLOC = re.compile(r"(?<![\w.>])(malloc|calloc|realloc|strdup|strndup|free)\s*\(")
 COMMENT = re.compile(r"/\*.*?\*/|//[^\n]*", re.S)
 
 
@@ -28,6 +36,9 @@ def main() -> int:
                 m = CALL.search(line)
                 if m:
                     bad.append(f"{path.relative_to(ROOT)}:{no}: {m.group(1)}() (use tfmt)")
+                m = ALLOC.search(line)
+                if m and top == "tests/host" and path not in ALLOC_ALLOWED:
+                    bad.append(f"{path.relative_to(ROOT)}:{no}: {m.group(1)}() (use fake_alloc/fake_free)")
     for b in bad:
         print(b)
     if bad:
