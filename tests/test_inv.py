@@ -14,8 +14,9 @@ from test_deitrix import boot_rom, golden, tabs, wait_ready, wait_tabs
 from test_model import card_target, mtools, wait_line
 from pipos_testing import TIMEOUT, no_exception, press, screenshot, script
 
-INV = re.compile(r"^deitrix: inv (.*?)\r?$", re.M)
-COUNT = re.compile(r"^deitrix: inv count=(\d+)\r?$", re.M)
+# Whole lines only: the serial buffer can end in the middle of one.
+INV = re.compile(r"^deitrix: inv (.*?)\r?\n", re.M)
+COUNT = re.compile(r"^deitrix: inv count=(\d+)\r?\n", re.M)
 
 
 def inv_lines(vm):
@@ -177,6 +178,12 @@ def test_inv_hold_counts_up(board, kernel_image, card, need_mtools):
         script(vm, "key up 0")
         held = time.monotonic() - held
         assert held >= HOLD_S
+        # Repeats queued before the release still arrive: wait until the
+        # lines stop, then sync.
+        seen = -1
+        while len(inv_lines(vm)) != seen:
+            seen = len(inv_lines(vm))
+            time.sleep(0.5)
         key(vm, "right", "idle")
         counts = [int(c) for c in COUNT.findall(vm.serial)]
         # One step per event, from the file's 20.
