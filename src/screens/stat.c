@@ -10,6 +10,7 @@
 #include "model/util.h"
 #include "screens/stat_draw.h"
 #include "ui/frame.h"
+#include "ui/grid.h"
 #include "ui/list.h"
 #include "ui/subtabs.h"
 
@@ -24,8 +25,8 @@ static const char *const sub_labels[SUB_COUNT] = { "STATUS", "ATTRS", "ABOUT" };
 #define RULE_DY   60 /* a faint rule over the gauges */
 #define GAUGE_DY  66
 #define GAUGE_PITCH 18
-#define LIST_DY   6
-#define KV_DY     4
+#define LIST_DY   DX_GRID_GAP
+#define KV_DY     DX_GRID_GAP
 #define KV_ROWS   7
 #define ABOUT_GAP 4  /* from the last key row to the rule */
 

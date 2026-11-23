@@ -233,9 +233,9 @@ TEST(about_full_profile)
     CHECK_STR(hint(), "LEFT/RIGHT: page");
     draw_body();
     CHECK(body_inside());
-    CHECK_INT(fake_find_text("Deitrix")->y, 42 + 4);
+    CHECK_INT(fake_find_text("Deitrix")->y, 42 + 6);
     CHECK_INT(fake_find_text("0.1.0")->x, 4 + 9 * 8);
-    CHECK_INT(fake_find_text("no clock")->y, 42 + 4 + 6 * 16);
+    CHECK_INT(fake_find_text("no clock")->y, 42 + 6 + 6 * 16);
     /* The about lines fill the rest of the body, never past it. */
     CHECK(fake_find_text("About line 3 is as long as allowed..") != NULL);
     CHECK(fake_find_text("About line 4 is as long as allowed..") == NULL);

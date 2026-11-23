@@ -140,15 +140,15 @@ TEST(first_view)
     t = fake_find_text("Alder Brook");
     CHECK(t != NULL && t->fg == fake.theme.dim && t->x + 11 * 8 == 316);
     t = fake_find_text("House");
-    CHECK(t != NULL && t->fg == fake.theme.fg && t->x == 4 && t->y == 199);
+    CHECK(t != NULL && t->fg == fake.theme.fg && t->x == 4 && t->y == 197);
     t = fake_find_text("home");
-    CHECK(t != NULL && t->fg == fake.theme.dim && t->x + 4 * 8 == 316 && t->y == 199);
+    CHECK(t != NULL && t->fg == fake.theme.dim && t->x + 4 * 8 == 316 && t->y == 197);
     /* The lines dim, under the clip of the pane, and the clip off. */
-    CHECK(strstr(fake.draws, "clip 0 42 320 154\npolyline 8 open dim\npolyline 5 open dim\n") !=
+    CHECK(strstr(fake.draws, "clip 0 48 320 145\npolyline 8 open dim\npolyline 5 open dim\n") !=
           NULL);
     CHECK(strstr(fake.draws, "clip off\n") != NULL);
     /* The rule over the place row. */
-    CHECK(strstr(fake.draws, "line 4 196 315 196 faint\n") != NULL);
+    CHECK(strstr(fake.draws, "line 4 193 315 193 faint\n") != NULL);
     CHECK(fake_all_points_inside(dx_frame_body()));
     CHECK_STR(hint(), "UP/DOWN: place  SELECT: open");
     /* Later frames log the view and the time the map took. */
@@ -167,7 +167,7 @@ TEST(markers)
     boot(SAMPLE);
     to_map();
     draw_body();
-    f = dx_map_pane_fit(&dx_content_maps()->maps[0], 0, 42, 320, 154);
+    f = dx_map_pane_fit(&dx_content_maps()->maps[0], 0, 48, 320, 145);
     /* An unselected place: a 5 px square in fg. */
     dx_map_to_px(&f, 70, 62, &px, &py);
     s = dx_map_square(px, py, DX_MAP_MARK);

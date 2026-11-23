@@ -6,10 +6,11 @@
 #ifndef DX_SCREENS_DATA_VIEW_H
 #define DX_SCREENS_DATA_VIEW_H
 
+#include "ui/grid.h"
 #include "ui/ui.h"
 
 /* Offsets from the top of the area under the sub-tabs. */
-#define DX_DATA_LIST_DY 6
+#define DX_DATA_LIST_DY DX_GRID_GAP
 
 /* Clears the whole tab, for the host tests. */
 void dx_data_reset(void);

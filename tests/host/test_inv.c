@@ -140,13 +140,13 @@ TEST(first_view_draw_list)
               "text 60 23 \"FOOD\" dim none s1\n"
               "text 108 23 \"EMPTY\" dim none s1\n"
               "line 0 41 319 41 faint\n"
-              "rect 0 44 320 16 fg fill\n"
-              "text 308 44 \"1\" bg fg s1\n"
-              "text 12 44 \"Folding knife\" bg fg s1\n"
-              "text 284 60 \"20 m\" fg none s1\n"
-              "text 12 60 \"Rope\" fg none s1\n"
-              "line 0 191 319 191 faint\n"
-              "text 12 195 \"2 entries, 1.5 kg\" dim none s1\n");
+              "rect 0 48 320 16 fg fill\n"
+              "text 308 48 \"1\" bg fg s1\n"
+              "text 12 48 \"Folding knife\" bg fg s1\n"
+              "text 284 64 \"20 m\" fg none s1\n"
+              "text 12 64 \"Rope\" fg none s1\n"
+              "line 0 193 319 193 faint\n"
+              "text 12 197 \"2 entries, 1.5 kg\" dim none s1\n");
     CHECK(inside_body());
     CHECK_STR(inv->hint(inv->st), "UP/DOWN: move  SELECT: open");
 }
@@ -160,12 +160,12 @@ TEST(categories_and_empty_category)
     CHECK_STR(last_log(), "deitrix: inv cat=1 row=0");
     draw();
     /* A count of 0 is dim. No weight in the category: entries only. */
-    CHECK_STR(strstr(fake.draws, "rect 0 44"),
-              "rect 0 44 320 16 dim fill\n"
-              "text 268 44 \"0 loaf\" bg dim s1\n"
-              "text 12 44 \"Rye bread\" bg dim s1\n"
-              "line 0 191 319 191 faint\n"
-              "text 12 195 \"1 entry\" dim none s1\n");
+    CHECK_STR(strstr(fake.draws, "rect 0 48"),
+              "rect 0 48 320 16 dim fill\n"
+              "text 268 48 \"0 loaf\" bg dim s1\n"
+              "text 12 48 \"Rye bread\" bg dim s1\n"
+              "line 0 193 319 193 faint\n"
+              "text 12 197 \"1 entry\" dim none s1\n");
     CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY);
     draw();
     CHECK(has_text("Nothing here."));
@@ -200,7 +200,7 @@ TEST(list_moves_and_ends)
     CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY);
     CHECK_STR(last_log(), "deitrix: inv cat=0 row=1");
     draw();
-    CHECK(strstr(fake.draws, "text 12 60 \"Rope\" bg fg s1\n") != NULL);
+    CHECK(strstr(fake.draws, "text 12 64 \"Rope\" bg fg s1\n") != NULL);
 }
 
 TEST(detail_view)
@@ -210,17 +210,17 @@ TEST(detail_view)
     CHECK_STR(last_log(), "deitrix: inv open=knife");
     draw();
     CHECK_STR(fake.draws,
-              "text 4 24 \"Folding knife\" fg none s1\n"
+              "text 4 23 \"Folding knife\" fg none s1\n"
               "line 0 41 319 41 faint\n"
-              "text 4 46 \"Count\" dim none s1\n"
-              "text 84 46 \"1\" fg none s1\n"
-              "text 4 62 \"Weight\" dim none s1\n"
-              "text 84 62 \"90 g\" fg none s1\n"
-              "text 4 78 \"Category\" dim none s1\n"
-              "text 84 78 \"TOOLS\" fg none s1\n"
-              "text 4 94 \"Marked\" dim none s1\n"
-              "text 84 94 \"No\" fg none s1\n"
-              "text 4 118 \"A small knife with a wooden handle.\" dim none s1\n");
+              "text 4 48 \"Count\" dim none s1\n"
+              "text 84 48 \"1\" fg none s1\n"
+              "text 4 64 \"Weight\" dim none s1\n"
+              "text 84 64 \"90 g\" fg none s1\n"
+              "text 4 80 \"Category\" dim none s1\n"
+              "text 84 80 \"TOOLS\" fg none s1\n"
+              "text 4 96 \"Marked\" dim none s1\n"
+              "text 84 96 \"No\" fg none s1\n"
+              "text 4 120 \"A small knife with a wooden handle.\" dim none s1\n");
     CHECK(inside_body());
     CHECK_STR(inv->hint(inv->st), "UP/DOWN: +/-  SELECT: mark  BACK: list");
     /* An item without weight or note: no Weight row, no note. */
@@ -300,10 +300,10 @@ TEST(mark_back_and_summary)
     CHECK_STR(last_log(), "deitrix: inv back row=1");
     draw();
     /* The row shows the mark and the new count; the weight stays. */
-    CHECK(strstr(fake.draws, "rect 0 60 320 16 fg fill\n"
-                             "rect 4 66 4 4 bg fill\n"
-                             "text 284 60 \"21 m\" bg fg s1\n"
-                             "text 12 60 \"Rope\" bg fg s1\n") != NULL);
+    CHECK(strstr(fake.draws, "rect 0 64 320 16 fg fill\n"
+                             "rect 4 70 4 4 bg fill\n"
+                             "text 284 64 \"21 m\" bg fg s1\n"
+                             "text 12 64 \"Rope\" bg fg s1\n") != NULL);
     CHECK(has_text("2 entries, 1.5 kg"));
     /* The Back button goes back too. */
     key(DX_UI_SELECT);

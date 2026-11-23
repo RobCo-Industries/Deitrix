@@ -138,6 +138,19 @@ The footer names the keys that do something in the current state. Every hint fol
 
 A row of text is 16 px, the font cell. At scale 1 the screen holds 40 columns of 8 px.
 
+Every tab lays out its body on one grid, `src/ui/grid.h`. Rows below count from the top of the body, row 22:
+
+| Constant | Row | What sits there |
+|---|---|---|
+| `DX_GRID_BAND_H` | 0 to 19 | The sub-tab row, or a detail's title row, with a faint rule on its last line |
+| `DX_GRID_BAND_TEXT_DY` | 1 | The text of that band |
+| `DX_GRID_TOP` | 6 | The first content row when there is no band, as on RADIO |
+| `DX_GRID_BAND_TOP` | 26 | The first content row under the band |
+| `DX_GRID_STATUS_RULE_DY` | 171 | A faint rule over the status row |
+| `DX_GRID_STATUS_DY` | 175 | A status or summary row: INV's summary, MAP's place, a tape's result |
+
+`DX_GRID_GAP`, 6 px, is the gap under the header rule or the band. An empty-state message is centred in the area under the band, or in the body when there is no band.
+
 The tab labels must end 8 px before the clock, at x 268. The header puts 8 px on each side of a label. When the labels do not fit, it narrows that space, down to 2 px. When they still do not fit, it cuts every label to 4 letters, then to 3. `dx_frame_tab_cut()` gives the letters it keeps. The limits are 8 tabs and 5 letters per name, and with them 3 letters always fit:
 
 | Tabs of 5 letters | Letters shown |
@@ -389,7 +402,7 @@ The CLOCK page logs once a second while the time runs. DATA writes no save. The 
 
 `src/screens/map.c` shows the maps of MAP.INI, one sub-tab per map in file order: LOCAL, then WORLD. A card with one map has one sub-tab. LEFT and RIGHT move between them. At the first sub-tab LEFT goes to DATA, and at the last RIGHT goes to RADIO. No view of MAP changes state, so it writes no save. Nothing ticks: the screen redraws only after a key.
 
-- The map view draws the map's lines in dim, fitted into the pane under the sub-tab row with `dx_map_fit()`. The fit keeps the aspect ratio, centres the map and leaves a margin of 8 px. The pane is the clip rectangle while the map draws. Each place is a 5 px square in fg. The selected place is a reticle: a 9 px ring around a 3 px dot, with a 3 px tick out of each side. The map's title sits at the right of the sub-tab row in dim text. Under a faint rule, the last row shows the selected place's name at the left and its kind at the right in dim text. UP and DOWN cycle the places in file order and wrap at both ends. SELECT opens the detail. With no places the row says "No places on this map.", and UP, DOWN and SELECT deny. With one place UP and DOWN deny too. A map with places and no lines shows the places alone.
+- The map view draws the map's lines in dim, fitted into the pane between the sub-tab row and the status row with `dx_map_fit()`. The fit keeps the aspect ratio, centres the map and leaves a margin of 8 px. The pane is the clip rectangle while the map draws. Each place is a 5 px square in fg. The selected place is a reticle: a 9 px ring around a 3 px dot, with a 3 px tick out of each side. The map's title sits at the right of the sub-tab row in dim text. Under a faint rule, the status row shows the selected place's name at the left and its kind at the right in dim text. UP and DOWN cycle the places in file order and wrap at both ends. SELECT opens the detail. With no places the row says "No places on this map.", and UP, DOWN and SELECT deny. With one place UP and DOWN deny too. A map with places and no lines shows the places alone.
 - The detail shows the place's name in the title row, then four key rows: the kind, the position as the file gives it, the map's title and the place's number, such as "2 of 7". Under them a locator shows the whole map in a faint frame, the other places dim and the place as the reticle. Back or LEFT returns to the map with the same place selected. RIGHT does nothing and stays in the detail. UP, DOWN and SELECT deny.
 
 The format has no owner position and no unit, so the detail shows no distance. It has no note per place either.

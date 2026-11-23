@@ -263,7 +263,7 @@ static void draw_detail(const dx_items_t *it, const dx_ctx_t *ctx, dx_rect_t are
     int n = 0;
     dx_rect_t r;
 
-    dx_text_cut(ctx, area.x + PAD, area.y + 2, item->name, (area.w - 2 * PAD) / DX_FONT_W,
+    dx_text_cut(ctx, area.x + PAD, area.y + DX_GRID_BAND_TEXT_DY, item->name, (area.w - 2 * PAD) / DX_FONT_W,
                 ctx->theme.fg, DX_COLOR_NONE);
     ctx->gfx->line(area.x, area.y + DX_SUBTABS_H - 1, area.x + area.w - 1,
                    area.y + DX_SUBTABS_H - 1, ctx->theme.faint);

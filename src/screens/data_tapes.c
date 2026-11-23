@@ -219,7 +219,8 @@ void dx_data_tapes_draw(const dx_ctx_t *ctx, dx_rect_t r)
     dx_sb_char(&sb, '\n');
     dx_data_log(line);
     if (tapes.result != NULL) {
-        ctx->gfx->text(r.x + 4, r.y + r.h - DX_ROW_H - 2, tapes.result, ctx->theme.dim,
+        ctx->gfx->text(r.x + 4, r.y - DX_GRID_BAND_H + DX_GRID_STATUS_DY, tapes.result,
+                       ctx->theme.dim,
                        DX_COLOR_NONE, 1);
     }
     if (tapes.listed < 0) {
