@@ -1,76 +1,78 @@
 #include "ui/frame.h"
 
-#include "model/nav.h"
-#include "platform/platform.h"
+#define TAB_X0   4 /* left edge of the first tab */
+#define TAB_PAD  8 /* space on each side of a tab label */
+#define HEADER_Y 3 /* text row of the header */
+#define CLOCK_X  (DX_SCREEN_W - 4 - 5 * DX_FONT_W)
+#define CLOCK_GAP 8 /* at least this between the last tab and the clock */
 
-#define TAB_X0      4   /* left edge of the first tab */
-#define TAB_PAD     8   /* space on each side of a tab label */
-#define HEADER_Y    3   /* text row of the header */
-#define HEADER_RULE 21
-#define FOOTER_RULE 215
-#define FOOTER_Y    220
-#define CLOCK_X     (DX_SCREEN_W - 4 - 5 * DX_FONT_W)
-
-static const char hint[] = "DIAL or LEFT/RIGHT: change tab";
-
-dx_theme_t dx_theme_from_fg(uint32_t fg)
+dx_rect_t dx_frame_body(void)
 {
-    dx_theme_t t;
+    dx_rect_t r = { 0, DX_BODY_TOP, DX_SCREEN_W, DX_BODY_H };
 
-    t.fg = fg & 0xffffffu;
-    t.dim = (t.fg >> 1) & 0x7f7f7fu;
-    return t;
+    return r;
 }
 
-int32_t dx_text_width(const char *text, uint32_t scale)
+int dx_frame_tab_pad(const char *const *names, int count)
 {
-    int32_t n = 0;
+    int text = 0, pad, i;
 
-    while (text[n] != '\0') {
-        n++;
+    for (i = 0; i < count; i++) {
+        text += dx_text_width(names[i], 1);
     }
-    return n * DX_FONT_W * (int32_t)scale;
+    if (count <= 0) {
+        return TAB_PAD;
+    }
+    pad = (CLOCK_X - CLOCK_GAP - TAB_X0 - text) / (2 * count);
+    if (pad > TAB_PAD) {
+        pad = TAB_PAD;
+    }
+    return pad < 1 ? 1 : pad;
 }
 
-void dx_text_centered(int32_t y, const char *text, uint32_t scale)
+int dx_frame_tab_x(const char *const *names, int count, int tab)
 {
-    dx_plat_text((DX_SCREEN_W - dx_text_width(text, scale)) / 2, y, text, scale);
-}
-
-int32_t dx_frame_tab_x(int tab)
-{
-    int32_t x = TAB_X0;
+    int pad = dx_frame_tab_pad(names, count);
+    int x = TAB_X0;
     int i;
 
-    for (i = 0; i < tab && i < DX_TAB_COUNT; i++) {
-        x += dx_text_width(dx_tab_name(i), 1) + 2 * TAB_PAD;
+    for (i = 0; i < tab && i < count; i++) {
+        x += dx_text_width(names[i], 1) + 2 * pad;
     }
-    return x + TAB_PAD;
+    return x + pad;
 }
 
-void dx_frame_draw(const dx_theme_t *theme, int active_tab, const char *clock)
+void dx_frame_header(const dx_ctx_t *ctx, const char *const *names, int count, int active,
+                     const char *clock)
 {
+    const dx_gfx_t *g = ctx->gfx;
+    const dx_theme_t *t = &ctx->theme;
+    int pad = dx_frame_tab_pad(names, count);
     int i;
 
-    for (i = 0; i < DX_TAB_COUNT; i++) {
-        const char *name = dx_tab_name(i);
-        int32_t x = dx_frame_tab_x(i);
+    for (i = 0; i < count; i++) {
+        int x = dx_frame_tab_x(names, count, i);
 
-        if (i == active_tab) {
+        if (i == active) {
             /* The active tab: dark text on a filled block. */
-            dx_plat_color(theme->fg, 0);
-            dx_plat_rect(x - TAB_PAD, 0, (uint32_t)(dx_text_width(name, 1) + 2 * TAB_PAD),
-                         HEADER_RULE, 1);
-            dx_plat_color(0, DX_COLOR_NONE);
+            g->rect(x - pad, 0, dx_text_width(names[i], 1) + 2 * pad, DX_HEADER_RULE, t->fg, 1);
+            g->text(x, HEADER_Y, names[i], t->bg, DX_COLOR_NONE, 1);
         } else {
-            dx_plat_color(theme->dim, DX_COLOR_NONE);
+            g->text(x, HEADER_Y, names[i], t->dim, DX_COLOR_NONE, 1);
         }
-        dx_plat_text(x, HEADER_Y, name, 1);
     }
-    dx_plat_color(theme->fg, DX_COLOR_NONE);
-    dx_plat_text(CLOCK_X, HEADER_Y, clock, 1);
-    dx_plat_line(0, HEADER_RULE, DX_SCREEN_W - 1, HEADER_RULE);
-    dx_plat_line(0, FOOTER_RULE, DX_SCREEN_W - 1, FOOTER_RULE);
-    dx_plat_color(theme->dim, DX_COLOR_NONE);
-    dx_text_centered(FOOTER_Y, hint, 1);
+    g->text(CLOCK_X, HEADER_Y, clock, t->fg, DX_COLOR_NONE, 1);
+    g->line(0, DX_HEADER_RULE, DX_SCREEN_W - 1, DX_HEADER_RULE, t->fg);
+}
+
+void dx_frame_footer(const dx_ctx_t *ctx, const char *hint)
+{
+    ctx->gfx->line(0, DX_FOOTER_RULE, DX_SCREEN_W - 1, DX_FOOTER_RULE, ctx->theme.fg);
+    dx_text_centered(ctx, DX_FOOTER_Y, hint, ctx->theme.dim, 1);
+}
+
+void dx_text_centered(const dx_ctx_t *ctx, int y, const char *text, uint32_t color, int scale)
+{
+    ctx->gfx->text((DX_SCREEN_W - dx_text_width(text, scale)) / 2, y, text, color,
+                   DX_COLOR_NONE, scale);
 }

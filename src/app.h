@@ -1,30 +1,43 @@
 /*
- * The main loop, split into steps so the host tests can run it one
- * iteration at a time against the fake platform.
+ * The app shell: the main loop over a table of screens, split into
+ * steps so the host tests can run it one iteration at a time against
+ * the fake platform.
  */
 #ifndef DX_APP_H
 #define DX_APP_H
 
 #include <stdint.h>
 
-#include "ui/frame.h"
+#include "ui/ui.h"
 
 typedef struct dx_app {
-    dx_theme_t theme;
-    int tab;            /* the active tab */
-    int drawn_tab;      /* the tab on screen, -1 before the first frame */
-    int32_t drawn_min;  /* the minute on screen */
+    const dx_screen_t *const *screens;
+    int count;
+    const char *names[DX_MAX_TABS];
+    dx_ctx_t ctx;
+    int tab;           /* the active tab */
+    int drawn_tab;     /* the tab on screen, -1 before the first frame */
+    int32_t drawn_min; /* the minute on screen */
+    int dirty;         /* the active screen asked for a redraw */
+    int wake_on;       /* the active screen has a wake time */
+    uint32_t wake;     /* its wake time, in ticks */
 } dx_app_t;
 
-void dx_app_init(dx_app_t *app);
+/* Takes at most DX_MAX_TABS screens and enters the first. */
+void dx_app_init(dx_app_t *app, const dx_screen_t *const *screens, int count);
 
 /*
- * One iteration: redraws and presents when the tab or the minute
- * changed, then waits for one event or the next minute change.
+ * One iteration: ticks the screen when its wake time passed, redraws
+ * and presents when anything changed, then waits for one event, the
+ * next minute change or the screen's wake time, and routes the event.
  */
 void dx_app_step(dx_app_t *app);
 
-/* Runs dx_app_step forever. */
+/* Routes one event: the dial changes the tab, every other event goes to
+ * the screen first, and LEFT or RIGHT it ignores change the tab. */
+void dx_app_route(dx_app_t *app, const dx_ui_event_t *ev);
+
+/* Runs dx_app_step forever over dx_rom_screens. */
 void dx_main(void) __attribute__((noreturn));
 
 #endif
