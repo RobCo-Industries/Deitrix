@@ -58,6 +58,11 @@ void dx_data_log(const char *line)
     dx_plat_log(line);
 }
 
+void dx_data_log_reset(void)
+{
+    data.logged[0] = '\0';
+}
+
 static const dx_notes_t *notes(void)
 {
     return dx_content_notes();

@@ -320,3 +320,234 @@ TEST(notes_body_draw_list)
                              "line 4 64 315 64 faint\n"
                              "text 4 68 \"Cool morning.\" fg none s1\n") != NULL);
 }
+
+/* ---- TAPES -------------------------------------------------------------- */
+
+static const dx_service_t *const services[] = { &dx_service_radio, &dx_service_autosave };
+
+/* The sample card, the services, then DATA on TAPES. */
+static void boot_tapes(void)
+{
+    CHECK(fake_load_tree("content", "") > 0);
+    boot();
+    dx_radio_attach(dx_content_radio());
+    dx_autosave_attach(dx_content_settings(), dx_content_items());
+    CHECK_INT(dx_app_start_services(&app, services, 2), 0);
+    key(DX_UI_RIGHT);
+}
+
+static uint8_t icon[DX_HOLO_ICON_SIZE];
+
+TEST(tapes_none_and_list_error)
+{
+    fake_reset();
+    boot_tapes();
+    CHECK_INT(fake.holo_lists, 1);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=0 | ");
+    CHECK_STR(hint(), "LEFT/RIGHT: page   DIAL: tab");
+    draw_body();
+    CHECK(fake_find_text("No holotapes on the card.") != NULL);
+    CHECK(body_inside());
+    key(DX_UI_SELECT);
+    key(DX_UI_DOWN);
+    CHECK_INT(fake.launch_count, 0);
+    /* A listing error: a plain message. */
+    fake.holo_list_rc = DX_EIO;
+    key(DX_UI_LEFT);
+    key(DX_UI_RIGHT);
+    CHECK_INT(fake.holo_lists, 2);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=-5 | ");
+    draw_body();
+    CHECK(fake_find_text("The holotapes could not be read.") != NULL);
+    CHECK(body_inside());
+}
+
+TEST(tapes_list_kinds_titles_and_icon)
+{
+    const fake_text_t *t;
+    int i;
+
+    fake_reset();
+    for (i = 0; i < DX_HOLO_ICON_SIZE; i++) {
+        icon[i] = (uint8_t)(i % 4 == 0 ? 0x80 : 0);
+    }
+    fake_add_holo("BEACON.HTP", DX_HOLO_GAME, "Beacon sample tape", icon);
+    fake_add_holo("NOTITLE.HTP", DX_HOLO_UTILITY, "", NULL);
+    fake_add_holo("RECORDS.HTP", DX_HOLO_DATA, "Old records", NULL);
+    fake_add_holo("ODD.HTP", 7,
+                  "A title as long as the kernel allows: sixty-three characters!!", NULL);
+    boot_tapes();
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=4 | ");
+    CHECK_STR(hint(), "UP/DOWN: move   SELECT: run tape");
+    draw_body();
+    CHECK(body_inside());
+    t = fake_find_text("Beacon sample tape");
+    CHECK(t != NULL && t->bg == fake.theme.fg && t->y == 42 + 6);
+    CHECK(fake_find_text("NOTITLE.HTP") != NULL);
+    CHECK(fake_find_text("Old records") != NULL);
+    CHECK(fake_find_text("GAME") != NULL);
+    CHECK(fake_find_text("UTIL") != NULL);
+    CHECK(fake_find_text("DATA") != NULL || strstr(fake.draws, "\"DATA\"") != NULL);
+    CHECK(fake_find_text("?") != NULL);
+    /* The kind sits left of the icon column. */
+    CHECK_INT(fake_find_text("UTIL")->x + 4 * 8, 320 - 40 - 4);
+    /* The icon of the selected tape at the top right. */
+    CHECK(strstr(fake.draws, "blit1 284 48 32 32 stride 4 fg none") != NULL);
+    key(DX_UI_DOWN);
+    draw_body();
+    CHECK(strstr(fake.draws, "blit1") == NULL);
+    CHECK(body_inside());
+}
+
+TEST(tapes_launch_order_and_results)
+{
+    static const struct {
+        int32_t rc;
+        const char *line;
+    } table[] = {
+        { 0, "Tape ended, status 0." },
+        { 255, "Tape ended, status 255." },
+        { DX_EFAULT, "Tape was stopped by the system." },
+        { DX_ENOEXEC, "Not a holotape." },
+        { DX_EIO, "Card error." },
+        { DX_ENOENT, "Tape not found." },
+        { DX_EPERM, "The tape could not start." },
+    };
+    char want[128];
+    size_t i;
+
+    fake_reset();
+    fake_add_holo("BEACON.HTP", DX_HOLO_GAME, "Beacon", NULL);
+    fake_add_holo("TOOL.HTP", DX_HOLO_UTILITY, "Tool", NULL);
+    boot_tapes();
+    key(DX_UI_DOWN);
+    for (i = 0; i < sizeof(table) / sizeof(table[0]); i++) {
+        int lists = fake.holo_lists;
+
+        /* The radio plays and a change waits for the autosave. */
+        CHECK_INT(dx_radio_play(0, fake.ticks), 0);
+        CHECK_INT(dx_radio_state(), DX_RADIO_TUNE);
+        CHECK(dx_items_toggle_marked(dx_content_items(), 0));
+        fake.launch_rc = table[i].rc;
+        fake.launch_draw_ms = 5000;
+        fake.log[0] = '\0';
+        {
+            int writes = fake.save_writes;
+            int stops = fake_audio_ops(FAKE_AU_STOP);
+
+            key(DX_UI_SELECT);
+            CHECK_INT(fake.launch_count, (int)i + 1);
+            CHECK_STR(fake.launch_file, "TOOL.HTP");
+            CHECK_STR(fake.launch_args, "");
+            /* The radio stopped and the save was written before the call. */
+            CHECK_INT(fake.launch_stops_at, stops + 1);
+            CHECK_INT(fake.launch_writes_at, writes + 1);
+            CHECK(!dx_autosave_pending());
+        }
+        /* After it: the radio stays off, the list was read again. */
+        CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+        CHECK_INT(dx_radio_current(), -1);
+        CHECK_INT(fake.holo_lists, lists + 1);
+        /* The save line, then the launch and its result. */
+        tfmt(want, sizeof(want),
+             "deitrix: save INV.SAV ok\ndeitrix: data launch TOOL.HTP\n"
+             "deitrix: data tape rc=%d\n", (int)table[i].rc);
+        CHECK(strncmp(fake.log, want, strlen(want)) == 0);
+        tfmt(want, sizeof(want), "deitrix: data tapes sel=1 top=0 count=2 | %s", table[i].line);
+        CHECK_STR(last_log(), want);
+        /* The whole frame was drawn again. */
+        CHECK_INT(fake.clears, 1);
+        CHECK_INT(fake.presents, 1);
+        draw_body();
+        CHECK(fake_find_text(table[i].line) != NULL);
+        CHECK(body_inside());
+        /* No tone was blocked by a radio that thinks it plays. */
+        CHECK_INT(app.tab, DATA_TAB);
+    }
+    /* The line goes when the selection moves. */
+    key(DX_UI_UP);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | ");
+    /* And when the sub-tab is left. */
+    key(DX_UI_SELECT);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | The tape could not start.");
+    key(DX_UI_RIGHT);
+    key(DX_UI_LEFT);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | ");
+    /* And when the tab is left. */
+    key(DX_UI_SELECT);
+    key(DX_UI_DIAL);
+    dx_app_set_tab(&app, DATA_TAB);
+    dx_app_step(&app);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | ");
+}
+
+TEST(tapes_list_changes_after_a_launch)
+{
+    fake_reset();
+    fake_add_holo("A.HTP", DX_HOLO_GAME, "A", NULL);
+    fake_add_holo("B.HTP", DX_HOLO_GAME, "B", NULL);
+    fake_add_holo("C.HTP", DX_HOLO_GAME, "C", NULL);
+    boot_tapes();
+    key(DX_UI_DOWN);
+    key(DX_UI_DOWN);
+    /* The tape vanished meanwhile, and A with it. */
+    fake.launch_rc = DX_ENOENT;
+    fake.holo_count = 0;
+    fake_add_holo("B.HTP", DX_HOLO_GAME, "B", NULL);
+    fake_add_holo("C.HTP", DX_HOLO_GAME, "C", NULL);
+    key(DX_UI_SELECT);
+    /* C stays selected, now the second row. */
+    CHECK_STR(last_log(), "deitrix: data tapes sel=1 top=0 count=2 | Tape not found.");
+    fake.holo_count = 0;
+    key(DX_UI_SELECT);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=0 | Tape not found.");
+    draw_body();
+    CHECK(fake_find_text("No holotapes on the card.") != NULL);
+    CHECK(fake_find_text("Tape not found.") != NULL);
+    CHECK(body_inside());
+}
+
+TEST(tapes_data_tape_is_refused)
+{
+    fake_reset();
+    fake_add_holo("RECORDS.HTP", DX_HOLO_DATA, "Records", NULL);
+    boot_tapes();
+    CHECK_INT(dx_radio_play(0, fake.ticks), 0);
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 0);
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNE);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=1 | Data tapes cannot be started.");
+    /* A tape listed as a game that the kernel refuses as a data tape
+     * would show the same: only the kind decides. */
+    fake.holos[0].kind = DX_HOLO_GAME;
+    key(DX_UI_LEFT);
+    key(DX_UI_RIGHT);
+    fake.launch_rc = DX_ENOEXEC;
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 1);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=1 | Not a holotape.");
+    dx_radio_stop();
+}
+
+TEST(tapes_scroll_32)
+{
+    char file[16];
+    int i;
+
+    fake_reset();
+    for (i = 0; i < DX_HOLO_MAX; i++) {
+        tfmt(file, sizeof(file), "T%02d.HTP", i);
+        fake_add_holo(file, DX_HOLO_GAME, "", NULL);
+    }
+    boot_tapes();
+    for (i = 0; i < 40; i++) {
+        key_ev(DX_UI_DOWN, 1);
+    }
+    CHECK_STR(last_log(), "deitrix: data tapes sel=31 top=23 count=32 | ");
+    fake.launch_rc = 3;
+    key(DX_UI_SELECT);
+    draw_body();
+    CHECK(fake_find_text("T31.HTP") != NULL);
+    CHECK(fake_find_text("Tape ended, status 3.") != NULL);
+    CHECK(body_inside());
+}

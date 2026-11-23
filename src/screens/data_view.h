@@ -20,6 +20,9 @@ void dx_data_message(const dx_ctx_t *ctx, dx_rect_t r, const char *a, const char
 /* Logs line once: again only after it changed or the log was reset. */
 void dx_data_log(const char *line);
 
+/* Forgets the last line: the next frame logs its line again. */
+void dx_data_log_reset(void);
+
 /* TAPES. */
 void dx_data_tapes_reset(void);
 void dx_data_tapes_enter(void); /* reads the listing */

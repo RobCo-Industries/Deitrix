@@ -14,24 +14,35 @@ A launch logs "deitrix: data launch <FILE>" before the call and
 two in a row match.
 """
 
+import pathlib
 import re
+import subprocess
 import time
 
-from test_deitrix import boot_rom, golden, tabs, wait_ready, wait_tabs
-from test_model import card_target, mtools
+import pytest
+
+from test_deitrix import boot_rom, golden, rom_running, tabs, wait_ready, wait_tabs
+from test_model import card_target, mtools, wait_line
 from test_stat import count, key, quiet, settled, wait_count
-from pipos_testing import no_exception, press, script
+from pipos_testing import TIMEOUT, minimal_env, no_exception, press, script
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+TAPES = {"linetest": "LINETEST.HTP", "fault": "FAULT.HTP"}
 
 NOTES = re.compile(r"^deitrix: data notes sel=(\d+) top=(\d+) count=(\d+)\r?$", re.M)
 NOTE = re.compile(r"^deitrix: data note (\S+) top=(\d+) lines=(\d+)( cut)?\r?$", re.M)
+TAPES_LINE = re.compile(r"^deitrix: data tapes sel=(\d+) top=(\d+) count=(-?\d+) \| (.*?)\r?$",
+                        re.M)
+TAPE_RC = re.compile(r"^deitrix: data tape rc=(-?\d+)\r?$", re.M)
 SAMPLE_NOTES = ["GARDEN01.TXT", "RECIPE01.TXT", "SHOP01.TXT", "WALK01.TXT"]
 
 
-def to_data(vm):
-    """From STAT to DATA with the dial: two detents."""
+def to_data(vm, dial="dial 2"):
+    """To DATA with the dial: two detents from STAT by default."""
     before = count(vm, NOTES)
-    script(vm, "dial 2")
-    assert wait_tabs(vm, 1) == ["DATA"], vm.serial
+    n = len(tabs(vm))
+    script(vm, dial)
+    assert wait_tabs(vm, n + 1)[-1] == "DATA", vm.serial
     return wait_count(vm, NOTES, before + 1)[-1]
 
 
@@ -86,4 +97,96 @@ def test_data_no_notes(board, kernel_image, card, tmp_path, need_mtools):
         golden(settled(vm, tmp_path), "data_notes_empty")
         press(vm, "select")
         quiet(vm, NOTE)
+        no_exception(vm)
+
+
+@pytest.fixture(scope="session")
+def tapes():
+    """The two test holotapes of tests/tapes/, built with the Pip-OS SDK
+    into build/tapes/."""
+    out = {}
+    for name, image in TAPES.items():
+        build = ROOT / "build" / "tapes" / name
+        subprocess.run(["make", "-C", str(ROOT / "tests" / "tapes" / name),
+                        f"PIPOS_SDK={ROOT / 'external' / 'pip-os' / 'sdk'}", f"BUILD={build}",
+                        "CI=1"], check=True, env=minimal_env(), capture_output=True)
+        out[name] = build / image
+    return out
+
+
+def add_tapes(card, tapes, names):
+    target = card_target(card)
+    try:
+        mtools("mmd", "-i", target, "::PIPBOY/HOLO")
+    except subprocess.CalledProcessError:
+        pass  # make sdimage made the folder already
+    for name in names:
+        mtools("mcopy", "-o", "-i", target, str(tapes[name]), f"::PIPBOY/HOLO/{TAPES[name]}")
+
+
+def to_tapes(vm, dial="dial 2"):
+    to_data(vm, dial)
+    before = count(vm, TAPES_LINE)
+    press(vm, "right")
+    return wait_count(vm, TAPES_LINE, before + 1)[-1]
+
+
+def test_data_no_tapes(board, kernel_image, card, tmp_path, need_mtools):
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        assert to_tapes(vm) == ("0", "0", "0", "")
+        golden(settled(vm, tmp_path), "data_tapes_empty")
+        press(vm, "select")
+        quiet(vm, TAPE_RC)
+        no_exception(vm)
+
+
+def test_data_tapes(board, kernel_image, card, tmp_path, need_mtools, tapes):
+    add_tapes(card, tapes, ["linetest", "fault"])
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        # The radio plays first: RADIO is one detent back from STAT.
+        script(vm, "dial -1")
+        wait_line(vm, "deitrix: tab=RADIO")
+        press(vm, "select")
+        wait_line(vm, "deitrix: radio station=1")
+        assert to_tapes(vm, "dial 3") == ("0", "0", "2", "")
+        golden(settled(vm, tmp_path), "data_tapes")
+
+        # LINETEST runs, draws, and ends with status 42 on SELECT.
+        mark = len(vm.serial)
+        press(vm, "select")
+        wait_line(vm, 'linetest: ready args ""')
+        # The radio's sound stopped before the tape started.
+        start = vm.serial.index("ev=holo_start", mark)
+        assert "op=stop" in vm.serial[mark:start], vm.serial[mark:]
+        assert "deitrix: data launch LINETEST.HTP" in vm.serial[mark:start], vm.serial
+        assert TAPE_RC.findall(vm.serial) == [], vm.serial
+        before = count(vm, TAPES_LINE)
+        press(vm, "select")
+        assert wait_count(vm, TAPES_LINE, before + 1)[-1] == \
+            ("0", "0", "2", "Tape ended, status 42.")
+        assert TAPE_RC.findall(vm.serial)[-1] == "42", vm.serial
+        golden(settled(vm, tmp_path), "data_tapes_status")
+        # The radio did not start again.
+        after = vm.serial[vm.serial.index("deitrix: data tape rc=42"):]
+        assert "op=seq" not in after, after
+
+        # FAULT is stopped by the kernel; the ROM goes on and redraws.
+        assert key(vm, "down", TAPES_LINE) == ("1", "0", "2", "")
+        before = count(vm, TAPES_LINE)
+        press(vm, "select")
+        assert wait_count(vm, TAPES_LINE, before + 1)[-1] == \
+            ("1", "0", "2", "Tape was stopped by the system.")
+        assert "faulttest: fault now" in vm.serial, vm.serial
+        assert "ev=holo_kill" in vm.serial, vm.serial
+        assert TAPE_RC.findall(vm.serial)[-1] == "-14", vm.serial
+        golden(settled(vm, tmp_path), "data_tapes_fault")
+        rom_running(vm)
+
+        # The line goes when the selection moves.
+        assert key(vm, "up", TAPES_LINE) == ("0", "0", "2", "")
+        # RADIO shows the radio off.
+        script(vm, "dial 2")
+        wait_line(vm, "deitrix: radio shows Off")
         no_exception(vm)
