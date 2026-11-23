@@ -338,7 +338,7 @@ The time comes from `ticks_ms`, which moves in 10 ms steps in QEMU. With the lar
 `src/screens/radio.c` is the control panel of the radio service. It has one page and no sub-tabs.
 
 - **The stations.** One row per station of RADIO.INI, in file order. A station whose file is missing or broken is dim. The station on air shows `ON AIR` at the right.
-- **Now playing.** Under a faint rule, two rows. While a station plays: "Playing" and its name, then its file name without the extension and `track 1 of 1`. A station plays one file, so it is always track 1 of 1. When nothing plays: "Radio off." in dim text. When the last start failed or an error stopped the station: "Station has nothing to play." and the reason, such as `LULLABY.TUN missing`.
+- **Now playing.** Under a faint rule, two rows. While a station plays: "Playing" and its name, then its kind in dim text: `tune` for `kind = tune`, `recording` for `kind = pcm`. When nothing plays: "Radio off." in dim text. When the last start failed or an error stopped the station: "Station has nothing to play." and the reason, such as `LULLABY.TUN missing`.
 - **The settings.** Under a second rule, `Volume` with a bar and the level, and `UI sounds` with On or Off.
 
 UP and DOWN move one cursor through the stations, then Volume, then UI sounds. They stop at both ends. The selected row is inverse.
