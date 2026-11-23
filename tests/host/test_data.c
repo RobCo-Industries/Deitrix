@@ -482,6 +482,77 @@ TEST(tapes_launch_order_and_results)
     CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | ");
 }
 
+/* A failed save write stops the first SELECT and keeps the radio on.
+ * A second fresh press runs the tape anyway. */
+TEST(tapes_failed_save_asks_for_a_second_press)
+{
+    const char *line = "Save failed. SELECT again runs it.";
+    int stops;
+
+    CHECK_INT((int)strlen(line), 34);
+    fake_reset();
+    fake_add_holo("BEACON.HTP", DX_HOLO_GAME, "Beacon", NULL);
+    fake_add_holo("TOOL.HTP", DX_HOLO_UTILITY, "Tool", NULL);
+    boot_tapes();
+    CHECK_INT(dx_radio_play(0, fake.ticks), 0);
+    CHECK(dx_items_toggle_marked(dx_content_items(), 0));
+    fake.save_fail = 100;
+    stops = fake_audio_ops(FAKE_AU_STOP);
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 0);
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNE);
+    CHECK_INT(fake_audio_ops(FAKE_AU_STOP), stops);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | Save failed. SELECT again runs it.");
+    draw_body();
+    CHECK(fake_find_text(line) != NULL);
+    CHECK_STR(hint(), "UP/DOWN: move   SELECT: run tape");
+    CHECK(body_inside());
+    /* A repeat of the held key is not the second press. */
+    key_ev(DX_UI_SELECT, 1);
+    CHECK_INT(fake.launch_count, 0);
+    /* Moving the selection drops the line and the confirmation. */
+    key(DX_UI_DOWN);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=1 top=0 count=2 | ");
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 0);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=1 top=0 count=2 | Save failed. SELECT again runs it.");
+    /* The second fresh press runs it, though the save fails again. */
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 1);
+    CHECK_STR(fake.launch_file, "TOOL.HTP");
+    CHECK_INT(fake.launch_stops_at, stops + 1);
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    /* A save that works runs the tape at once. */
+    fake.save_fail = 0;
+    key(DX_UI_UP);
+    CHECK(dx_items_toggle_marked(dx_content_items(), 0));
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 2);
+    CHECK_STR(fake.launch_file, "BEACON.HTP");
+    CHECK(!dx_autosave_pending());
+    /* Leaving the sub-tab drops the confirmation. */
+    CHECK(dx_items_toggle_marked(dx_content_items(), 0));
+    fake.save_fail = 100;
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 2);
+    key(DX_UI_RIGHT);
+    key(DX_UI_LEFT);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | ");
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 2);
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 3);
+    /* Nothing pending runs the tape at once, even with a bad card. */
+    fake.save_fail = 0;
+    CHECK(dx_items_toggle_marked(dx_content_items(), 0));
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 4);
+    fake.save_fail = 100;
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 5);
+    fake.save_fail = 0;
+}
+
 TEST(tapes_list_changes_after_a_launch)
 {
     fake_reset();

@@ -157,9 +157,11 @@ def test_data_tapes(board, kernel_image, card, tmp_path, need_mtools, tapes):
         mark = len(vm.serial)
         press(vm, "select")
         wait_line(vm, 'linetest: ready args ""')
-        # The radio's sound stopped before the tape started.
+        # The ROM stops the radio just before the launch. The kernel
+        # prints the stop marker from its audio poll, which can come
+        # after holo_start, so the marker is checked once the tape ends.
+        # test_data.c checks that the stop comes before the call.
         start = vm.serial.index("ev=holo_start", mark)
-        assert "op=stop" in vm.serial[mark:start], vm.serial[mark:]
         assert "deitrix: data launch LINETEST.HTP" in vm.serial[mark:start], vm.serial
         assert TAPE_RC.findall(vm.serial) == [], vm.serial
         before = count(vm, TAPES_LINE)
@@ -167,6 +169,8 @@ def test_data_tapes(board, kernel_image, card, tmp_path, need_mtools, tapes):
         assert wait_count(vm, TAPES_LINE, before + 1)[-1] == \
             ("0", "0", "2", "Tape ended, status 42.")
         assert TAPE_RC.findall(vm.serial)[-1] == "42", vm.serial
+        assert "op=stop" in vm.serial[mark:vm.serial.index("deitrix: data tape rc=42")], \
+            vm.serial[mark:]
         golden(settled(vm, tmp_path), "data_tapes_status")
         # The radio did not start again.
         after = vm.serial[vm.serial.index("deitrix: data tape rc=42"):]
@@ -313,6 +317,32 @@ def test_data_held_select_runs_a_tape_once(board, kernel_image, card, need_mtool
         assert TAPE_RC.findall(vm.serial) == ["-14"], vm.serial
         assert TAPES_LINE.findall(vm.serial)[-1] == \
             ("0", "0", "1", "Tape was stopped by the system.")
+        rom_running(vm)
+        no_exception(vm)
+
+
+def test_data_tapes_failed_save(board, kernel_image, card, tmp_path, need_mtools, tapes):
+    """A file named SAVE where the save folder goes makes every save
+    write fail. The tab change waits for the autosave, so the first
+    SELECT refuses and the second runs the tape."""
+    add_tapes(card, tapes, ["fault"])
+    blocker = tmp_path / "SAVE"
+    blocker.write_bytes(b"not a folder\n")
+    mtools("mcopy", "-i", card_target(card), str(blocker), "::PIPBOY/SAVE")
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        assert to_tapes(vm) == ("0", "0", "1", "")
+        before = count(vm, TAPES_LINE)
+        press(vm, "select")
+        assert wait_count(vm, TAPES_LINE, before + 1)[-1] == \
+            ("0", "0", "1", "Save failed. SELECT again runs it.")
+        assert "deitrix: save DEITRIX.SAV failed" in vm.serial, vm.serial
+        assert HOLO_START.findall(vm.serial) == [], vm.serial
+        before = count(vm, TAPES_LINE)
+        press(vm, "select")
+        assert wait_count(vm, TAPES_LINE, before + 1)[-1] == \
+            ("0", "0", "1", "Tape was stopped by the system.")
+        assert HOLO_START.findall(vm.serial) == ["FAULT.HTP"], vm.serial
         rom_running(vm)
         no_exception(vm)
 

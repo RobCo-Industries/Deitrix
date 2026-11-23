@@ -318,8 +318,8 @@ TAPES lists the holotapes from `dx_plat_holo_list`, the seam's `holo_enumerate`.
 SELECT runs the selected tape:
 
 1. A data tape is not run: the result line says "Data tapes cannot be started.". Pip-OS would refuse it with `-PIP_ENOEXEC`, and that answer for a data tape gives the same line.
-2. `dx_radio_stop()` stops the radio. Pip-OS stops the sound when a tape starts, so the service must not think it still plays. After the tape the radio stays off.
-3. `dx_autosave_flush()` writes any change that waits, so a tape that crashes the device loses nothing.
+2. `dx_autosave_flush()` writes any change that waits, so a tape that crashes the device loses nothing. When a write fails, the tape does not run and the result line says "Save failed. SELECT again runs it.". The radio keeps playing. The next fresh SELECT runs the tape even if the write fails again. Moving the selection or leaving the sub-tab or the tab drops that line and the second chance. A held SELECT's repeats never count. A card that cannot be written must not block every tape, and the user must know the changes are not safe first.
+3. `dx_radio_stop()` stops the radio. Pip-OS stops the sound when a tape starts, so the service must not think it still plays. After the tape the radio stays off.
 4. `dx_plat_holo_launch(file, "")` runs the tape. The ROM waits inside the call.
 5. The listing is read again and the whole frame redraws, since the back buffer holds what the tape drew.
 

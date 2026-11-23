@@ -1,9 +1,10 @@
 /*
  * The DATA tab's TAPES sub-tab: the holotapes Pip-OS lists, the
- * selected one's icon, and a launcher. Before a launch the radio stops
- * and the autosave writes what waits, so a tape that crashes the
- * device loses nothing. After it, one result line shows under the list
- * until the selection moves or the sub-tab is left.
+ * selected one's icon, and a launcher. Before a launch the autosave
+ * writes what waits, so a tape that crashes the device loses nothing,
+ * then the radio stops. A failed write asks for a second press. After
+ * a launch, one result line shows under the list until the selection
+ * moves or the sub-tab is left.
  */
 #include "model/util.h"
 #include "screens/data_view.h"
@@ -21,6 +22,7 @@ typedef struct tapes_state {
     int32_t listed; /* the count, or a negative error */
     dx_list_t list;
     const char *result; /* the result line, or NULL */
+    int armed;          /* a failed save was shown: the next SELECT runs */
     char status[32];    /* "Tape ended, status <n>." */
 } tapes_state_t;
 
@@ -100,6 +102,7 @@ void dx_data_tapes_enter(void)
 void dx_data_tapes_leave(void)
 {
     tapes.result = NULL;
+    tapes.armed = 0;
 }
 
 static void log_rc(const char *what, const char *file, int32_t rc)
@@ -157,9 +160,17 @@ static unsigned launch(void)
         return DX_UI_HANDLED | DX_UI_DIRTY;
     }
     dx_str_cut(file, sizeof(file), h->file, dx_str_len(h->file));
+    /* Save first. A failed write stops the first press: the user learns
+     * the changes are not safe. A second press runs the tape anyway, so a
+     * bad card never blocks every tape. */
+    if (dx_autosave_flush(dx_plat_ticks()) != 0 && !tapes.armed) {
+        tapes.armed = 1;
+        tapes.result = "Save failed. SELECT again runs it.";
+        return DX_UI_HANDLED | DX_UI_DIRTY;
+    }
+    tapes.armed = 0;
     /* Pip-OS stops the sound when a tape starts: the radio must know. */
     dx_radio_stop();
-    dx_autosave_flush(dx_plat_ticks());
     log_rc("launch ", file, 0);
     rc = dx_plat_holo_launch(file, "");
     log_rc("tape rc=", NULL, rc);
@@ -183,6 +194,7 @@ unsigned dx_data_tapes_event(const dx_ui_event_t *ev)
     r = dx_list_event(&tapes.list, ev);
     if (r != DX_UI_IGNORED) {
         tapes.result = NULL;
+        tapes.armed = 0;
     }
     return r;
 }
