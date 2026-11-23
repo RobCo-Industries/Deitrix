@@ -5,6 +5,8 @@
 #   make test                 test-host, then the QEMU tests on every board
 #   make test BOARD=raspi0    the QEMU tests on one board
 #   make test-target          the QEMU tests only
+#   make gallery              build/gallery/: the widget gallery ROM and its
+#                             card, for the QEMU tests only
 #   make check-pins           CI pins and doc links match the submodules
 #   make sdimage              build/pipos/sd.img: the Pip-OS kernel, its sample
 #                             PIPOS.CFG, ROM1.ROM and the content/ tree
@@ -27,9 +29,18 @@ endif
 .DEFAULT_GOAL := all
 
 # Every .c under src/ builds into the ROM. Only src/platform/ calls Pip-OS,
-# so the rest is pure and the host tests link it.
+# so the rest is pure and the host tests link it. GALLERY=1 builds the
+# widget gallery instead: the screens of tests/gallery/ in place of
+# src/screens/. `make gallery` sets it, with BUILD=build/gallery.
 DX_SRCS   := $(sort $(wildcard src/*.c src/*/*.c))
 PURE_SRCS := $(filter-out src/platform/%,$(DX_SRCS))
+ifeq ($(GALLERY),1)
+DX_SRCS   := $(filter-out src/screens/%,$(DX_SRCS)) $(sort $(wildcard tests/gallery/*.c))
+endif
+
+# The icons: assets/*.pbm turned into C at build time.
+ICONS     := $(sort $(wildcard assets/*.pbm))
+ICONS_C   := $(BUILD)/gen/icons.c
 
 # ---- The ROM, through the Pip-OS SDK --------------------------------------
 
@@ -39,14 +50,17 @@ KIND         := rom
 NAME         := DEITRIX
 TITLE        := Deitrix
 VERSION      := 0.1.0
-SRCS         := $(DX_SRCS)
+SRCS         := $(DX_SRCS) $(ICONS_C)
 CFLAGS_EXTRA := -Isrc
 include $(PIPOS_SDK)/pipos-app.mk
+
+$(ICONS_C): tools/pbm2c.py $(ICONS)
+	$(PYTHON) tools/pbm2c.py $@ $(ICONS)
 
 # ---- Host unit tests, with RobCo-Core's host.mk ---------------------------
 
 HOST_TEST_DIR := tests/host
-HOST_SRCS     := $(PURE_SRCS) tests/host/fake_platform.c
+HOST_SRCS     := $(PURE_SRCS) $(ICONS_C) tests/host/fake_platform.c
 HOST_INCLUDES := src
 include $(ROBCO_CORE)/mk/host.mk
 
@@ -85,9 +99,23 @@ bootdir: all
 	cp -R content/. $(DIR)/
 	cp $(PIP_OUT) $(DIR)/PIPBOY/ROM1.ROM
 
+# ---- The widget gallery: a second ROM and card, for tests only ----------
+
+GALLERY_BUILD := $(BUILD)/gallery
+
+.PHONY: gallery gallery-card
+gallery:
+	$(MAKE) --no-print-directory GALLERY=1 BUILD=$(GALLERY_BUILD) gallery-card
+
+# Run by `make gallery`, with BUILD=build/gallery: its card is
+# build/gallery/pipos/sd.img.
+gallery-card: all
+	$(if $(filter 1,$(GALLERY)),,$(error run make gallery))
+	$(PIPOS_MAKE) sdimage $(CARD_VARS)
+
 # ---- Checks and tests ------------------------------------------------------
 
-.PHONY: test test-target check-pins check-pins-test sdimage-test venv
+.PHONY: test test-target check-pins check-pins-test pbm2c-test sdimage-test venv
 
 check-pins:
 	$(ROBCO_CORE)/tools/check_pins.sh .github/workflows/ci.yml
@@ -97,11 +125,14 @@ check-pins:
 check-pins-test:
 	tests/host/check_pipos_links_test.sh
 
+pbm2c-test:
+	$(PYTHON) tests/host/test_pbm2c.py
+
 sdimage-test: sdimage
 	tests/host/sdimage_test.sh $(CARD) $(PIP_OUT)
 
 # The C host tests come from host.mk's test-host; these run first.
-test-host: check-pins check-pins-test sdimage-test
+test-host: check-pins check-pins-test pbm2c-test sdimage-test
 
 VENV := .venv
 venv: $(VENV)/.installed
@@ -113,5 +144,5 @@ $(VENV)/.installed: $(ROBCO_CORE)/tests/requirements.txt
 test: test-host
 	$(MAKE) --no-print-directory test-target
 
-test-target: sdimage kernel venv
+test-target: sdimage kernel gallery venv
 	$(VENV)/bin/pytest tests -v --board $(BOARD) --build-dir $(BUILD)

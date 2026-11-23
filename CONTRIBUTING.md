@@ -12,7 +12,8 @@ make test
 
 ## Code rules
 
-- Only `src/platform/` calls Pip-OS. Code anywhere else uses `platform.h`, so the host tests can run it.
+- Only `src/platform/` calls Pip-OS. Code anywhere else uses `platform.h` and draws through the `dx_gfx_t` table in `ctx->gfx`, so the host tests can run it.
+- Colours come from the theme only: `fg`, `dim`, `faint` and `bg`.
 - Pure logic goes in `src/model/` with a host test.
 - Every change that alters behaviour comes with a test that fails without it.
 - The build uses the Pip-OS SDK flags: ARMv6, soft float, no C library beyond `libpip`.

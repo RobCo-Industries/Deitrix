@@ -47,3 +47,11 @@ def card(request, tmp_path):
     shutil.copyfile(_built(request, "pipos", "sd.img"), path)
     return path
 
+
+@pytest.fixture
+def gallery_card(request, tmp_path):
+    """A copy of the widget gallery's card, from make gallery."""
+    path = tmp_path / "gallery.img"
+    shutil.copyfile(_built(request, "gallery", "pipos", "sd.img"), path)
+    return path
+

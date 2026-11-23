@@ -1,76 +1,125 @@
 #include "ui/frame.h"
 
-#include "model/nav.h"
-#include "platform/platform.h"
+#define TAB_X0   4 /* left edge of the first tab */
+#define TAB_PAD  8 /* space on each side of a tab label */
+#define HEADER_Y 3 /* text row of the header */
 
-#define TAB_X0      4   /* left edge of the first tab */
-#define TAB_PAD     8   /* space on each side of a tab label */
-#define HEADER_Y    3   /* text row of the header */
-#define HEADER_RULE 21
-#define FOOTER_RULE 215
-#define FOOTER_Y    220
-#define CLOCK_X     (DX_SCREEN_W - 4 - 5 * DX_FONT_W)
-
-static const char hint[] = "DIAL or LEFT/RIGHT: change tab";
-
-dx_theme_t dx_theme_from_fg(uint32_t fg)
+dx_rect_t dx_frame_body(void)
 {
-    dx_theme_t t;
+    dx_rect_t r = { 0, DX_BODY_TOP, DX_SCREEN_W, DX_BODY_H };
 
-    t.fg = fg & 0xffffffu;
-    t.dim = (t.fg >> 1) & 0x7f7f7fu;
-    return t;
+    return r;
 }
 
-int32_t dx_text_width(const char *text, uint32_t scale)
+/* The width of a label cut to `cut` letters. */
+static int label_width(const char *name, int cut)
 {
-    int32_t n = 0;
+    int n = dx_strlen(name);
 
-    while (text[n] != '\0') {
-        n++;
+    return (n < cut ? n : cut) * DX_FONT_W;
+}
+
+/* The pad for labels cut to `cut` letters: TAB_PAD at most, or less to
+ * fit, or 0 when they do not fit at DX_TAB_MIN_PAD. */
+static int pad_for(const char *const *names, int count, int cut)
+{
+    int text = 0, pad, i;
+
+    for (i = 0; i < count; i++) {
+        text += label_width(names[i], cut);
     }
-    return n * DX_FONT_W * (int32_t)scale;
-}
-
-void dx_text_centered(int32_t y, const char *text, uint32_t scale)
-{
-    dx_plat_text((DX_SCREEN_W - dx_text_width(text, scale)) / 2, y, text, scale);
-}
-
-int32_t dx_frame_tab_x(int tab)
-{
-    int32_t x = TAB_X0;
-    int i;
-
-    for (i = 0; i < tab && i < DX_TAB_COUNT; i++) {
-        x += dx_text_width(dx_tab_name(i), 1) + 2 * TAB_PAD;
+    pad = (DX_TAB_RIGHT - TAB_X0 - text) / (2 * count);
+    if (pad > TAB_PAD) {
+        pad = TAB_PAD;
     }
-    return x + TAB_PAD;
+    return pad < DX_TAB_MIN_PAD ? 0 : pad;
 }
 
-void dx_frame_draw(const dx_theme_t *theme, int active_tab, const char *clock)
+int dx_frame_tab_cut(const char *const *names, int count)
 {
-    int i;
+    int cut, i;
 
-    for (i = 0; i < DX_TAB_COUNT; i++) {
-        const char *name = dx_tab_name(i);
-        int32_t x = dx_frame_tab_x(i);
+    if (names == NULL || count < 1 || count > DX_MAX_TABS) {
+        return 0;
+    }
+    for (i = 0; i < count; i++) {
+        int n = names[i] != NULL ? dx_strlen(names[i]) : 0;
 
-        if (i == active_tab) {
-            /* The active tab: dark text on a filled block. */
-            dx_plat_color(theme->fg, 0);
-            dx_plat_rect(x - TAB_PAD, 0, (uint32_t)(dx_text_width(name, 1) + 2 * TAB_PAD),
-                         HEADER_RULE, 1);
-            dx_plat_color(0, DX_COLOR_NONE);
-        } else {
-            dx_plat_color(theme->dim, DX_COLOR_NONE);
+        if (n < 1 || n > DX_TAB_NAME_MAX) {
+            return 0;
         }
-        dx_plat_text(x, HEADER_Y, name, 1);
     }
-    dx_plat_color(theme->fg, DX_COLOR_NONE);
-    dx_plat_text(CLOCK_X, HEADER_Y, clock, 1);
-    dx_plat_line(0, HEADER_RULE, DX_SCREEN_W - 1, HEADER_RULE);
-    dx_plat_line(0, FOOTER_RULE, DX_SCREEN_W - 1, FOOTER_RULE);
-    dx_plat_color(theme->dim, DX_COLOR_NONE);
-    dx_text_centered(FOOTER_Y, hint, 1);
+    for (cut = DX_TAB_NAME_MAX; cut >= DX_TAB_CUT_MIN; cut--) {
+        if (pad_for(names, count, cut) > 0) {
+            return cut;
+        }
+    }
+    return 0;
+}
+
+int dx_frame_tab_pad(const char *const *names, int count)
+{
+    int cut = dx_frame_tab_cut(names, count);
+
+    return cut > 0 ? pad_for(names, count, cut) : 0;
+}
+
+int dx_frame_tab_x(const char *const *names, int count, int tab)
+{
+    int cut = dx_frame_tab_cut(names, count);
+    int pad = dx_frame_tab_pad(names, count);
+    int x = TAB_X0;
+    int i;
+
+    for (i = 0; i < tab && i < count; i++) {
+        x += label_width(names[i], cut) + 2 * pad;
+    }
+    return x + pad;
+}
+
+void dx_frame_header(const dx_ctx_t *ctx, const char *const *names, int count, int active,
+                     const char *clock)
+{
+    const dx_gfx_t *g = ctx->gfx;
+    const dx_theme_t *t = &ctx->theme;
+    int cut = dx_frame_tab_cut(names, count);
+    int pad = dx_frame_tab_pad(names, count);
+    int x = TAB_X0 + pad;
+    int i;
+
+    /* A table that does not fit draws no tabs at all. */
+    for (i = 0; cut > 0 && i < count; i++) {
+        char label[DX_TAB_NAME_MAX + 1];
+        int n = 0;
+        int w;
+
+        while (n < cut && names[i][n] != '\0') {
+            label[n] = names[i][n];
+            n++;
+        }
+        label[n] = '\0';
+        w = n * DX_FONT_W;
+        if (i == active) {
+            /* The active tab: dark text on a filled block. */
+            g->rect(x - pad, 0, w + 2 * pad, DX_HEADER_RULE, t->fg, 1);
+            g->text(x, HEADER_Y, label, t->bg, DX_COLOR_NONE, 1);
+        } else {
+            g->text(x, HEADER_Y, label, t->dim, DX_COLOR_NONE, 1);
+        }
+        x += w + 2 * pad;
+    }
+    g->text(DX_CLOCK_X, HEADER_Y, clock, t->fg, DX_COLOR_NONE, 1);
+    g->line(0, DX_HEADER_RULE, DX_SCREEN_W - 1, DX_HEADER_RULE, t->fg);
+}
+
+void dx_frame_footer(const dx_ctx_t *ctx, const char *hint)
+{
+    ctx->gfx->line(0, DX_FOOTER_RULE, DX_SCREEN_W - 1, DX_FOOTER_RULE, ctx->theme.fg);
+    dx_text_centered(ctx, DX_FOOTER_Y, hint, ctx->theme.dim, 1);
+}
+
+void dx_text_centered(const dx_ctx_t *ctx, int y, const char *text, uint32_t color, int scale)
+{
+    ctx->gfx->text((DX_SCREEN_W - dx_text_width(text, scale)) / 2, y, text, color,
+                   DX_COLOR_NONE, scale);
 }

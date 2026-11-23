@@ -1,16 +1,13 @@
-#include "screens/placeholder.h"
+#include "screens/screens.h"
 
-#include "model/nav.h"
-#include "platform/platform.h"
+#include "ui/frame.h"
 
 #define NAME_SCALE 3
-#define NAME_Y     72
-#define NOTE_Y     144
+#define NAME_DY    50  /* from the body top: y 72 on screen */
+#define NOTE_DY    122 /* y 144 */
 
-void dx_placeholder_draw(const dx_theme_t *theme, int tab)
+void dx_placeholder_draw(const dx_ctx_t *ctx, dx_rect_t area, const char *name)
 {
-    dx_plat_color(theme->fg, DX_COLOR_NONE);
-    dx_text_centered(NAME_Y, dx_tab_name(tab), NAME_SCALE);
-    dx_plat_color(theme->dim, DX_COLOR_NONE);
-    dx_text_centered(NOTE_Y, "Not built yet.", 1);
+    dx_text_centered(ctx, area.y + NAME_DY, name, ctx->theme.fg, NAME_SCALE);
+    dx_text_centered(ctx, area.y + NOTE_DY, "Not built yet.", ctx->theme.dim, 1);
 }
