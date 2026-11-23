@@ -18,10 +18,11 @@ import time
 from test_deitrix import boot_rom, golden, tabs, wait_ready, wait_tabs
 from test_model import card_target, mtools
 from pipos_testing import TIMEOUT, no_exception, press, screenshot, script
+from conftest import serial_line
 
-ATTRS = re.compile(r"^deitrix: stat shows ATTRS sel=(\d+) top=(\d+)\r?$", re.M)
-STATUS = re.compile(r"^deitrix: stat shows STATUS\r?$", re.M)
-ABOUT = re.compile(r"^deitrix: stat about (.*?)\r?$", re.M)
+ATTRS = serial_line(r"deitrix: stat shows ATTRS sel=(\d+) top=(\d+)")
+STATUS = serial_line(r"deitrix: stat shows STATUS")
+ABOUT = serial_line(r"deitrix: stat about (.*?)")
 SOC = {"raspi0": "BCM2835", "raspi1ap": "BCM2835", "raspi2b": "BCM2836", "raspi3b": "BCM2837"}
 SAMPLE_ATTRS = 6
 

@@ -25,15 +25,15 @@ from test_deitrix import boot_rom, golden, rom_running, tabs, wait_ready, wait_t
 from test_model import card_target, mtools, wait_line
 from test_stat import count, key, quiet, settled, wait_count
 from pipos_testing import TIMEOUT, minimal_env, no_exception, press, script
+from conftest import serial_line
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TAPES = {"linetest": "LINETEST.HTP", "fault": "FAULT.HTP"}
 
-NOTES = re.compile(r"^deitrix: data notes sel=(\d+) top=(\d+) count=(\d+)\r?$", re.M)
-NOTE = re.compile(r"^deitrix: data note (\S+) top=(\d+) lines=(\d+)( cut)?\r?$", re.M)
-TAPES_LINE = re.compile(r"^deitrix: data tapes sel=(\d+) top=(\d+) count=(-?\d+) \| (.*?)\r?$",
-                        re.M)
-TAPE_RC = re.compile(r"^deitrix: data tape rc=(-?\d+)\r?$", re.M)
+NOTES = serial_line(r"deitrix: data notes sel=(\d+) top=(\d+) count=(\d+)")
+NOTE = serial_line(r"deitrix: data note (\S+) top=(\d+) lines=(\d+)( cut)?")
+TAPES_LINE = serial_line(r"deitrix: data tapes sel=(\d+) top=(\d+) count=(-?\d+) \| (.*?)")
+TAPE_RC = serial_line(r"deitrix: data tape rc=(-?\d+)")
 SAMPLE_NOTES = ["GARDEN01.TXT", "RECIPE01.TXT", "SHOP01.TXT", "WALK01.TXT"]
 
 
@@ -192,8 +192,8 @@ def test_data_tapes(board, kernel_image, card, tmp_path, need_mtools, tapes):
         no_exception(vm)
 
 
-CLOCK = re.compile(r"^deitrix: data clock (.*?) \| (.*?)\r?$", re.M)
-SETTER = re.compile(r"^deitrix: data setter field=(\d) (\S+ \S+) \| (.*?)\r?$", re.M)
+CLOCK = serial_line(r"deitrix: data clock (.*?) \| (.*?)")
+SETTER = serial_line(r"deitrix: data setter field=(\d) (\S+ \S+) \| (.*?)")
 RTC_DEVICE = ["-device", "ds1338,bus=i2c-bus.1,address=0x68"]
 SET_NOTE = "Time set; kept only with a clock chip."
 
