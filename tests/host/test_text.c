@@ -241,14 +241,17 @@ TEST(text_bytes_just_over)
     free(s);
 }
 
+/* Room for one "L<int>\n" line at any int value, plus the NUL. */
+#define NUMBERED_LINE 14
+
 /* n lines "L0" .. "L<n-1>". */
 static char *numbered(int n)
 {
-    char *s = malloc((size_t)n * 6 + 1);
+    char *s = malloc((size_t)n * NUMBERED_LINE + 1);
     int i, o = 0;
 
     for (i = 0; i < n; i++) {
-        o += snprintf(s + o, 7, i + 1 < n ? "L%d\n" : "L%d", i);
+        o += snprintf(s + o, NUMBERED_LINE, i + 1 < n ? "L%d\n" : "L%d", i);
     }
     return s;
 }

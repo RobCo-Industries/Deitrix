@@ -15,6 +15,8 @@
 
 Each `tests/host/test_<name>.c` builds into one program with RobCo-Core's `mk/host.mk`: `-Werror`, AddressSanitizer and UndefinedBehaviorSanitizer when the compiler has them. Every program links all of `src/` except `src/platform/`, the generated `build/gen/icons.c` and `tests/host/fake_platform.c`. The fake records draw calls, log lines and tones, and plays back scripted events, clock readings and ticks. It can also move its clock and tick counter forward at each `present`, to play a slow draw.
 
+CI builds the host tests with GCC and `-Werror`, so GCC-only warnings such as `-Wformat-truncation` fail there. Apple clang does not report them. If a GCC is installed, run the same check with `make CI=1 test-host HOST_CC=gcc-15` (use your GCC's name).
+
 | File | Covers |
 |---|---|
 | `test_nav.c` | Next and previous, wrap, several detents both ways, extreme deltas, any tab count |
