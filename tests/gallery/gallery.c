@@ -215,17 +215,23 @@ static void bar_draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
         { "Storage", 130, 120 },
         { "Unused", 4, 0 },
     };
-    unsigned i;
+    enum { COUNT = sizeof(bars) / sizeof(bars[0]) };
+    dx_gauge_t g[COUNT];
+    int cols;
+    int i;
 
     (void)st;
     caption(ctx, area, "Gauges: value of max, clamped");
     area = below_caption(area);
-    for (i = 0; i < sizeof(bars) / sizeof(bars[0]); i++) {
-        dx_gauge_t g;
-        dx_rect_t row = { area.x, area.y + 4 + (int)i * 24, area.w, DX_ROW_H };
+    for (i = 0; i < COUNT; i++) {
+        dx_gauge_init(&g[i], bars[i].label, bars[i].value, bars[i].max);
+    }
+    /* One value column for the group, so the bars line up. */
+    cols = dx_gauge_value_cols(g, COUNT);
+    for (i = 0; i < COUNT; i++) {
+        dx_rect_t row = { area.x, area.y + 4 + i * 24, area.w, DX_ROW_H };
 
-        dx_gauge_init(&g, bars[i].label, bars[i].value, bars[i].max);
-        dx_gauge_draw(&g, ctx, row, 8);
+        dx_gauge_draw(&g[i], ctx, row, 8, cols);
     }
 }
 

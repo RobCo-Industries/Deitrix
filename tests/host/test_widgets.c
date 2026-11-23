@@ -34,7 +34,7 @@ TEST(gauge_draw_list)
     fake_reset();
     c = fake_ctx();
     dx_gauge_init(&g, "Power", 3, 4);
-    dx_gauge_draw(&g, &c, (dx_rect_t){ 0, 22, 200, 16 }, 6);
+    dx_gauge_draw(&g, &c, (dx_rect_t){ 0, 22, 200, 16 }, 6, 3);
     CHECK_STR(fake.draws, "text 4 22 \"Power\" dim none s1\n"
                           "text 172 22 \"3/4\" fg none s1\n"
                           "rect 60 25 104 10 dim outline\n"
@@ -49,7 +49,7 @@ TEST(gauge_max_zero_draws_empty_bar)
     fake_reset();
     c = fake_ctx();
     dx_gauge_init(&g, "None", 7, 0);
-    dx_gauge_draw(&g, &c, (dx_rect_t){ 0, 22, 200, 16 }, 6);
+    dx_gauge_draw(&g, &c, (dx_rect_t){ 0, 22, 200, 16 }, 6, 3);
     CHECK(fake_find_text("0/0") != NULL);
     CHECK_INT(fake.rect_count, 1);
     CHECK_INT(fake.rects[0].filled, 0);
@@ -69,10 +69,59 @@ TEST(gauge_inside_area_sweep)
             fake_reset();
             c = fake_ctx();
             dx_gauge_init(&g, "Label", v, 120);
-            dx_gauge_draw(&g, &c, a, 5);
+            dx_gauge_draw(&g, &c, a, 5, 7);
             CHECK(fake_points_inside(a));
         }
     }
+}
+
+/* A group shares value_cols: every bar has the same rectangle, and every
+ * number ends at the same x. */
+TEST(gauge_group_aligned)
+{
+    static const int32_t vals[][2] = { { 72, 100 }, { 3, 5 }, { 130, 120 }, { 4, 0 }, { 0, 7 } };
+    dx_gauge_t gs[5];
+    int cols, i;
+
+    for (i = 0; i < 5; i++) {
+        dx_gauge_init(&gs[i], "Label", vals[i][0], vals[i][1]);
+    }
+    cols = dx_gauge_value_cols(gs, 5);
+    CHECK_INT(cols, 7); /* "120/120" */
+    for (i = 0; i < 5; i++) {
+        dx_ctx_t c;
+        char buf[24];
+        int n = dx_gauge_text(&gs[i], buf);
+
+        fake_reset();
+        c = fake_ctx();
+        dx_gauge_draw(&gs[i], &c, (dx_rect_t){ 0, 40, 300, 16 }, 8, cols);
+        CHECK(fake.rect_count >= 1);
+        CHECK_INT(fake.rects[0].x, 76);
+        CHECK_INT(fake.rects[0].y, 43);
+        CHECK_INT(fake.rects[0].w, 156);
+        CHECK_INT(fake.rects[0].h, 10);
+        CHECK(fake_find_text(buf) != NULL);
+        if (fake_find_text(buf) != NULL) {
+            CHECK_INT(fake_find_text(buf)->x + n * 8, 296);
+        }
+    }
+}
+
+TEST(gauge_text_wider_than_column)
+{
+    dx_gauge_t g;
+    dx_ctx_t c;
+
+    fake_reset();
+    c = fake_ctx();
+    dx_gauge_init(&g, "Big", 1000, 10000);
+    dx_gauge_draw(&g, &c, (dx_rect_t){ 0, 22, 200, 16 }, 4, 3);
+    /* "1000/10000" keeps its full width and the bar gives way. */
+    CHECK_STR(fake.draws, "text 4 22 \"Big\" dim none s1\n"
+                          "text 116 22 \"1000/10000\" fg none s1\n"
+                          "rect 44 25 64 10 dim outline\n"
+                          "rect 46 27 6 6 fg fill\n");
 }
 
 static const dx_kv_row_t kv_rows[] = {

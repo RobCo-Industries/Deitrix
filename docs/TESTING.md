@@ -24,7 +24,7 @@ Each `tests/host/test_<name>.c` builds into one program with RobCo-Core's `mk/ho
 | `test_app.c` | The refused tab tables, one `present` per redraw, the clip around the body, no redraw without a change, the log lines, the wait timeout, the scheme colour, routing of the dial, LEFT, RIGHT, BACK and other keys, `enter` and `leave`, the hint, `tick` and the wake time, the wait after a slow or a quick draw for the wake time and the minute |
 | `test_list.c` | Selection, the ends, the scroll window for every size up to 30 rows, draw lists, the scroll bar, cut labels, the empty message, coordinates inside the area |
 | `test_text.c` | Wrap cases with exact breaks, no line past the width, scrolling, a draw list, coordinates inside the area |
-| `test_widgets.c` | Gauge clamps and draw lists, key and value rows, sub-tab ends and draw list, the generated icons |
+| `test_widgets.c` | Gauge clamps and draw lists, one bar rectangle for a group of value texts, a text wider than its column, key and value rows, sub-tab ends and draw list, the generated icons |
 | `test_vfont.c` | Every glyph inside its cell, no two glyphs alike, the crossed box for unknown characters, widths, a draw list |
 
 `tests/host/test_pbm2c.py` tests the PBM converter: parsing, bit packing, the generated table, bad input and the files in `assets/`. `make test-host` runs it.

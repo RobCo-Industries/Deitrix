@@ -147,7 +147,7 @@ The list, text, gauge, key and value, and sub-tab widgets are structs the screen
 
 - `list.h`: rows from a callback, each with a label, an optional value at the right and flags for disabled and marked. UP and DOWN move the selection, repeats too. At either end the list stays and returns `DX_UI_IGNORED`. The window scrolls by one row to keep the selection in view. The selected row is drawn inverse. A long label is cut with `~` before the value. An empty list draws a centred message. A scroll bar shows at the right when the rows do not fit.
 - `text.h`: a block of text wrapped to the area on word boundaries by `dx_wrap()`. A word longer than a line is split, `\n` forces a break and a tab counts as a space. UP and DOWN scroll a line at a time, with the same scroll bar.
-- `gauge.h`: a label, a bar for `value` of `max` and the numbers at the right. The value is clamped to 0 to `max`. `max` 0 draws an empty bar.
+- `gauge.h`: a label, a bar for `value` of `max` and the numbers at the right. The value is clamped to 0 to `max`. `max` 0 draws an empty bar. The numbers sit right-aligned in a column of `value_cols` characters. Give every gauge of a group the same `value_cols`, from `dx_gauge_value_cols()`, and their bars share both edges.
 - `kv.h`: read-only key and value rows, the values in one column after the longest key.
 - `subtabs.h`: a row of up to 5 labels under the header. LEFT and RIGHT move between them. At either end they return `DX_UI_IGNORED`, so the shell changes the main tab. The active label is bright and underlined.
 - `icon.h`: draws a 1-bit icon from `assets/` centred in an area. `dx_icon_find()` looks one up by its file name.
