@@ -86,6 +86,7 @@ void fake_clear_draws(void)
     fake.text_count = 0;
     fake.rect_count = 0;
     fake.point_count = 0;
+    fake.points_seen = 0;
     fake.presents = 0;
     fake.clears = 0;
     fake.draws[0] = '\0';
@@ -117,8 +118,26 @@ int fake_points_inside(dx_rect_t r)
     return 1;
 }
 
+int fake_all_points_inside(dx_rect_t r)
+{
+    if (fake.points_seen == 0) {
+        return 1;
+    }
+    return fake.points_lo.x >= r.x && fake.points_lo.y >= r.y && fake.points_hi.x < r.x + r.w &&
+           fake.points_hi.y < r.y + r.h;
+}
+
 static void point(int x, int y)
 {
+    if (fake.points_seen == 0) {
+        fake.points_lo.x = fake.points_hi.x = x;
+        fake.points_lo.y = fake.points_hi.y = y;
+    }
+    fake.points_lo.x = x < fake.points_lo.x ? x : fake.points_lo.x;
+    fake.points_lo.y = y < fake.points_lo.y ? y : fake.points_lo.y;
+    fake.points_hi.x = x > fake.points_hi.x ? x : fake.points_hi.x;
+    fake.points_hi.y = y > fake.points_hi.y ? y : fake.points_hi.y;
+    fake.points_seen++;
     if (fake.point_count < FAKE_MAX_POINTS) {
         fake.points[fake.point_count].x = x;
         fake.points[fake.point_count].y = y;

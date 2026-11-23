@@ -17,9 +17,11 @@ INV is built: the items of ITEMS.INI by category, a detail per item, and counts 
 
 DATA is built: the notes, the holotape launcher, and the clock with a time setter. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#data).
 
-MAP and RADIO are placeholders. Each shows the tab's name, "Not built yet." and a line from the content, such as the station count on RADIO.
+MAP is built: the local and world maps with their places, and a detail per place. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#map).
 
-At start the ROM loads the content under `/PIPBOY/DATA/` on the card and its two saves. The formats are in [docs/CONTENT.md](docs/CONTENT.md). The dial, LEFT and RIGHT move between tabs and wrap at both ends. On STAT, INV and DATA, LEFT and RIGHT move between the sub-tabs first. BACK and LEFT go back one level in a nested view. SELECT on RADIO cycles the stations: tunes through `play_seq`, PCM tracks streamed in chunks. The radio keeps playing on other tabs. The last tab and station are saved a moment after they change. A test-only gallery ROM shows every widget of the framework. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
+RADIO is a placeholder. It shows the tab's name, "Not built yet." and a line or two from the content, such as the station count.
+
+At start the ROM loads the content under `/PIPBOY/DATA/` on the card and its two saves. The formats are in [docs/CONTENT.md](docs/CONTENT.md). The dial, LEFT and RIGHT move between tabs and wrap at both ends. On STAT, INV, DATA and MAP, LEFT and RIGHT move between the sub-tabs first. BACK and LEFT go back one level in a nested view. SELECT on RADIO cycles the stations: tunes through `play_seq`, PCM tracks streamed in chunks. The radio keeps playing on other tabs. The last tab and station are saved a moment after they change. A test-only gallery ROM shows every widget of the framework. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
 
 ## Planned, not built
 

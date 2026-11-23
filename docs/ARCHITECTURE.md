@@ -32,7 +32,7 @@ The UI framework: the core types in `ui.h`, the frame every tab shares, and the 
 
 ### `src/screens/`
 
-One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. STAT, INV and DATA are built, see [Screens](#screens). `stat_draw.c` draws STAT's name and gauges. DATA keeps TAPES in `data_tapes.c` and CLOCK in `data_clock.c`. MAP and RADIO draw the shared placeholder from `placeholder.c`: the tab's name in large text, "Not built yet." and one or two lines from the model. SELECT on RADIO cycles the radio: off, station 1, station 2 and so on, then off.
+One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. STAT, INV, DATA and MAP are built, see [Screens](#screens). `stat_draw.c` draws STAT's name and gauges. DATA keeps TAPES in `data_tapes.c` and CLOCK in `data_clock.c`. RADIO draws the shared placeholder from `placeholder.c`: the tab's name in large text, "Not built yet." and one or two lines from the model. SELECT on RADIO cycles the radio: off, station 1, station 2 and so on, then off.
 
 ### `assets/`
 
@@ -343,6 +343,34 @@ deitrix: data set_time 1769929200 rc=0
 ```
 
 The CLOCK page logs once a second while the time runs. DATA writes no save. The only state it changes outside the screen is the clock, through `set_time`.
+
+### MAP
+
+`src/screens/map.c` shows the maps of MAP.INI, one sub-tab per map in file order: LOCAL, then WORLD. A card with one map has one sub-tab. LEFT and RIGHT move between them. At the first sub-tab LEFT goes to DATA, and at the last RIGHT goes to RADIO. No view of MAP changes state, so it writes no save. Nothing ticks: the screen redraws only after a key.
+
+- The map view draws the map's lines in dim, fitted into the pane under the sub-tab row with `dx_map_fit()`. The fit keeps the aspect ratio, centres the map and leaves a margin of 8 px. The pane is the clip rectangle while the map draws. Each place is a 5 px square in fg. The selected place is a reticle: a 9 px ring around a 3 px dot, with a 3 px tick out of each side. The map's title sits at the right of the sub-tab row in dim text. Under a faint rule, the last row shows the selected place's name at the left and its kind at the right in dim text. UP and DOWN cycle the places in file order and wrap at both ends. SELECT opens the detail. With no places the row says "No places on this map.", and UP, DOWN and SELECT deny. With one place UP and DOWN deny too. A map with places and no lines shows the places alone.
+- The detail shows the place's name in the title row, then four key rows: the kind, the position as the file gives it, the map's title and the place's number, such as "2 of 7". Under them a locator shows the whole map in a faint frame, the other places dim and the place as the reticle. Back or LEFT returns to the map with the same place selected. RIGHT does nothing and stays in the detail. UP, DOWN and SELECT deny.
+
+The format has no owner position and no unit, so the detail shows no distance. It has no note per place either.
+
+When MAP.INI is missing, ignored or holds no valid map, the body shows "No map on the card." and a dim reason, such as "MAP.INI missing", "MAP.INI line 4" or "MAP.INI holds no map.". The keys do nothing there, and LEFT and RIGHT change the tab.
+
+Leaving the tab closes the detail. The sub-tab and each map's selected place stay.
+
+The hint names the keys that do something now: "UP/DOWN: place  SELECT: open  RIGHT: map" on LOCAL with WORLD next, "BACK/LEFT: back to the map" in the detail. A single map without places and the empty state use the shell's hint.
+
+`src/model/map_view.c` holds the pure helpers: the pane fit with its margin, a line in pixels, the place cycling, the marker squares and the position text. A map point lands on the pixel `dx_map_to_px()` gives: rounded to the nearest, halves up.
+
+The tab logs one line when a frame shows another view, just before the present, and the time the map view took after each map frame. The first frame after the tab opens logs nothing:
+
+```
+deitrix: map shows LOCAL place=2
+deitrix: map drew 0 ms
+deitrix: map detail LOCAL place=2
+deitrix: map shows none
+```
+
+The time comes from `ticks_ms`, which moves in 10 ms steps in QEMU. With the largest map the format allows, 64 lines of 16 points and 24 places, each redraw of the map view logged 0 ms on raspi0 and raspi2b in QEMU, and under 100 ms on every board.
 
 ## Planned
 
