@@ -472,3 +472,49 @@ TEST(held_left_changes_the_tab_once)
     CHECK_INT(app.tab, dx_rom_screen_count - 1);
     CHECK_STR(fake.log, "deitrix: tab=RADIO\n");
 }
+
+static int about_lines(void)
+{
+    int n = 0;
+    const char *p = fake.log;
+
+    while ((p = strstr(p, "deitrix: stat about ")) != NULL) {
+        n++;
+        p++;
+    }
+    return n;
+}
+
+/* ABOUT logs one line when it shows, then one per uptime minute, not
+ * one per frame. */
+TEST(about_logs_on_entry_and_each_minute)
+{
+    uint32_t t;
+
+    boot(FULL);
+    fake.ticks = 1500;
+    key(DX_UI_RIGHT);
+    key(DX_UI_RIGHT);
+    CHECK_INT(about_lines(), 1);
+    /* 58 more frames in the same minute: no line. */
+    for (t = 2000; t < 60000; t += 1000) {
+        fake.ticks = t;
+        fake_clear_draws();
+        dx_app_step(&app);
+    }
+    CHECK_INT(about_lines(), 1);
+    CHECK(fake_find_text("0d 00:00:59") != NULL);
+    /* The minute changes: one line, with the new uptime. */
+    fake.ticks = 60000;
+    fake_clear_draws();
+    dx_app_step(&app);
+    CHECK_INT(about_lines(), 2);
+    CHECK(strstr(fake.log, "Uptime=0d 00:01:00 |") != NULL);
+    fake.ticks = 61000;
+    dx_app_step(&app);
+    CHECK_INT(about_lines(), 2);
+    /* Leaving and coming back in the same minute logs again. */
+    key(DX_UI_LEFT);
+    key(DX_UI_RIGHT);
+    CHECK_INT(about_lines(), 3);
+}

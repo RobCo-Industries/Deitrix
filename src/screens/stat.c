@@ -45,6 +45,7 @@ typedef struct stat_state {
     int sys_ok;
     dx_sysinfo_t sys;
     char logged[LOG_SIZE];
+    uint32_t logged_min; /* ABOUT: the uptime minute of its last line */
 } stat_state_t;
 
 static stat_state_t stat;
@@ -107,6 +108,20 @@ static void log_once(const char *line)
     }
     dx_str_cut(stat.logged, sizeof(stat.logged), line, dx_str_len(line));
     dx_plat_log(line);
+}
+
+/* 1 when the last line logged is ABOUT's: the page is still shown. */
+static int about_logged(void)
+{
+    static const char prefix[] = "deitrix: stat about";
+    int i;
+
+    for (i = 0; prefix[i] != '\0'; i++) {
+        if (stat.logged[i] != prefix[i]) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 static void enter(void *st)
@@ -292,7 +307,13 @@ static void draw_about(const dx_ctx_t *ctx, dx_rect_t r)
         dx_sb_str(&sb, vals[i]);
     }
     dx_sb_char(&sb, '\n');
-    log_once(line);
+    /* One line when the page shows, then one per uptime minute: enough
+     * for the tests, quiet for normal use. */
+    if (!about_logged() ||
+        stat.shown_s / 60u != stat.logged_min) {
+        stat.logged_min = stat.shown_s / 60u;
+        log_once(line);
+    }
 
     for (i = 0; i < KV_ROWS; i++) {
         y = r.y + KV_DY + i * DX_ROW_H;
