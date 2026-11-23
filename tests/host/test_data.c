@@ -7,6 +7,7 @@
 #include "app.h"
 #include "content.h"
 #include "fake_platform.h"
+#include "model/data_time.h"
 #include "screens/data_view.h"
 #include "screens/screens.h"
 #include "services/services.h"
@@ -550,4 +551,278 @@ TEST(tapes_scroll_32)
     CHECK(fake_find_text("T31.HTP") != NULL);
     CHECK(fake_find_text("Tape ended, status 3.") != NULL);
     CHECK(body_inside());
+}
+
+/* ---- CLOCK -------------------------------------------------------------- */
+
+#define T_2026_11_23_093007 1795426207u /* a Monday */
+
+static void boot_clock(void)
+{
+    boot();
+    key(DX_UI_RIGHT);
+    key(DX_UI_RIGHT);
+}
+
+TEST(clock_page_and_tick)
+{
+    unsigned flags = 0;
+    const fake_text_t *t;
+
+    fake_reset();
+    fake.clock_valid = 1;
+    fake.clock = T_2026_11_23_093007;
+    boot_clock();
+    CHECK_STR(last_log(), "deitrix: data clock 09:30:07 2026-11-23 Monday | ");
+    CHECK_STR(hint(), "SELECT: set time   LEFT/RIGHT: page");
+    draw_body();
+    CHECK(body_inside());
+    CHECK(fake_find_text("2026-11-23  Monday") != NULL);
+    CHECK(fake_find_text("The clock runs in UTC.") != NULL);
+    /* The big digits: unit 6 strokes, centred: 42 units = 252 px. */
+    CHECK(strstr(fake.draws, "line ") != NULL);
+    t = fake_find_text("2026-11-23  Monday");
+    CHECK_INT(t->x, (320 - 18 * 8) / 2);
+    /* The tick: every 250 ms, a redraw only when the second changed. */
+    fake.ticks = 5000;
+    CHECK_INT(dx_screen_data.tick(NULL, 5000, &flags), 5250);
+    CHECK_INT(flags, 0);
+    fake.clock++;
+    CHECK_INT(dx_screen_data.tick(NULL, 5250, &flags), 5500);
+    CHECK_INT(flags, DX_UI_DIRTY);
+    dx_app_step(&app);
+    CHECK_STR(last_log(), "deitrix: data clock 09:30:08 2026-11-23 Monday | ");
+    flags = 0;
+    CHECK_INT(dx_screen_data.tick(NULL, 5500, &flags), 5750);
+    CHECK_INT(flags, 0);
+    /* The clock going away redraws too. */
+    fake.clock_valid = 0;
+    CHECK_INT(dx_screen_data.tick(NULL, 5750, &flags), 6000);
+    CHECK_INT(flags, DX_UI_DIRTY);
+    /* The tick wraps at 2^31 through the helper and never returns 0. */
+    flags = 0;
+    CHECK_INT(dx_screen_data.tick(NULL, 0x7fffff80u, &flags), 122u);
+    CHECK_INT(dx_screen_data.tick(NULL, 0x7fffff06u, &flags), 1u);
+    /* Another sub-tab stops the tick. */
+    key(DX_UI_LEFT);
+    flags = 0;
+    CHECK_INT(dx_screen_data.tick(NULL, 7000, &flags), 0);
+    CHECK_INT(flags, 0);
+}
+
+TEST(clock_none)
+{
+    fake_reset();
+    boot_clock();
+    CHECK_STR(last_log(), "deitrix: data clock none | ");
+    draw_body();
+    CHECK(body_inside());
+    CHECK(fake_find_text("No clock. SELECT sets the time.") != NULL);
+    CHECK(fake_find_text("The clock runs in UTC.") == NULL);
+    /* UP, DOWN and Back do nothing; RIGHT goes to the next tab. */
+    fake.log[0] = '\0';
+    key(DX_UI_UP);
+    key(DX_UI_DOWN);
+    key(DX_UI_BACK);
+    CHECK_STR(fake.log, "");
+    key(DX_UI_RIGHT);
+    CHECK_INT(app.tab, DATA_TAB + 1);
+}
+
+TEST(setter_starts_from_the_clock_or_2026)
+{
+    fake_reset();
+    boot_clock();
+    key(DX_UI_SELECT);
+    CHECK_STR(last_log(), "deitrix: data setter field=0 2026-01-01 00:00 | ");
+    CHECK_STR(hint(), "UP/DN: set  SELECT: store  BACK: cancel");
+    draw_body();
+    CHECK(body_inside());
+    CHECK(fake_find_text("Year") != NULL);
+    /* The active field is inverse. */
+    CHECK(strstr(fake.draws, "text 32 86 \"2026\" bg none s2\n") != NULL);
+    CHECK(strstr(fake.draws, "text 112 86 \"01\" fg none s2\n") != NULL);
+    key(DX_UI_BACK);
+    fake.clock_valid = 1;
+    fake.clock = T_2026_11_23_093007;
+    key(DX_UI_SELECT);
+    CHECK_STR(last_log(), "deitrix: data setter field=0 2026-11-23 09:30 | ");
+    key(DX_UI_BACK);
+    /* A clock outside 2000 to 2099: the default. */
+    fake.clock = 100u;
+    key(DX_UI_SELECT);
+    CHECK_STR(last_log(), "deitrix: data setter field=0 2026-01-01 00:00 | ");
+}
+
+TEST(setter_every_key_in_every_field)
+{
+    static const char *const up[DX_DT_FIELDS] = {
+        "2027-11-23 09:30", "2027-12-23 09:30", "2027-12-24 09:30", "2027-12-24 10:30",
+        "2027-12-24 10:31",
+    };
+    char want[128];
+    int f;
+
+    fake_reset();
+    fake.clock_valid = 1;
+    fake.clock = T_2026_11_23_093007;
+    boot_clock();
+    key(DX_UI_SELECT);
+    for (f = 0; f < DX_DT_FIELDS; f++) {
+        key(DX_UI_UP);
+        key_ev(DX_UI_UP, 1);
+        key(DX_UI_DOWN);
+        tfmt(want, sizeof(want), "deitrix: data setter field=%d %s | ", f, up[f]);
+        CHECK_STR(last_log(), want);
+        CHECK_INT(app.tab, DATA_TAB);
+        draw_body();
+        CHECK(body_inside());
+        key(DX_UI_RIGHT);
+    }
+    /* RIGHT on the last field stays there and in the tab. */
+    CHECK_INT(app.tab, DATA_TAB);
+    CHECK_STR(last_log(), "deitrix: data setter field=4 2027-12-24 10:31 | ");
+    /* LEFT walks back; a held LEFT stops at the first field. */
+    for (f = 0; f < 6; f++) {
+        key_ev(DX_UI_LEFT, 1);
+    }
+    CHECK_STR(last_log(), "deitrix: data setter field=0 2027-12-24 10:31 | ");
+    CHECK(dx_data_clock_nested());
+    /* A fresh LEFT on the first field cancels: nothing stored. */
+    key(DX_UI_LEFT);
+    CHECK(!dx_data_clock_nested());
+    CHECK_INT(app.tab, DATA_TAB);
+    CHECK_INT(fake.set_time_count, 0);
+    CHECK_STR(last_log(), "deitrix: data clock 09:30:07 2026-11-23 Monday | ");
+    /* The dial leaves with the setter open; the return shows the page. */
+    key(DX_UI_SELECT);
+    key(DX_UI_DIAL);
+    dx_app_set_tab(&app, DATA_TAB);
+    dx_app_step(&app);
+    CHECK(!dx_data_clock_nested());
+    CHECK_STR(last_log(), "deitrix: data clock 09:30:07 2026-11-23 Monday | ");
+}
+
+TEST(setter_wraps_and_clamps)
+{
+    fake_reset();
+    fake.clock_valid = 1;
+    fake.clock = 1709208000u; /* 2024-02-29 12:00 */
+    boot_clock();
+    key(DX_UI_SELECT);
+    key(DX_UI_UP); /* 2025: Feb 29 becomes 28 */
+    CHECK_STR(last_log(), "deitrix: data setter field=0 2025-02-28 12:00 | ");
+    key(DX_UI_DOWN);
+    CHECK_STR(last_log(), "deitrix: data setter field=0 2024-02-28 12:00 | ");
+    key(DX_UI_RIGHT);
+    key(DX_UI_RIGHT);
+    key(DX_UI_UP);
+    CHECK_STR(last_log(), "deitrix: data setter field=2 2024-02-29 12:00 | ");
+    key(DX_UI_UP);
+    CHECK_STR(last_log(), "deitrix: data setter field=2 2024-02-01 12:00 | ");
+    key(DX_UI_DOWN);
+    key(DX_UI_LEFT);
+    /* Month 1 down wraps to 12; then day 31 to a 30-day month. */
+    key(DX_UI_DOWN);
+    key(DX_UI_DOWN);
+    key(DX_UI_DOWN);
+    CHECK_STR(last_log(), "deitrix: data setter field=1 2024-11-29 12:00 | ");
+    key(DX_UI_UP);
+    key(DX_UI_RIGHT);
+    key(DX_UI_UP);
+    key(DX_UI_UP);
+    CHECK_STR(last_log(), "deitrix: data setter field=2 2024-12-31 12:00 | ");
+    key(DX_UI_LEFT);
+    key(DX_UI_DOWN);
+    CHECK_STR(last_log(), "deitrix: data setter field=1 2024-11-30 12:00 | ");
+    /* The year wraps 2000 <-> 2099; hour and minute wrap. */
+    key(DX_UI_LEFT);
+    fake.log[0] = '\0';
+    {
+        int i;
+
+        for (i = 0; i < 24; i++) {
+            key(DX_UI_DOWN);
+        }
+    }
+    CHECK_STR(last_log(), "deitrix: data setter field=0 2000-11-30 12:00 | ");
+    key(DX_UI_DOWN);
+    CHECK_STR(last_log(), "deitrix: data setter field=0 2099-11-30 12:00 | ");
+    key(DX_UI_RIGHT);
+    key(DX_UI_RIGHT);
+    key(DX_UI_RIGHT);
+    {
+        int i;
+
+        for (i = 0; i < 12; i++) {
+            key(DX_UI_UP);
+        }
+    }
+    key(DX_UI_RIGHT);
+    key(DX_UI_DOWN);
+    CHECK_STR(last_log(), "deitrix: data setter field=4 2099-11-30 00:59 | ");
+}
+
+TEST(setter_store_ok_failed_and_refused)
+{
+    fake_reset();
+    boot_clock();
+    key(DX_UI_SELECT);
+    key(DX_UI_UP);
+    /* A failed chip write: the setter stays open with the message. */
+    fake.set_time_rc = DX_EIO;
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.set_time_count, 1);
+    CHECK_INT(fake.set_times[0], 1798761600u); /* 2027-01-01 00:00:00 */
+    CHECK(dx_data_clock_nested());
+    CHECK_STR(last_log(),
+              "deitrix: data setter field=0 2027-01-01 00:00 | The clock chip did not take the time.");
+    draw_body();
+    CHECK(fake_find_text("The clock chip did not take the time.") != NULL);
+    CHECK(body_inside());
+    /* A key clears the message. */
+    key(DX_UI_DOWN);
+    CHECK_STR(last_log(), "deitrix: data setter field=0 2026-01-01 00:00 | ");
+    /* Another error. */
+    fake.set_time_rc = DX_EPERM;
+    key(DX_UI_SELECT);
+    CHECK_STR(last_log(), "deitrix: data setter field=0 2026-01-01 00:00 | The time was not set.");
+    /* Stored: the page, with the line about the chip. Seconds are 0. */
+    fake.set_time_rc = 0;
+    fake.clock_valid = 0;
+    key(DX_UI_RIGHT);
+    key(DX_UI_RIGHT);
+    key(DX_UI_RIGHT);
+    key(DX_UI_UP);
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.set_time_count, 3);
+    CHECK_INT(fake.set_times[2], 1767225600u + 3600u);
+    CHECK(strstr(fake.log, "deitrix: data set_time 1767229200 rc=0\n") != NULL);
+    CHECK(!dx_data_clock_nested());
+    CHECK_STR(last_log(),
+              "deitrix: data clock 01:00:00 2026-01-01 Thursday | "
+              "Time set; kept only with a clock chip.");
+    draw_body();
+    CHECK(fake_find_text("Time set; kept only with a clock chip.") != NULL);
+    CHECK(body_inside());
+    /* The line goes when the sub-tab is left. */
+    key(DX_UI_LEFT);
+    key(DX_UI_RIGHT);
+    CHECK_STR(last_log(), "deitrix: data clock 01:00:00 2026-01-01 Thursday | ");
+}
+
+TEST(hints_fit)
+{
+    const char *h;
+
+    fake_reset();
+    boot();
+    h = hint();
+    CHECK(strlen(h) <= 40);
+    key(DX_UI_RIGHT);
+    CHECK(strlen(hint()) <= 40);
+    key(DX_UI_RIGHT);
+    CHECK(strlen(hint()) <= 40);
+    key(DX_UI_SELECT);
+    CHECK(strlen(hint()) <= 40);
 }

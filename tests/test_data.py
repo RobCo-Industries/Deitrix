@@ -190,3 +190,92 @@ def test_data_tapes(board, kernel_image, card, tmp_path, need_mtools, tapes):
         script(vm, "dial 2")
         wait_line(vm, "deitrix: radio shows Off")
         no_exception(vm)
+
+
+CLOCK = re.compile(r"^deitrix: data clock (.*?) \| (.*?)\r?$", re.M)
+SETTER = re.compile(r"^deitrix: data setter field=(\d) (\S+ \S+) \| (.*?)\r?$", re.M)
+RTC_DEVICE = ["-device", "ds1338,bus=i2c-bus.1,address=0x68"]
+SET_NOTE = "Time set; kept only with a clock chip."
+
+
+def to_clock(vm, dial="dial 2"):
+    to_tapes(vm, dial)
+    before = count(vm, CLOCK)
+    press(vm, "right")
+    return wait_count(vm, CLOCK, before + 1)[-1]
+
+
+def test_data_clock_without_rtc(board, kernel_image, card, tmp_path, need_mtools):
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        assert to_clock(vm) == ("none", "")
+        golden(settled(vm, tmp_path), "data_clock_none")
+        for k in ("up", "down", "back"):
+            press(vm, k)
+        quiet(vm, SETTER)
+
+        # The setter starts at 2026-01-01 00:00 without a clock.
+        assert key(vm, "select", SETTER) == ("0", "2026-01-01 00:00", "")
+        # LEFT on the first field cancels.
+        assert key(vm, "left", CLOCK) == ("none", "")
+        # So does Back, from any field.
+        key(vm, "select", SETTER)
+        assert key(vm, "right", SETTER) == ("1", "2026-01-01 00:00", "")
+        assert key(vm, "up", SETTER) == ("1", "2026-02-01 00:00", "")
+        assert key(vm, "back", CLOCK) == ("none", "")
+        assert "data set_time" not in vm.serial, vm.serial
+
+        # A known state for the golden: month active, 2026-02-01 07:00.
+        key(vm, "select", SETTER)
+        for k in ("right", "right", "right"):
+            key(vm, k, SETTER)
+        for _ in range(7):
+            key(vm, "up", SETTER)
+        assert key(vm, "left", SETTER) == ("2", "2026-01-01 07:00", "")
+        key(vm, "left", SETTER)
+        assert key(vm, "up", SETTER) == ("1", "2026-02-01 07:00", "")
+        golden(settled(vm, tmp_path), "data_setter")
+        # RIGHT on the last field stays in the setter and in the tab.
+        for field in ("2", "3", "4"):
+            assert key(vm, "right", SETTER)[0] == field
+        n = len(tabs(vm))
+        press(vm, "right")
+        quiet(vm, SETTER)
+        assert len(tabs(vm)) == n, vm.serial
+
+        # SELECT stores it: without a chip the clock runs from there.
+        before = count(vm, CLOCK)
+        press(vm, "select")
+        when, note = wait_count(vm, CLOCK, before + 1)[-1]
+        assert "deitrix: data set_time 1769929200 rc=0" in vm.serial, vm.serial
+        assert re.fullmatch(r"07:00:0\d 2026-02-01 Sunday", when), when
+        assert note == SET_NOTE
+        # The page ticks each second.
+        later = wait_count(vm, CLOCK, count(vm, CLOCK) + 2)[-1]
+        assert later[0] > when, (when, later)
+        # The header clock now shows the time too.
+        no_exception(vm)
+
+
+def test_data_clock_with_rtc(board, kernel_image, card, tmp_path, need_mtools):
+    with boot_rom(kernel_image, board, sd=card,
+                  extra_args=RTC_DEVICE + ["-rtc", "base=2026-11-23T09:30:00"]) as vm:
+        wait_ready(vm)
+        when, note = to_clock(vm)
+        assert re.fullmatch(r"09:30:\d\d 2026-11-23 Monday", when), when
+        assert note == ""
+        # The setter starts from the clock; one year up, then store.
+        assert key(vm, "select", SETTER)[1] in ("2026-11-23 09:30", "2026-11-23 09:31")
+        _, start, _ = key(vm, "up", SETTER)
+        assert start.startswith("2027-11-23 09:3"), start
+        before = count(vm, CLOCK)
+        press(vm, "select")
+        when, note = wait_count(vm, CLOCK, before + 1)[-1]
+        assert note == SET_NOTE
+        assert when.startswith(start[11:] + ":0") and when.endswith("2027-11-23 Tuesday"), when
+        vm.wait_for(re.compile(r"ev=rtc_set rc=0"), timeout=TIMEOUT)
+        # The chip holds the new time.
+        reply = script(vm, "rtc")
+        line = reply.lines[0]
+        assert "rc=0" in line and f"time=2027-11-23T{start[11:]}" in line, reply
+        no_exception(vm)
