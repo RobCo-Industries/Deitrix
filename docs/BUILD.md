@@ -19,9 +19,10 @@ The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its gu
 | Target | What it does |
 |---|---|
 | `make`, `make all` | Builds `build/ROM1.ROM` with the SDK |
-| `make test-host` | Host unit tests, `check-pins`, the pin script test and the card check |
+| `make test-host` | Host unit tests, `check-pins`, the pin script test, the `pbm2c.py` test and the card check |
 | `make test` | `test-host`, then `test-target` |
 | `make test-target` | The QEMU tests, see [TESTING.md](TESTING.md) |
+| `make gallery` | `build/gallery/`: the widget gallery, a test-only ROM, and its card |
 | `make check-pins` | The CI pins and the commit links in the docs match the submodules |
 | `make kernel` | Builds the Pip-OS kernel into `build/pipos/pipos.img` |
 | `make sdimage` | Builds the card, `build/pipos/sd.img` |

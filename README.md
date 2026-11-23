@@ -4,14 +4,14 @@ Deitrix is the user environment of a wrist computer, the ROM that [Pip-OS](https
 
 ## Status
 
-Deitrix is a skeleton. It boots on Pip-OS in QEMU and shows one frame:
+Deitrix has a UI framework and five placeholder tabs. It boots on Pip-OS in QEMU and shows one frame:
 
 - a tab bar with STAT, INV, DATA, MAP and RADIO, the active tab drawn as a filled block;
 - the time as `HH:MM` in UTC at the top right, or `--:--` when Pip-OS has no clock;
 - the active tab's name and "Not built yet." in the body;
 - a key hint at the bottom.
 
-The dial, LEFT and RIGHT move between tabs and wrap at both ends. Nothing else reacts yet. Nothing has been tried on real hardware.
+The dial, LEFT and RIGHT move between tabs and wrap at both ends. Nothing else reacts yet. The framework's widgets run in a test-only gallery ROM until the tabs use them. Nothing has been tried on real hardware.
 
 ## Planned, not built
 
