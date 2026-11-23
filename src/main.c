@@ -33,11 +33,22 @@ int dx_app_init(dx_app_t *app, const dx_screen_t *const *screens, int count)
 {
     int i;
 
-    app->screens = screens;
+    if (app == NULL) {
+        dx_plat_log("deitrix: refused: no app\n");
+        return -1;
+    }
+    app->screens = NULL;
     app->count = 0;
-    if (count < 1 || count > DX_MAX_TABS) {
+    if (screens == NULL || count < 1 || count > DX_MAX_TABS) {
         dx_plat_log("deitrix: refused: the tab table needs 1 to 8 screens\n");
         return -1;
+    }
+    /* Every entry is checked before any is read. */
+    for (i = 0; i < count; i++) {
+        if (screens[i] == NULL) {
+            dx_plat_log("deitrix: refused: the tab table has an empty entry\n");
+            return -1;
+        }
     }
     for (i = 0; i < count; i++) {
         app->names[i] = screens[i]->name;
@@ -46,6 +57,7 @@ int dx_app_init(dx_app_t *app, const dx_screen_t *const *screens, int count)
         dx_plat_log("deitrix: refused: tab names need 1 to 5 letters\n");
         return -1;
     }
+    app->screens = screens;
     app->count = count;
     app->ctx.gfx = dx_plat_gfx();
     app->ctx.theme = dx_theme_from_fg(dx_plat_fg());

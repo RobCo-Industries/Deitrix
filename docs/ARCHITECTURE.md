@@ -93,7 +93,7 @@ The tab labels must end 8 px before the clock, at x 268. The header puts 8 px on
 | 7 | 4 |
 | 8 | 3 |
 
-`dx_app_init()` refuses a table with no screens, more than 8, or a name that is empty or longer than 5 letters. It logs `deitrix: refused: ...` and the ROM stops there.
+`dx_app_init()` refuses a NULL table, a NULL entry, no screens, more than 8, or a name that is empty or longer than 5 letters. It checks every entry before it reads any. It logs `deitrix: refused: ...` and the ROM stops there.
 
 ### The screen interface
 

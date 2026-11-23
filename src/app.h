@@ -25,8 +25,10 @@ typedef struct dx_app {
 
 /*
  * Checks the table and enters the first screen. Returns 0, or -1 when
- * the header cannot draw the tab labels: no screens, more than
- * DX_MAX_TABS, or a name that is empty or longer than DX_TAB_NAME_MAX.
+ * app or screens is NULL, an entry is NULL, or the header cannot draw
+ * the tab labels: no screens, more than DX_MAX_TABS, or a name that is
+ * NULL, empty or longer than DX_TAB_NAME_MAX. Nothing is read from an
+ * entry before every entry is checked.
  * It logs a "deitrix: refused: ..." line then, and dx_main stops.
  */
 int dx_app_init(dx_app_t *app, const dx_screen_t *const *screens, int count);

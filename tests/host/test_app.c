@@ -166,6 +166,33 @@ TEST(init_refuses_a_bad_table)
     CHECK_STR(fake.log, "");
 }
 
+TEST(init_refuses_null_pointers)
+{
+    static const dx_screen_t ok = { "OK", NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+    static const dx_screen_t *const first[] = { NULL, &ok, &ok };
+    static const dx_screen_t *const middle[] = { &ok, NULL, &ok };
+    static const dx_screen_t *const last[] = { &ok, &ok, NULL };
+    static const dx_screen_t *const *const tables[] = { first, middle, last };
+    static const dx_screen_t *const one[] = { &ok };
+    dx_app_t app;
+    unsigned i;
+
+    fake_reset();
+    CHECK_INT(dx_app_init(&app, NULL, 3), -1);
+    CHECK_STR(fake.log, "deitrix: refused: the tab table needs 1 to 8 screens\n");
+    CHECK_INT(app.count, 0);
+    for (i = 0; i < 3; i++) {
+        fake_reset();
+        CHECK_INT(dx_app_init(&app, tables[i], 3), -1);
+        CHECK_STR(fake.log, "deitrix: refused: the tab table has an empty entry\n");
+        CHECK_INT(app.count, 0);
+        CHECK(app.screens == NULL);
+    }
+    fake_reset();
+    CHECK_INT(dx_app_init(NULL, one, 1), -1);
+    CHECK_STR(fake.log, "deitrix: refused: no app\n");
+}
+
 TEST(scheme_colour_used)
 {
     dx_app_t app;
