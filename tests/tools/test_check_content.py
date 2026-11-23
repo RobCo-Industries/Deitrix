@@ -12,6 +12,10 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# RobCo-Core's minimal_env: subprocesses get an allowlisted environment,
+# never a copy of the host one.
+sys.path.insert(0, os.path.join(ROOT, "external", "pip-os", "external", "robco-core", "tests"))
+from harness.env import minimal_env  # noqa: E402
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 import check_content  # noqa: E402
@@ -190,7 +194,7 @@ class Sample(unittest.TestCase):
         self.assertEqual(check_content.check_tree(os.path.join(ROOT, "content"), names), [])
         r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "check_content.py"),
                             "--generated", "HEARTH.PCM", os.path.join(ROOT, "content")],
-                           capture_output=True, text=True)
+                           capture_output=True, env=minimal_env(), text=True)
         self.assertEqual(r.returncode, 1)
         self.assertEqual(r.stdout, os.path.join(D, "RADIO.INI") + ":28: file 'DRIFT.PCM' is not in RADIO/\n")
 
@@ -251,10 +255,10 @@ class Cli(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             tree = os.path.join(d, "card")
             make_tree(tree)
-            r = subprocess.run([sys.executable, tool, tree], capture_output=True, text=True)
+            r = subprocess.run([sys.executable, tool, tree], capture_output=True, env=minimal_env(), text=True)
             self.assertEqual((r.returncode, r.stdout), (0, ""))
             apply(tree, "EXTRA.DAT", "x")
-            r = subprocess.run([sys.executable, tool, tree], capture_output=True, text=True)
+            r = subprocess.run([sys.executable, tool, tree], capture_output=True, env=minimal_env(), text=True)
             self.assertEqual(r.returncode, 1)
             self.assertEqual(r.stdout, os.path.join(D, "EXTRA.DAT") + ":0: unknown file: Deitrix ignores it\n")
 

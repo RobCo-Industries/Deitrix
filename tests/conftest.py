@@ -1,7 +1,9 @@
-"""Target test setup: RobCo-Core's harness and Pip-OS's test helpers.
+"""Target test setup: Pip-OS's pipos_testing package.
 
-Both come from the Pip-OS submodule. `make test-target` builds the
-kernel and the card first, into --build-dir (BUILD in the Makefile).
+It comes from the Pip-OS submodule and loads RobCo-Core's harness, which
+adds --board, the board fixture and need_mtools. `make test-target`
+builds the kernel and the card first, into --build-dir (BUILD in the
+Makefile).
 """
 
 import os
@@ -9,15 +11,8 @@ import shutil
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PIP_OS = os.path.join(ROOT, "external", "pip-os")
-ROBCO_CORE = os.path.join(PIP_OS, "external", "robco-core")
-
-# harness: QEMU boots and the --board option. tools: rimg, which
-# pipos_helpers imports. Pip-OS's tests/: pipos_helpers itself.
-sys.path.insert(0, os.path.join(ROBCO_CORE, "tests"))
-sys.path.insert(0, os.path.join(ROBCO_CORE, "tools"))
-sys.path.insert(0, os.path.join(PIP_OS, "tests"))
-pytest_plugins = ["harness.plugin"]
+sys.path.insert(0, os.path.join(ROOT, "external", "pip-os", "sdk", "testing"))
+pytest_plugins = ["pipos_testing.plugin"]
 
 import pytest  # noqa: E402
 

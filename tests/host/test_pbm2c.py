@@ -8,6 +8,10 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# RobCo-Core's minimal_env: subprocesses get an allowlisted environment,
+# never a copy of the host one.
+sys.path.insert(0, os.path.join(ROOT, "external", "pip-os", "external", "robco-core", "tests"))
+from harness.env import minimal_env  # noqa: E402
 TOOL = os.path.join(ROOT, "tools", "pbm2c.py")
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
@@ -53,7 +57,7 @@ class Cli(unittest.TestCase):
                 paths.append(p)
             out = os.path.join(d, "gen", "icons.c")
             r = subprocess.run([sys.executable, TOOL, out] + paths,
-                               capture_output=True, text=True)
+                               capture_output=True, env=minimal_env(), text=True)
             c = open(out).read() if os.path.exists(out) else None
             return r, c
 
