@@ -352,6 +352,44 @@ TEST(volume)
     CHECK_INT(fake.volume, 0);
 }
 
+TEST(radio_failed_names_the_station)
+{
+    setup(40000, 1);
+    CHECK_INT(dx_radio_failed(), -1);
+    /* A file listed missing. */
+    CHECK_INT(dx_radio_play(3, fake.ticks), -1);
+    CHECK_INT(dx_radio_failed(), 3);
+    /* A good start clears it, a stop too. */
+    CHECK_INT(dx_radio_play(0, fake.ticks), 0);
+    CHECK_INT(dx_radio_failed(), -1);
+    dx_radio_play(3, fake.ticks);
+    dx_radio_stop();
+    CHECK_INT(dx_radio_failed(), -1);
+    /* A bad index names nothing. */
+    CHECK_INT(dx_radio_play(9, fake.ticks), -1);
+    CHECK_INT(dx_radio_failed(), -1);
+    /* Gone from the card when played. */
+    fake_remove_file("/PIPBOY/DATA/RADIO/O.PCM");
+    CHECK_INT(dx_radio_play(2, fake.ticks), -1);
+    CHECK_INT(dx_radio_failed(), 2);
+    /* A read error while streaming. */
+    dx_radio_play(1, fake.ticks);
+    CHECK_INT(dx_radio_failed(), -1);
+    fake.read_fail = 1;
+    run_for(3000, dx_service_radio.tick(fake.ticks, &svc_flags));
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    CHECK_INT(dx_radio_failed(), 1);
+    fake.read_fail = 0;
+    /* A track played once that ends is no failure. */
+    setup(20000, 1);
+    dx_radio_play(2, fake.ticks);
+    run_for(4000, dx_service_radio.tick(fake.ticks, &svc_flags));
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    CHECK_INT(dx_radio_failed(), -1);
+    dx_service_radio.init(fake.ticks);
+    CHECK_INT(dx_radio_failed(), -1);
+}
+
 /* ---- Autosave ------------------------------------------------------------ */
 
 static dx_settings_t settings;

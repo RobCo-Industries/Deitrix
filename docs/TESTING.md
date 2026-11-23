@@ -54,8 +54,9 @@ For other GCC-only warnings, CI is the check. If a GCC is installed, run `make C
 | `test_stat.c` | The STAT tab: the name's font size, each sub-tab with a full, a minimal, a missing and a broken profile, the ATTRS scroll, the keys STATUS ignores, the sub-tab kept across tabs, the ABOUT tick, a day of uptime and the tick wrap, every view inside the body, no block live at the end |
 | `test_inv_fmt.c` | INV's text helpers: weights in grams and kilograms, counts, the item of each row, the summary row, at the limits |
 | `test_inv.c` | The INV tab: no ITEMS.INI, a broken file, no category, the first view's draw list, the categories and an empty one, list moves and ends, the detail, the count at 0 and 999, the mark and the summary, routing through the shell and `leave`, the longest names and most items inside the body |
-| `test_data_time.c` | The DATA clock's date helpers: leap years, known dates and their weekdays, every day from 2000 to 2099 against a reference, each setter field's wrap, the day clamp, the texts |
-| `test_data.c` | The DATA tab: no notes and a folder error, a note opened and closed, 32 notes with the scroll and the kept selection, a cut and an unreadable note, the note's draw list; no tapes and a list error, the kinds, titles and icon, the launch order and every result line, the list after a launch, a failed save that asks for a second press, the same after the autosave gave up, a refused data tape, 32 tapes; the clock page and its tick, no clock, the setter's start, every key in every field, its wraps and clamps, a store that works, fails or is refused; every hint fits the footer |
+| `test_map_view.c` | MAP's pure helpers: the pane fit for the sample maps and at the extremes, a pane too small, a line in pixels, the place cycling, the marker squares, the position text |
+| `test_map_screen.c` | The MAP tab through the app shell: the first view, the markers, the place cycle both ways, the detail and back, the sub-tabs and the tabs beside them, the dial from the detail, one map with one place, no places, places without lines, no file, a rejected file, a file without maps, every draw inside the body, the hints, no tick |
+| `test_radio_tab.c` | The RADIO tab: the first view's draw list, start, stop and a switch with the audio calls, the station's kind under what plays, the block through a track's wrap and end, a station with nothing to play, the volume to both limits, a held SELECT that starts and stops once, the UI sounds with held keys, LEFT and RIGHT on a station and on a setting, the cursor at the last station, no file, a broken file, every draw inside the body |
 | `test_content.c` | The sample card's load log, line for line; a card without data; read errors; the saves at start; every broken tree of the checker's table, with the log lines it changes, in `test_content_expect.inc` |
 
 `tests/host/test_pbm2c.py` tests the PBM converter: parsing, bit packing, the generated table, bad input and the files in `assets/`. `make test-host` runs it.
@@ -90,6 +91,7 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 ## QEMU tests
 
 `tests/test_deitrix.py`, `tests/test_model.py`, `tests/test_stat.py`, `tests/test_inv.py` and `tests/test_data.py` boot the card from `make sdimage` with the Pip-OS kernel. `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
+`tests/test_deitrix.py`, `tests/test_model.py`, `tests/test_stat.py`, `tests/test_inv.py`, `tests/test_map.py` and `tests/test_radio_tab.py` boot the card from `make sdimage` with the Pip-OS kernel. `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
 
 - `booted(..., wait="jump")` boots the card. Deitrix never exits, so the kernel prints `ev=jump` but never `ev=ready`. Each test then waits for `deitrix: ready` on serial.
 - `script()` sends one script-channel command and checks it answered `ok`. `press()` presses and releases a button.
@@ -123,6 +125,18 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 | `test_data_tapes_save_gave_up` | The same blocked card; the test waits for `deitrix: save gave up`, at most `DX_SAVE_MAX_MS` plus the retries plus a 10 s allowance; the first SELECT still refuses and starts nothing; the second SELECT runs FAULT |
 | `test_data_clock_without_rtc` | Without an RTC CLOCK matches `golden/data_clock_none.png`; the setter starts at 2026-01-01 00:00; LEFT on the first field and Back cancel; the setter matches `golden/data_setter.png`; RIGHT on the last field stays; SELECT stores 2026-02-01 07:00 and the page then ticks each second |
 | `test_data_clock_with_rtc` | With a ds1338 RTC at 2026-11-23 09:30 the page shows that time; the setter starts from it; one year up and SELECT store the time, and the chip holds it |
+| `test_map_walk` | Each MAP view matches its golden, `golden/map_local.png`, `golden/map_local_place.png`, `golden/map_detail.png` and `golden/map_world.png`; DOWN and UP cycle the places with a wrap; the detail ignores RIGHT, UP, DOWN and SELECT; Back and LEFT return with the place kept; the sub-tab and places stay across a visit to RADIO; the dial leaves the detail |
+| `test_map_no_file` | Without MAP.INI the tab matches `golden/map_empty.png`, the keys do nothing and RIGHT changes the tab |
+| `test_map_no_places` | A map without places matches `golden/map_no_places.png` |
+| `test_map_clip` | A map whose lines and places reach its box's edges draws inside the pane |
+| `test_map_redraw_cost` | The largest map the format allows: each redraw of the map view logs under 100 ms |
+| `test_radio_views` | RADIO matches `golden/radio.png`, `golden/radio_playing.png` and `golden/radio_volume.png`; LEFT on a station changes the tab; a tune's first trace tone is 392 Hz; a switch from a tune to a PCM station gives one `op=pcm` and no tone after it; SELECT on the station on air stops it with `op=stop`; a switch from PCM to a tune gives `op=stop` before the first tone; LEFT, RIGHT and SELECT on the settings stay on the tab |
+| `test_radio_volume_limits` | RIGHT up to 100 and LEFT down to 0, one line per step, then a refused line at each end |
+| `test_radio_survives_a_reboot` | A station, the volume and UI sounds reach DEITRIX.SAV; the next boot opens on RADIO with the station picked and not playing, and matches `golden/radio_restored.png` |
+| `test_radio_plays_across_the_tabs` | Station 5 streams through a walk over every tab: one `op=pcm`, no `op=stop`, no `op=pcm_end`, no tone, no underrun |
+| `test_radio_no_file` | Without RADIO.INI the tab matches `golden/radio_empty.png`; SELECT does nothing and the settings still work |
+| `test_radio_station_missing` | A station whose tune is gone: SELECT logs `cannot play`, the tab matches `golden/radio_nothing.png`, and only UI tones follow |
+| `test_radio_long_run` | On `raspi0` and `raspi2b`, station 4 plays for 60 s: at least 55 `op=pcm_next`, no `op=pcm_end`, no `op=stop`, no underrun |
 | `test_gallery_screens` | Each gallery screen matches its golden, `golden/gallery_<name>.png`; RIGHT moves through the sub-tabs before it leaves TABS; RIGHT on FONT wraps to LIST; the dial goes back to TABS, which kept its last sub-tab |
 | `test_gallery_list_and_text` | The list moves down to its last row and back, with the window at each step; DOWN at the end and UP at the top do not move it; the text scrolls to its end and back; LIST keeps its state across a tab change; goldens at both ends |
 | `test_gallery_detail` | SELECT on a list row opens its detail, which matches `golden/gallery_detail.png`; RIGHT stays inside it; LEFT goes back to the list with its selection; LEFT at the top level changes the tab |
@@ -143,6 +157,10 @@ The gallery logs each list and text move before its redraw. To be sure a frame i
 `test_gallery_hold_repeats` depends on timing. Pip-OS repeats a held key 500 ms after the press, then every 100 ms, so 1.6 s gives the press and about 11 repeats. After a stall the kernel restarts the schedule, so the test asks for 5 rows only.
 
 `test_inv_hold_counts_up` holds UP the same way and asks for 5 steps.
+
+Every test in `test_radio_tab.py` first writes `volume = 80` into the card's `PIPBOY/PIPOS.CFG`. Pip-OS starts at that level and the ROM takes it as its volume default. The goldens show the volume, so they do not depend on the sample config of Pip-OS.
+
+The audio trace may show no `op=stop` when a tune gives way to a PCM station. The ROM calls `audio_stop`, then `sample`. RobCo-Core's `audio_stop()` and `audio_play_pcm()` both write the one pending request, and the audio tick reads it later. When both calls land before the same tick, the tick sees only the PCM request. It stops the sequence without a trace line and prints `op=pcm`. So the test checks that no tone follows `op=pcm`. A stop from PCM always prints `op=stop`: the tick traces the cut stream.
 
 `test_radio_streams_pcm` depends on timing: the ROM must queue each chunk within the second the one before plays. It waits up to 30 s for two chunks. `test_setting_survives_a_reboot` waits up to 20 s for the save, written 2 s after the change.
 

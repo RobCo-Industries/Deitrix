@@ -249,11 +249,13 @@ TEST(sub_tabs_and_neighbours)
     CHECK_STR(last_view(), "deitrix: map shows WORLD place=0");
     CHECK_STR(hint(), "UP/DOWN: place  SELECT: open  LEFT: map");
     key(DX_UI_DOWN);
-    /* RIGHT on the last sub-tab: RADIO. Back: WORLD and its place. */
+    /* RIGHT on the last sub-tab: RADIO. Back by the dial: this card has
+     * no stations, so RADIO's cursor is on Volume and takes LEFT.
+     * Back on MAP: WORLD and its place. */
     key(DX_UI_RIGHT);
     CHECK_INT(app.tab, TAB_MAP + 1);
     fake.log[0] = '\0';
-    key(DX_UI_LEFT);
+    dial(-1);
     CHECK_INT(app.tab, TAB_MAP);
     CHECK_STR(last_view(), "");
     key(DX_UI_DOWN);
