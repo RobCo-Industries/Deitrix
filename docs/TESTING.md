@@ -54,6 +54,8 @@ For other GCC-only warnings, CI is the check. If a GCC is installed, run `make C
 | `test_stat.c` | The STAT tab: the name's font size, each sub-tab with a full, a minimal, a missing and a broken profile, the ATTRS scroll, the keys STATUS ignores, the sub-tab kept across tabs, the ABOUT tick, a day of uptime and the tick wrap, every view inside the body, no block live at the end |
 | `test_inv_fmt.c` | INV's text helpers: weights in grams and kilograms, counts, the item of each row, the summary row, at the limits |
 | `test_inv.c` | The INV tab: no ITEMS.INI, a broken file, no category, the first view's draw list, the categories and an empty one, list moves and ends, the detail, the count at 0 and 999, the mark and the summary, routing through the shell and `leave`, the longest names and most items inside the body |
+| `test_data_time.c` | The DATA clock's date helpers: leap years, known dates and their weekdays, every day from 2000 to 2099 against a reference, each setter field's wrap, the day clamp, the texts |
+| `test_data.c` | The DATA tab: no notes and a folder error, a note opened and closed, 32 notes with the scroll and the kept selection, a cut and an unreadable note, the note's draw list; no tapes and a list error, the kinds, titles and icon, the launch order and every result line, the list after a launch, a refused data tape, 32 tapes; the clock page and its tick, no clock, the setter's start, every key in every field, its wraps and clamps, a store that works, fails or is refused; every hint fits the footer |
 | `test_content.c` | The sample card's load log, line for line; a card without data; read errors; the saves at start; every broken tree of the checker's table, with the log lines it changes, in `test_content_expect.inc` |
 
 `tests/host/test_pbm2c.py` tests the PBM converter: parsing, bit packing, the generated table, bad input and the files in `assets/`. `make test-host` runs it.
@@ -87,10 +89,11 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 
 ## QEMU tests
 
-`tests/test_deitrix.py`, `tests/test_model.py`, `tests/test_stat.py` and `tests/test_inv.py` boot the card from `make sdimage` with the Pip-OS kernel. `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
+`tests/test_deitrix.py`, `tests/test_model.py`, `tests/test_stat.py`, `tests/test_inv.py` and `tests/test_data.py` boot the card from `make sdimage` with the Pip-OS kernel. `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
 
 - `booted(..., wait="jump")` boots the card. Deitrix never exits, so the kernel prints `ev=jump` but never `ev=ready`. Each test then waits for `deitrix: ready` on serial.
 - `script()` sends one script-channel command and checks it answered `ok`. `press()` presses and releases a button.
+- `serial_line()`, from `tests/conftest.py`, builds the regex for a serial log line. It matches only whole lines: the serial buffer can end in the middle of one, and a cut line must not be parsed. `tests/test_serial_line.py` checks it without QEMU.
 - `check_golden(..., update_var="DEITRIX_UPDATE_GOLDEN")` compares a screenshot with its golden.
 
 | Test | Checks |
@@ -112,11 +115,24 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 | `test_inv_no_items_file` | Without ITEMS.INI the tab matches `golden/inv_empty.png` and SELECT and DOWN do nothing |
 | `test_inv_empty_category` | A category without items matches `golden/inv_empty_cat.png`; SELECT does nothing; RIGHT at the last category moves to DATA |
 | `test_inv_hold_counts_up` | UP held for 1.6 s in the detail adds one per event, at least 5 |
+| `test_data_notes` | NOTES and an open note match `golden/data_notes.png` and `golden/data_note.png`; UP at the top and Back do nothing; DOWN stops at the last note; RIGHT, UP and DOWN stay in the note; LEFT and Back go back with the same note selected; the dial leaves from a note and the return shows the list; LEFT on NOTES moves to INV |
+| `test_data_no_notes` | Without notes NOTES matches `golden/data_notes_empty.png` and SELECT opens nothing |
+| `test_data_no_tapes` | Without holotapes TAPES matches `golden/data_tapes_empty.png` and SELECT launches nothing |
+| `test_data_tapes` | With both test tapes TAPES matches `golden/data_tapes.png`; the radio stops before LINETEST starts; LINETEST ends with status 42 and the result matches `golden/data_tapes_status.png`; the radio stays off; FAULT is stopped by the kernel, the launch returns -14 and the result matches `golden/data_tapes_fault.png`; the result line goes when the selection moves |
+| `test_data_clock_without_rtc` | Without an RTC CLOCK matches `golden/data_clock_none.png`; the setter starts at 2026-01-01 00:00; LEFT on the first field and Back cancel; the setter matches `golden/data_setter.png`; RIGHT on the last field stays; SELECT stores 2026-02-01 07:00 and the page then ticks each second |
+| `test_data_clock_with_rtc` | With a ds1338 RTC at 2026-11-23 09:30 the page shows that time; the setter starts from it; one year up and SELECT store the time, and the chip holds it |
 | `test_gallery_screens` | Each gallery screen matches its golden, `golden/gallery_<name>.png`; RIGHT moves through the sub-tabs before it leaves TABS; RIGHT on FONT wraps to LIST; the dial goes back to TABS, which kept its last sub-tab |
 | `test_gallery_list_and_text` | The list moves down to its last row and back, with the window at each step; DOWN at the end and UP at the top do not move it; the text scrolls to its end and back; LIST keeps its state across a tab change; goldens at both ends |
 | `test_gallery_detail` | SELECT on a list row opens its detail, which matches `golden/gallery_detail.png`; RIGHT stays inside it; LEFT goes back to the list with its selection; LEFT at the top level changes the tab |
 | `test_gallery_back_button` | The Back button, from `key back 1` and `key back 0` and from Backspace on the console, leaves the detail for the list like LEFT; at the top level Back does not change the tab |
 | `test_gallery_hold_repeats` | DOWN held for 1.6 s moves the list one row at a time, at least 5 rows, never past the end |
+
+`test_data_tapes` builds two test holotapes from `tests/tapes/` with the Pip-OS SDK into `build/tapes/` and copies them to `/PIPBOY/HOLO/` on the test's card:
+
+| Tape | Does |
+|---|---|
+| `tests/tapes/linetest/` | LINETEST.HTP, with an icon. It draws a frame, a line and its name, logs `linetest: ready`, waits for SELECT and exits with status 42 |
+| `tests/tapes/fault/` | FAULT.HTP, a utility. It draws a filled box, logs `faulttest: fault now` and runs an undefined instruction, so Pip-OS stops it |
 
 The first two tests boot without an RTC, so the header shows `--:--` and the goldens do not depend on the time. The goldens are 640x480 QEMU screenshots, or crops of them, and must match on every board pixel for pixel.
 

@@ -32,7 +32,7 @@ The UI framework: the core types in `ui.h`, the frame every tab shares, and the 
 
 ### `src/screens/`
 
-One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. STAT and INV are built, see [Screens](#screens). DATA, MAP and RADIO draw the shared placeholder from `placeholder.c`: the tab's name in large text, "Not built yet." and one or two lines from the model. SELECT on RADIO cycles the radio: off, station 1, station 2 and so on, then off.
+One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. STAT, INV and DATA are built, see [Screens](#screens). `stat_draw.c` draws STAT's name and gauges. DATA keeps TAPES in `data_tapes.c` and CLOCK in `data_clock.c`. MAP and RADIO draw the shared placeholder from `placeholder.c`: the tab's name in large text, "Not built yet." and one or two lines from the model. SELECT on RADIO cycles the radio: off, station 1, station 2 and so on, then off.
 
 ### `assets/`
 
@@ -311,7 +311,7 @@ Each key the tab takes logs one serial line before the redraw, for the QEMU test
 
 NOTES lists the notes the model loaded, in name order, by title. Ten rows fit. UP and DOWN move the selection. SELECT opens the note: its title, a faint rule, then the body in the text widget, 38 columns and 9 lines. UP and DOWN scroll it. A body over 128 wrapped lines ends with `[text cut]`. The body comes from `dx_content_note_body` into a 4 KiB buffer the screen owns. A read error shows "The note could not be read." under the title. BACK or LEFT returns to the list with the same note selected. RIGHT does nothing there. With no notes the list shows "No notes on the card.". When the folder could not be read it shows "The notes were not read." and the reason.
 
-TAPES lists the holotapes from `dx_plat_holo_list`, the seam's `holo_enumerate`. A row shows the title, or the file name when the title is empty, and the kind at the right: GAME, UTIL or DATA. The selected tape's 32x32 icon sits at the top right when it has one. The list is read when the sub-tab opens and after each launch, and the selection stays on the same file. With no tapes it shows "No holotapes on the card.".
+TAPES lists the holotapes from `dx_plat_holo_list`, the seam's `holo_enumerate`. A row shows the title, or the file name when the title is empty, and the kind at the right: GAME, UTIL or DATA. The selected tape's 32x32 icon sits at the top right when it has one. The list is read when the sub-tab opens and after each launch, and the selection stays on the same file. With no tapes it shows "No holotapes on the card.". When the listing fails it shows "The holotapes could not be read.".
 
 SELECT runs the selected tape:
 
