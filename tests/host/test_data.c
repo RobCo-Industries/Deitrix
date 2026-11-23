@@ -320,6 +320,20 @@ TEST(notes_body_draw_list)
     CHECK(strstr(fake.draws, "text 4 46 \"Walk\" fg none s1\n"
                              "line 4 64 315 64 faint\n"
                              "text 4 68 \"Cool morning.\" fg none s1\n") != NULL);
+    /* RADIO, two detents on, shows nothing on air and no failure. */
+    fake.log[0] = '\0';
+    key(DX_UI_DIAL);
+    key(DX_UI_DIAL);
+    CHECK_INT(app.tab, DATA_TAB + 2);
+    CHECK(strstr(fake.log, "radio shows Cannot play") == NULL);
+    {
+        dx_ctx_t c = fake_ctx();
+
+        fake_clear_draws();
+        dx_screen_radio.draw(NULL, &c, dx_frame_body());
+        CHECK(fake_find_text("Radio off.") != NULL);
+        CHECK(fake_find_text("Station has nothing to play.") == NULL);
+    }
 }
 
 /* ---- TAPES -------------------------------------------------------------- */
@@ -448,6 +462,8 @@ TEST(tapes_launch_order_and_results)
         /* After it: the radio stays off, the list was read again. */
         CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
         CHECK_INT(dx_radio_current(), -1);
+        /* A stop for a launch is not a failure. */
+        CHECK_INT(dx_radio_failed(), -1);
         CHECK_INT(fake.holo_lists, lists + 1);
         /* The save line, then the launch and its result. */
         tfmt(want, sizeof(want),

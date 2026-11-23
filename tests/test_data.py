@@ -34,6 +34,8 @@ NOTES = serial_line(r"deitrix: data notes sel=(\d+) top=(\d+) count=(\d+)")
 NOTE = serial_line(r"deitrix: data note (\S+) top=(\d+) lines=(\d+)( cut)?")
 TAPES_LINE = serial_line(r"deitrix: data tapes sel=(\d+) top=(\d+) count=(-?\d+) \| (.*?)")
 TAPE_RC = serial_line(r"deitrix: data tape rc=(-?\d+)")
+SHOWN = serial_line(r"deitrix: radio shows (.*?)")
+RADIO_KEY = serial_line(r"deitrix: radio (station=\d+|off)")
 SAMPLE_NOTES = ["GARDEN01.TXT", "RECIPE01.TXT", "SHOP01.TXT", "WALK01.TXT"]
 
 
@@ -190,9 +192,18 @@ def test_data_tapes(board, kernel_image, card, tmp_path, need_mtools, tapes):
 
         # The line goes when the selection moves.
         assert key(vm, "up", TAPES_LINE) == ("0", "0", "2", "")
-        # RADIO shows the radio off.
+        # RADIO shows nothing on air: "Radio off.", not a failure.
+        launched = vm.serial.index("deitrix: data launch LINETEST.HTP")
+        before = count(vm, SHOWN)
         script(vm, "dial 2")
-        wait_line(vm, "deitrix: radio shows Off")
+        assert wait_count(vm, SHOWN, before + 1)[-1] == "Off", vm.serial
+        assert "deitrix: radio shows Cannot play" not in vm.serial[launched:], vm.serial
+        # The service agrees: SELECT on station 1 starts it again
+        # instead of stopping it, and a second SELECT stops it.
+        assert key(vm, "select", RADIO_KEY) == "station=1", vm.serial
+        assert wait_count(vm, SHOWN, before + 2)[-1].startswith("Playing "), vm.serial
+        assert key(vm, "select", RADIO_KEY) == "off", vm.serial
+        assert wait_count(vm, SHOWN, before + 3)[-1] == "Off", vm.serial
         no_exception(vm)
 
 
