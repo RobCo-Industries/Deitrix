@@ -34,6 +34,10 @@ The UI framework: the core types in `ui.h`, the frame every tab shares, and the 
 
 One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. Every tab is built, see [Screens](#screens). `stat_draw.c` draws STAT's name and gauges. DATA keeps TAPES in `data_tapes.c` and CLOCK in `data_clock.c`.
 
+### `holotapes/`
+
+The holotapes that ship on the card, one folder each. See [Holotapes](#holotapes).
+
 ### `assets/`
 
 The icons, as plain PBM files. `tools/pbm2c.py` turns them into `build/gen/icons.c` at build time. That file is not committed.
@@ -463,8 +467,51 @@ The footer hints are in [Footer hints](#footer-hints).
 
 Each key the tab takes logs one serial line before the redraw: `deitrix: radio row=3`, `end row=0`, `station=4`, `off`, `volume=70`, `refused volume=100`, `sound=0`, and `idle` for a key that changes nothing. A start that fails adds `deitrix: radio cannot play`. A frame that shows another state logs `deitrix: radio shows Playing Hearth`, `shows Off` or `shows Cannot play Lullaby`, just before the present.
 
-## Planned
+## Holotapes
 
-These are plans, not code:
+A holotape is a separate image. DATA's TAPES list starts it with `holo_launch`, see [DATA](#data). Each one lives in its own folder under `holotapes/` with a Makefile that includes the SDK's `pipos-app.mk` with `KIND := holotape`. `make holotapes` builds them into `build/holo/`, and `make` builds them with the ROM. The top Makefile passes them to Pip-OS's `TAPE=` list, so `make sdimage`, `make run` and `make bootdir` put them in `/PIPBOY/HOLO/`.
 
-- A holotape game.
+### Culvert
+
+Culvert is a pipe-turning puzzle, a game tape of about 14 KiB. Its save `CULVERT` sits in `/PIPBOY/SAVE` beside DEITRIX.SAV and INV.SAV, and none of them reads another. [CULVERT.md](CULVERT.md) says how to play it.
+
+| File | Role |
+|---|---|
+| `logic.c`, `logic.h` | Pieces, the level generator, the flood fill, the solved test, the seed, the timer and the save record. Pure. |
+| `game.c`, `game.h` | The state machine: title, play, pause, solved, exit. Pure. |
+| `draw.c`, `draw.h` | The screens, through the drawing calls |
+| `main.c` | `pip_main()`, the event loop, the log lines, the sounds and the save calls |
+| `icon.pbm` | The 32x32 META icon, a pipe elbow |
+
+The pure files make no system call and keep no global, so the host tests link them. `game.c` takes an event or a tick and sets effect bits and one log code: what to draw, which sound to play, whether to save or exit. `main.c` acts on them. It waits with `wait_event` and a timeout that ends at the next change on screen: the next second of the clock while a level runs, the next flourish frame after a solve, forever on the title and the pause menu.
+
+A piece is a 4-bit mask of its openings: north 1, east 2, south 4, west 8. A clockwise quarter turn rotates the mask one bit left.
+
+The level number fixes the puzzle:
+
+1. The seed is MurmurHash3's 32-bit finaliser applied to the level number XOR `0x43554C56`, and never 0.
+2. The size class is `(level - 1) / 3`, at most 8. The classes are 5x4, 6x4, 6x5, 7x5, 8x5, 8x6, 9x6, 10x6 and 10x7.
+3. The source is the tile at `(w / 2, h / 2)`.
+4. A random spanning tree grows from the source. Each step takes a random edge from the tree to a tile outside it, with xorshift32 seeded by the seed. A tile's piece is its set of tree edges. This is the solution.
+5. Each tile turns a random 0 to 3 quarters. If the level is still solved, the first tile that is not a cross turns once more.
+
+The flood fill goes from the source through openings that meet an opening of the neighbour. The level is solved when the fill reaches every tile and no opening faces a wall or a closed side.
+
+The tile size is the largest multiple of 4 that fits the grid in 296x176 pixels, at most 40. It is 40 pixels at 5x4 and 24 at 10x7. The title row takes the top 28 pixels, the status row the bottom 28.
+
+The save is `CULVERT`, 30 bytes, little-endian:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 4 | `CVLT` |
+| 4 | 1 | Version, 1 |
+| 5 | 1 | Size classes, 9 |
+| 6 | 2 | Highest level reached, 1 or more |
+| 8 | 18 | Fewest moves per size class, `0xFFFF` for none |
+| 26 | 4 | CRC-32 of bytes 0 to 25 |
+
+A record of another size, magic, version or class count, a bad CRC or a level of 0 is ignored, and the game starts fresh.
+
+Pip-OS empties the event queue when the tape starts. A SELECT still held from the launch then sends only repeats and its release. The game acts on a press, and only the arrows repeat, so the title waits for a fresh key.
+
+The tape logs one line per step on the serial console, after the frame is on screen: `culvert: title`, `culvert: level n= w= h= seed=`, `culvert: cursor x= y=`, `culvert: turn x= y= connected=`, `culvert: menu item=`, `culvert: pause`, `culvert: resume`, `culvert: solved level= moves=`, `culvert: done` when the message shows, `culvert: idle` for a key that changes nothing, and `culvert: exit rc=0`. It also logs `culvert: load rc=` and `culvert: save rc=`. Before the exit line, `culvert stats: grid draws= ms=` gives the number of full grid redraws and their total time from `ticks_ms`.
