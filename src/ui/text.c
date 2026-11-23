@@ -8,39 +8,50 @@ static int is_space(char c)
     return c == ' ' || c == '\t';
 }
 
-int dx_wrap(const char *s, int cols, dx_line_t *lines, int max)
+/* The end of the readable text: its '\0' or the byte limit. */
+static int at_end(const char *s, int p)
+{
+    return p >= DX_TEXT_MAX_BYTES || s[p] == '\0';
+}
+
+int dx_wrap(const char *s, int cols, dx_line_t *lines, int max, int *cut)
 {
     int n = 0;
     int p = 0;
     int fresh = 1; /* at the start of the text or after '\n' */
+    int over = 0;
 
-    if (cols < 1) {
-        return 0;
+    if (cols < 1 || max < 0) {
+        max = 0;
     }
-    while (s[p] != '\0') {
+    while (!at_end(s, p)) {
         int start, end, brk;
 
         if (!fresh) {
             /* A wrapped line starts at its first word. */
-            while (is_space(s[p])) {
+            while (!at_end(s, p) && is_space(s[p])) {
                 p++;
             }
-            if (s[p] == '\0') {
+            if (at_end(s, p)) {
                 break;
             }
         }
+        if (n >= max) {
+            over = cols >= 1; /* a line that does not fit the table */
+            break;
+        }
         start = p;
         brk = -1; /* the last space inside the line */
-        while (s[p] != '\0' && s[p] != '\n' && p - start < cols) {
+        while (!at_end(s, p) && s[p] != '\n' && p - start < cols) {
             if (is_space(s[p])) {
                 brk = p;
             }
             p++;
         }
-        if (s[p] == '\0' || s[p] == '\n') {
+        if (at_end(s, p) || s[p] == '\n') {
             end = p;
-            fresh = s[p] == '\n';
-            if (s[p] == '\n') {
+            fresh = !at_end(s, p);
+            if (fresh) {
                 p++;
             }
         } else if (is_space(s[p])) {
@@ -57,11 +68,16 @@ int dx_wrap(const char *s, int cols, dx_line_t *lines, int max)
         while (end > start && is_space(s[end - 1])) {
             end--;
         }
-        if (n < max) {
-            lines[n].start = (uint16_t)start;
-            lines[n].len = (uint16_t)(end - start);
-        }
+        lines[n].start = (uint32_t)start;
+        lines[n].len = (uint16_t)(end - start);
         n++;
+    }
+    /* At the byte limit with text left: s[p] is readable, no '\0' came before. */
+    if (p >= DX_TEXT_MAX_BYTES && s[p] != '\0') {
+        over = 1;
+    }
+    if (cut != NULL) {
+        *cut = over;
     }
     return n;
 }
@@ -74,9 +90,12 @@ void dx_text_init(dx_text_t *t, const char *s, int w, int h)
     if (cols > LINE_MAX_COLS) {
         cols = LINE_MAX_COLS;
     }
-    n = dx_wrap(s, cols, t->lines, DX_TEXT_MAX_LINES);
+    n = dx_wrap(s, cols, t->lines, DX_TEXT_MAX_LINES, &t->cut);
+    if (t->cut && n == DX_TEXT_MAX_LINES) {
+        n--; /* room for the mark */
+    }
     t->s = s;
-    t->count = n < DX_TEXT_MAX_LINES ? n : DX_TEXT_MAX_LINES;
+    t->count = n + t->cut;
     t->visible = h / DX_ROW_H;
     if (t->visible < 1) {
         t->visible = 1;
@@ -111,6 +130,11 @@ void dx_text_draw(const dx_text_t *t, const dx_ctx_t *ctx, dx_rect_t area)
         char buf[LINE_MAX_COLS + 1];
         int j;
 
+        if (t->cut && t->top + i == t->count - 1) {
+            ctx->gfx->text(area.x + PAD_L, area.y + i * DX_ROW_H, DX_TEXT_CUT_MARK, ctx->theme.dim,
+                           DX_COLOR_NONE, 1);
+            continue;
+        }
         if (ln->len == 0) {
             continue;
         }
