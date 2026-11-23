@@ -801,9 +801,9 @@ TEST(setter_store_ok_failed_and_refused)
     CHECK(!dx_data_clock_nested());
     CHECK_STR(last_log(),
               "deitrix: data clock 01:00:00 2026-01-01 Thursday | "
-              "Time set; kept only with a clock chip.");
+              "Time set. A clock chip keeps it.");
     draw_body();
-    CHECK(fake_find_text("Time set; kept only with a clock chip.") != NULL);
+    CHECK(fake_find_text("Time set. A clock chip keeps it.") != NULL);
     CHECK(body_inside());
     /* The line goes when the sub-tab is left. */
     key(DX_UI_LEFT);

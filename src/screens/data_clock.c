@@ -93,7 +93,7 @@ static void store(void)
     if (rc == 0) {
         /* The ABI does not say whether a clock chip took it. */
         clk.open = 0;
-        clk.status = "Time set; kept only with a clock chip.";
+        clk.status = "Time set. A clock chip keeps it.";
     } else if (rc == DX_EIO) {
         clk.message = "The clock chip did not take the time.";
     } else {
