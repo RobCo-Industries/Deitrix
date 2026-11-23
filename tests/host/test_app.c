@@ -30,7 +30,7 @@ TEST(first_frame_then_ready)
     CHECK_STR(fake.log, "deitrix: ready\n");
     CHECK(fake_find_text("STAT") != NULL);
     CHECK(fake_find_text("--:--") != NULL);
-    CHECK(fake_find_text("Not built yet.") != NULL);
+    CHECK(fake_find_text("STATUS") != NULL);
     /* No clock and no screen tick: nothing to wake up for. */
     CHECK_EQ(fake.last_timeout, DX_WAIT_FOREVER);
 }
@@ -46,7 +46,7 @@ TEST(frame_order_and_clip)
     /* Clear first, the body inside the clip, one present last. */
     CHECK(strncmp(fake.draws, "clear bg\n", 9) == 0);
     clip = strstr(fake.draws, "clip 0 22 320 193\n");
-    body = strstr(fake.draws, "\"Not built yet.\"");
+    body = strstr(fake.draws, "\"STATUS\"");
     present = strstr(fake.draws, "present\n");
     CHECK(clip != NULL && body != NULL && present != NULL);
     CHECK(clip < body && body < strstr(fake.draws, "clip off\n"));
@@ -202,7 +202,7 @@ TEST(scheme_colour_used)
     fake.fg = 0xffb000u;
     start(&app);
     dx_app_step(&app);
-    CHECK_EQ(fake_find_text("Not built yet.")->fg, 0x7f5800u);
+    CHECK_EQ(fake_find_text("ATTRS")->fg, 0x7f5800u);
     CHECK_EQ(fake_find_text("--:--")->fg, 0xffb000u);
 }
 

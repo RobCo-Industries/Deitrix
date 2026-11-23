@@ -247,6 +247,32 @@ The autosave writes DEITRIX.SAV and INV.SAV when their counters change. It write
 
 ## Screens
 
+### STAT
+
+`src/screens/stat.c` has three sub-tabs: STATUS, ATTRS and ABOUT. LEFT and RIGHT move between them. At STATUS, LEFT goes to the previous tab, and at ABOUT, RIGHT goes to the next. The sub-tab and the ATTRS selection stay when the tab is left, so a return shows the same view. No view of STAT changes state, so it writes no save.
+
+- STATUS shows the owner's name, the owner's line in dim text under it, then up to 6 gauges in file order. The gauges share one label column and one value column. The name uses the stroke font at unit 4, or unit 3 when 4 does not fit in 312 px. A name that fits neither, or holds a character the stroke font lacks, uses the normal font. `dx_stat_name_unit()` makes that choice. UP, DOWN, SELECT and Back do nothing, and the shell plays the deny tone.
+- ATTRS shows up to 12 attributes as a list: the name at the left, the value at the right. Ten rows fit, so 11 or 12 scroll. UP and DOWN move the selection. SELECT does nothing and denies. With no attributes it shows "No attributes in the profile.".
+- ABOUT shows the device data as key and value rows: the Deitrix version, the Pip-OS version and ABI, the SoC, the RAM, the uptime and the time in UTC. Under them it shows the profile's about lines in dim text, as many as fit: 3. The keys do nothing there, except LEFT and RIGHT.
+
+When PROFILE.INI is missing, STATUS and ATTRS show "No profile on the card.". When the file was ignored, they show "The profile was not read." and the reason, such as "PROFILE.INI line 12". ABOUT still shows the device data.
+
+The device rows come from `dx_plat_sysinfo()`. "Pip-OS" is `pipos_version` and "ABI" is `abi_version`. "SoC" is `soc` as BCM2835, BCM2836 or BCM2837. "RAM" is `mem_size`: the RAM the firmware gives the ARM, in MiB. The Deitrix version is `VERSION` in the Makefile, the version the SDK seals the ROM with. The Makefile passes it to the code as `DX_VERSION`. `src/model/stat_fmt.c` writes every value as text.
+
+The uptime is `ticks_ms`, shown as `d hh:mm:ss`. Pip-OS has no other uptime source, and `ticks_ms` wraps at 2^31 ms. So after 24 days 20:31:23 the uptime shown starts again at `0d 00:00:00`. The time comes from `get_time`, or reads "no clock".
+
+Only ABOUT ticks. Its tick wakes on each whole second of `ticks_ms` and asks for a redraw when the uptime second or the clock changed. On STATUS or ATTRS the tick returns 0, so the shell stops it. The shell ticks the screen after each event, so a move to ABOUT starts it at once. A frame of ABOUT reads the clock itself, so the time can show up to 1 s late.
+
+The tab logs one line when a frame shows another view, just before the present. The first STATUS frame after the tab opens logs nothing:
+
+```
+deitrix: stat shows ATTRS sel=3 top=0
+deitrix: stat shows STATUS
+deitrix: stat about Deitrix=0.1.0 | Pip-OS=7.1.0 | ABI=1.2 | SoC=BCM2836 | RAM=960 MiB | Uptime=0d 00:00:12 | Time=no clock
+```
+
+ABOUT logs its line on each frame, so once a second. `model/profile.h` and `ui/gauge.h` both define `struct dx_gauge`, so `stat.c` cannot include both. `src/screens/stat_draw.c` draws the name and the gauges from plain values for it.
+
 ### INV
 
 `src/screens/inv.c` shows ITEMS.INI. `src/model/inv_fmt.c` holds its pure helpers: which item is row N of a category, and the text of a count, a weight and a summary.
@@ -283,5 +309,5 @@ Each key the tab takes logs one serial line before the redraw, for the QEMU test
 
 These are plans, not code:
 
-- The five screens with real content: STAT, INV, DATA, MAP and RADIO.
+- The four screens with real content: INV, DATA, MAP and RADIO.
 - A holotape game.

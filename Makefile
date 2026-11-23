@@ -55,7 +55,7 @@ NAME         := DEITRIX
 TITLE        := Deitrix
 VERSION      := 0.1.0
 SRCS         := $(DX_SRCS) $(ICONS_C)
-CFLAGS_EXTRA := -Isrc
+CFLAGS_EXTRA := -Isrc -DDX_VERSION=$(VERSION)
 include $(PIPOS_SDK)/pipos-app.mk
 
 $(ICONS_C): tools/pbm2c.py $(ICONS)
@@ -74,6 +74,7 @@ $(EXPECT_H): tests/host/gen_expect.py tools/tun2notes.py tests/tools/test_check_
 HOST_TEST_DIR := tests/host
 HOST_SRCS     := $(PURE_SRCS) $(ICONS_C) tests/host/fake_platform.c tests/host/tfmt.c
 HOST_INCLUDES := src $(BUILD)/gen
+HOST_DEFINES  := DX_VERSION=$(VERSION)
 include $(ROBCO_CORE)/mk/host.mk
 
 # host.mk only sees the headers at the top of src/.

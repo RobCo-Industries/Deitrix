@@ -819,6 +819,10 @@ int32_t dx_plat_volume(uint32_t level)
 
 int dx_plat_sysinfo(dx_sysinfo_t *out)
 {
+    if (fake.sysinfo_fail) {
+        memset(out, 0, sizeof(*out));
+        return -1;
+    }
     *out = fake.sysinfo;
     return 0;
 }
