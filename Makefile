@@ -74,7 +74,7 @@ $(EXPECT_H): tests/host/gen_expect.py tools/tun2notes.py tests/tools/test_check_
 HOST_TEST_DIR := tests/host
 # Culvert's pure files build into every host test too.
 CV_DIR        := holotapes/culvert
-CV_PURE_SRCS  := $(CV_DIR)/logic.c
+CV_PURE_SRCS  := $(CV_DIR)/logic.c $(CV_DIR)/game.c
 HOST_SRCS     := $(PURE_SRCS) $(ICONS_C) $(CV_PURE_SRCS) tests/host/fake_platform.c tests/host/tfmt.c
 HOST_INCLUDES := src $(BUILD)/gen $(CV_DIR)
 HOST_DEFINES  := DX_VERSION=$(VERSION)
