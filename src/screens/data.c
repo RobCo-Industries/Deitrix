@@ -9,6 +9,7 @@
 #include "content.h"
 #include "model/util.h"
 #include "screens/data_view.h"
+#include "ui/frame.h"
 #include "ui/list.h"
 #include "ui/subtabs.h"
 #include "ui/text.h"
@@ -327,11 +328,10 @@ static const char *hint(void *st)
         break;
     }
     if (data.open) {
-        return data.text.count > data.text.visible ? "UP/DOWN: scroll   BACK/LEFT: list"
-                                                   : "BACK/LEFT: list   DIAL: tab";
+        return data.text.count > data.text.visible ? "UP/DOWN: scroll  BACK: list"
+                                                   : "BACK: list";
     }
-    return data.notes.count > 0 ? "UP/DOWN: move   SELECT: open"
-                                : "RIGHT: TAPES   LEFT or DIAL: tab";
+    return data.notes.count > 0 ? "UP/DOWN: move  SELECT: open" : DX_HINT_PAGE;
 }
 
 const dx_screen_t dx_screen_data = {

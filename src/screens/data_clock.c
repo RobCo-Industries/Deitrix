@@ -312,6 +312,5 @@ void dx_data_clock_draw(const dx_ctx_t *ctx, dx_rect_t r)
 
 const char *dx_data_clock_hint(void)
 {
-    return clk.open ? "UP/DN: set  SELECT: store  BACK: cancel"
-                    : "SELECT: set time   LEFT/RIGHT: page";
+    return clk.open ? "UP/DOWN: set  SELECT: ok  BACK: cancel" : "SELECT: set time";
 }

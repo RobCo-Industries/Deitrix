@@ -375,12 +375,12 @@ static const char *hint(void *st)
         return NULL;
     }
     if (s.detail >= 0) {
-        return "UP/DOWN: count  SELECT: mark  BACK";
+        return "UP/DOWN: +/-  SELECT: mark  BACK: list";
     }
     if (dx_inv_cat_entries(it, s.cat) == 0) {
-        return "LEFT/RIGHT: category  DIAL: tab";
+        return DX_HINT_PAGE;
     }
-    return "UP/DOWN: item  SELECT: open";
+    return "UP/DOWN: move  SELECT: open";
 }
 
 const dx_screen_t dx_screen_inv = {

@@ -10,6 +10,7 @@
 #include "model/map_view.h"
 #include "model/util.h"
 #include "screens/map_screen.h"
+#include "ui/frame.h"
 #include "ui/kv.h"
 #include "ui/subtabs.h"
 
@@ -25,7 +26,6 @@ typedef struct map_state {
     int detail;           /* 1 while the selected place's detail is open */
     int silent;           /* the first frame after the tab opens logs nothing */
     char logged[LOG_SIZE];
-    char hint[48];
 } map_state_t;
 
 static map_state_t map;
@@ -331,20 +331,11 @@ static void draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
     map.silent = 0;
 }
 
-static void hint_part(dx_sb_t *sb, const char *s)
-{
-    if (sb->len > 0) {
-        dx_sb_str(sb, "  ");
-    }
-    dx_sb_str(sb, s);
-}
-
-/* What the keys do now, at most 40 characters. */
+/* What the keys do now: see ui/frame.h. */
 static const char *hint(void *st)
 {
     const dx_map_t *m;
     int places;
-    dx_sb_t sb;
 
     (void)st;
     setup();
@@ -353,26 +344,14 @@ static const char *hint(void *st)
         return NULL;
     }
     if (map.detail) {
-        return "BACK/LEFT: back to the map";
+        return "BACK: map";
     }
     places = m->place_count;
-    if (places == 0 && map.count == 1) {
-        return NULL; /* the shell's own hint */
-    }
-    dx_sb_init(&sb, map.hint, sizeof(map.hint));
-    if (places > 1) {
-        hint_part(&sb, "UP/DOWN: place");
-    }
-    if (places > 0) {
-        hint_part(&sb, "SELECT: open");
-    }
-    if (map.count > 1) {
-        hint_part(&sb, map.subs.active == 0 ? "RIGHT: map" : "LEFT: map");
-    }
     if (places == 0) {
-        hint_part(&sb, "DIAL: tab");
+        /* Nothing to pick: paging, or the shell's own hint. */
+        return map.count > 1 ? DX_HINT_PAGE : NULL;
     }
-    return map.hint;
+    return places > 1 ? "UP/DOWN: place  SELECT: open" : "SELECT: open";
 }
 
 const dx_screen_t dx_screen_map = {

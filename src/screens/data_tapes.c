@@ -9,6 +9,7 @@
 #include "model/util.h"
 #include "screens/data_view.h"
 #include "services/services.h"
+#include "ui/frame.h"
 #include "ui/list.h"
 
 #define ICON_COL  40 /* the icon column at the right of the list */
@@ -244,6 +245,5 @@ void dx_data_tapes_draw(const dx_ctx_t *ctx, dx_rect_t r)
 const char *dx_data_tapes_hint(void)
 {
     setup();
-    return tapes.list.count > 0 ? "UP/DOWN: move   SELECT: run tape"
-                                : "LEFT/RIGHT: page   DIAL: tab";
+    return tapes.list.count > 0 ? "UP/DOWN: move  SELECT: run tape" : DX_HINT_PAGE;
 }

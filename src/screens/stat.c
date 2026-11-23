@@ -9,6 +9,7 @@
 #include "model/stat_fmt.h"
 #include "model/util.h"
 #include "screens/stat_draw.h"
+#include "ui/frame.h"
 #include "ui/list.h"
 #include "ui/subtabs.h"
 
@@ -334,12 +335,9 @@ static const char *hint(void *st)
     setup();
     switch (stat.subs.active) {
     case SUB_ATTRS:
-        return stat.attrs.count > 1 ? "UP/DOWN: move   LEFT/RIGHT: page"
-                                    : "LEFT/RIGHT: page   DIAL: tab";
-    case SUB_ABOUT:
-        return "LEFT: ATTRS   RIGHT or DIAL: tab";
+        return stat.attrs.count > 1 ? "UP/DOWN: move" : DX_HINT_PAGE;
     default:
-        return "RIGHT: ATTRS   LEFT or DIAL: tab";
+        return DX_HINT_PAGE;
     }
 }
 

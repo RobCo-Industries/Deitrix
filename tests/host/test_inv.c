@@ -148,7 +148,7 @@ TEST(first_view_draw_list)
               "line 0 191 319 191 faint\n"
               "text 12 195 \"2 entries, 1.5 kg\" dim none s1\n");
     CHECK(inside_body());
-    CHECK_STR(inv->hint(inv->st), "UP/DOWN: item  SELECT: open");
+    CHECK_STR(inv->hint(inv->st), "UP/DOWN: move  SELECT: open");
 }
 
 TEST(categories_and_empty_category)
@@ -171,7 +171,7 @@ TEST(categories_and_empty_category)
     CHECK(has_text("Nothing here."));
     CHECK(!has_text("0 entries"));
     CHECK(inside_body());
-    CHECK_STR(inv->hint(inv->st), "LEFT/RIGHT: category  DIAL: tab");
+    CHECK_STR(inv->hint(inv->st), "LEFT/RIGHT: page");
     /* Nothing to open, nothing to move. */
     CHECK_INT(key(DX_UI_SELECT), DX_UI_IGNORED);
     CHECK_INT(key(DX_UI_DOWN), DX_UI_IGNORED);
@@ -222,7 +222,7 @@ TEST(detail_view)
               "text 84 94 \"No\" fg none s1\n"
               "text 4 118 \"A small knife with a wooden handle.\" dim none s1\n");
     CHECK(inside_body());
-    CHECK_STR(inv->hint(inv->st), "UP/DOWN: count  SELECT: mark  BACK");
+    CHECK_STR(inv->hint(inv->st), "UP/DOWN: +/-  SELECT: mark  BACK: list");
     /* An item without weight or note: no Weight row, no note. */
     CHECK_INT(key(DX_UI_BACK), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
     CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY);
@@ -342,7 +342,7 @@ TEST(shell_routing_and_leave)
     CHECK_INT(app.tab, TAB_INV);
     CHECK(strstr(fake.log, "deitrix: inv open=rope\ndeitrix: inv idle\n"
                            "deitrix: inv count=21\n") != NULL);
-    CHECK(fake_find_text("UP/DOWN: count  SELECT: mark  BACK") != NULL);
+    CHECK(fake_find_text("UP/DOWN: +/-  SELECT: mark  BACK: list") != NULL);
     /* A refused press denies with a tone; a refused repeat is silent. */
     dx_items_set_count(dx_content_items(), 1, 999);
     tones = fake.tone_count;
@@ -360,7 +360,7 @@ TEST(shell_routing_and_leave)
     steps(&app, 3);
     CHECK_INT(app.tab, TAB_INV);
     CHECK(strstr(fake.log, "deitrix: tab=DATA\ndeitrix: tab=INV\n") != NULL);
-    CHECK(fake_find_text("UP/DOWN: item  SELECT: open") != NULL);
+    CHECK(fake_find_text("UP/DOWN: move  SELECT: open") != NULL);
     CHECK(fake_find_text("999 m") != NULL);
     CHECK_INT(fake_find_text("Rope")->bg, fake.theme.fg);
     /* LEFT at the first category changes the tab. */
@@ -474,7 +474,7 @@ TEST(held_keys_open_and_close_once)
         steps(&app, fake_hold(backs[i], 12));
         CHECK_INT(app.tab, TAB_INV);
         CHECK_STR(fake.log, "deitrix: inv back row=0\n");
-        CHECK_STR(inv->hint(inv->st), "UP/DOWN: item  SELECT: open");
+        CHECK_STR(inv->hint(inv->st), "UP/DOWN: move  SELECT: open");
         /* The next fresh press acts again: FOOD to TOOLS. */
         steps(&app, fake_hold(DX_BTN_LEFT, 0));
         CHECK_STR(last_log(), "deitrix: inv cat=0 row=0");

@@ -143,7 +143,7 @@ TEST(status_full_profile)
     t = fake_find_text("1/1");
     CHECK(t != NULL && t->x == 316 - 3 * 8);
     CHECK_INT(fake_find_text("0/9999")->x, 316 - 6 * 8);
-    CHECK_STR(hint(), "RIGHT: ATTRS   LEFT or DIAL: tab");
+    CHECK_STR(hint(), "LEFT/RIGHT: page");
     CHECK_STR(fake.log, "");
 }
 
@@ -184,7 +184,7 @@ TEST(attrs_full_list_scrolls)
     key(DX_UI_RIGHT);
     CHECK_INT(app.tab, 0);
     CHECK_STR(fake.log, "deitrix: stat shows ATTRS sel=0 top=0\n");
-    CHECK_STR(hint(), "UP/DOWN: move   LEFT/RIGHT: page");
+    CHECK_STR(hint(), "UP/DOWN: move");
     draw_body();
     CHECK(body_inside());
     /* Ten rows of 16 px fit under the sub-tabs. */
@@ -230,7 +230,7 @@ TEST(about_full_profile)
     key(DX_UI_RIGHT);
     CHECK_STR(fake.log, "deitrix: stat about Deitrix=0.1.0 | Pip-OS=7.1.0 | ABI=1.2 | "
                         "SoC=BCM2836 | RAM=960 MiB | Uptime=1d 01:01:01 | Time=no clock\n");
-    CHECK_STR(hint(), "LEFT: ATTRS   RIGHT or DIAL: tab");
+    CHECK_STR(hint(), "LEFT/RIGHT: page");
     draw_body();
     CHECK(body_inside());
     CHECK_INT(fake_find_text("Deitrix")->y, 42 + 4);
@@ -274,7 +274,7 @@ TEST(minimal_profile)
     key(DX_UI_RIGHT);
     draw_body();
     CHECK(fake_find_text("No attributes in the profile.") != NULL);
-    CHECK_STR(hint(), "LEFT/RIGHT: page   DIAL: tab");
+    CHECK_STR(hint(), "LEFT/RIGHT: page");
     fake.tone_count = 0;
     key(DX_UI_DOWN);
     CHECK_INT(fake.tones[0][0], DENY_HZ);

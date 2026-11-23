@@ -150,7 +150,7 @@ TEST(first_view)
     /* The rule over the place row. */
     CHECK(strstr(fake.draws, "line 4 196 315 196 faint\n") != NULL);
     CHECK(fake_all_points_inside(dx_frame_body()));
-    CHECK_STR(hint(), "UP/DOWN: place  SELECT: open  RIGHT: map");
+    CHECK_STR(hint(), "UP/DOWN: place  SELECT: open");
     /* Later frames log the view and the time the map took. */
     fake.log[0] = '\0';
     key(DX_UI_DOWN);
@@ -211,7 +211,7 @@ TEST(detail_and_back)
         key(DX_UI_DOWN);
         key(DX_UI_SELECT);
         CHECK_STR(last_view(), "deitrix: map detail LOCAL place=1");
-        CHECK_STR(hint(), "BACK/LEFT: back to the map");
+        CHECK_STR(hint(), "BACK: map");
         draw_body();
         t = fake_find_text("Spring");
         CHECK(t != NULL && t->fg == fake.theme.fg && t->y == 23);
@@ -247,7 +247,7 @@ TEST(sub_tabs_and_neighbours)
     key(DX_UI_RIGHT);
     CHECK_INT(app.tab, TAB_MAP);
     CHECK_STR(last_view(), "deitrix: map shows WORLD place=0");
-    CHECK_STR(hint(), "UP/DOWN: place  SELECT: open  LEFT: map");
+    CHECK_STR(hint(), "UP/DOWN: place  SELECT: open");
     key(DX_UI_DOWN);
     /* RIGHT on the last sub-tab: RADIO. Back by the dial: this card has
      * no stations, so RADIO's cursor is on Volume and takes LEFT.
@@ -282,7 +282,7 @@ TEST(dial_leaves_the_detail)
     dial(-1);
     CHECK_INT(app.tab, TAB_MAP);
     CHECK_STR(last_view(), "");
-    CHECK_STR(hint(), "UP/DOWN: place  SELECT: open  RIGHT: map");
+    CHECK_STR(hint(), "UP/DOWN: place  SELECT: open");
     key(DX_UI_DOWN);
     CHECK_STR(last_view(), "deitrix: map shows LOCAL place=2");
 }
@@ -436,7 +436,7 @@ TEST(limits_inside_body)
         }
         CHECK_STR(last_view(), sub == 0 ? "deitrix: map shows LOCAL place=1"
                                         : "deitrix: map shows WORLD place=1");
-        CHECK(strlen(hint()) <= 40);
+        CHECK(strlen(hint()) <= DX_HINT_MAX);
         key(DX_UI_RIGHT);
     }
 }
@@ -449,12 +449,12 @@ TEST(hints_fit)
     for (f = 0; f < 4; f++) {
         boot(files[f]);
         to_map();
-        CHECK(strlen(hint()) <= 40);
+        CHECK(strlen(hint()) <= DX_HINT_MAX);
         key(DX_UI_SELECT);
-        CHECK(strlen(hint()) <= 40);
+        CHECK(strlen(hint()) <= DX_HINT_MAX);
         key(DX_UI_BACK);
         key(DX_UI_RIGHT);
-        CHECK(strlen(hint()) <= 40);
+        CHECK(strlen(hint()) <= DX_HINT_MAX);
     }
 }
 

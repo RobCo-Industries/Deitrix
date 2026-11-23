@@ -84,6 +84,44 @@ The held-key rule is the same on every tab. It lives in `src/ui/latch.h`, and `d
 
 A tab change calls `leave` on the old screen and `enter` on the new one, then redraws.
 
+### Footer hints
+
+The footer names the keys that do something in the current state. Every hint follows one style, set in `ui/frame.h`:
+
+- Each group is `KEY: action`. The keys are `UP/DOWN`, `LEFT/RIGHT`, `SELECT`, `BACK` and `DIAL`.
+- Two spaces separate the groups.
+- Movement comes first, then SELECT, then BACK.
+- A hint has at most 38 characters, so it keeps one column free on each side.
+- No screen hint names the tab change. The header shows the tabs, and the dial always changes them. A hint for every state would not fit with the tab words in 38 characters. A state with no key of its own shows the shell's hint, `DIAL: change tab`.
+- LEFT/RIGHT shows only where it does something other than paging, or where paging is the only thing to do. The sub-tab row shows the pages.
+
+`tests/host/test_hints.c` walks every state on three cards and checks each hint against these rules and this table:
+
+| Tab | State | Hint |
+|---|---|---|
+| STAT | STATUS, ABOUT, ATTRS with at most 1 attribute | `LEFT/RIGHT: page` |
+| STAT | ATTRS with 2 or more attributes | `UP/DOWN: move` |
+| INV | List | `UP/DOWN: move  SELECT: open` |
+| INV | Empty category | `LEFT/RIGHT: page` |
+| INV | Detail | `UP/DOWN: +/-  SELECT: mark  BACK: list` |
+| INV | No items | `DIAL: change tab` |
+| DATA | NOTES list | `UP/DOWN: move  SELECT: open` |
+| DATA | NOTES, TAPES without entries | `LEFT/RIGHT: page` |
+| DATA | Note open, longer than the screen | `UP/DOWN: scroll  BACK: list` |
+| DATA | Note open, short | `BACK: list` |
+| DATA | TAPES list | `UP/DOWN: move  SELECT: run tape` |
+| DATA | CLOCK | `SELECT: set time` |
+| DATA | Setter | `UP/DOWN: set  SELECT: ok  BACK: cancel` |
+| MAP | Two or more places | `UP/DOWN: place  SELECT: open` |
+| MAP | One place | `SELECT: open` |
+| MAP | No place, two maps | `LEFT/RIGHT: page` |
+| MAP | No place and one map, or no map | `DIAL: change tab` |
+| MAP | Detail | `BACK: map` |
+| RADIO | Station | `UP/DOWN: move  SELECT: play` |
+| RADIO | Station on air | `UP/DOWN: move  SELECT: stop` |
+| RADIO | Volume | `UP/DOWN: move  LEFT/RIGHT: volume` |
+| RADIO | UI sounds | `UP/DOWN: move  SELECT: sound on/off` |
+
 ### Sounds
 
 `dx_ui_sound()` plays a short tone through the platform: MOVE, SELECT, BACK or DENY. It plays nothing when the owner turned UI sounds off in the settings, or while the radio plays. `dx_ui_sound_for()` picks it: MOVE for a tab change or a handled key that changed the screen, SELECT or BACK when the screen handled one, and DENY for UP, DOWN, SELECT or BACK that the screen ignored on a fresh press. Repeats never deny. `DX_UI_SOUND` in `ui.h` turns every tone off when set to 0.
@@ -118,7 +156,7 @@ A screen is a `dx_screen_t`: a tab label of 1 to 5 letters, six callbacks and a 
 - `event` gets each routed event.
 - `tick` runs when the screen's wake time passes. It returns the next wake time in ticks, or 0 for none, and may set `DX_UI_DIRTY`. The shell calls it once on `enter` and once after each handled event. The tick counter wraps at 2^31, so a screen builds its wake time with `dx_ticks_add(now_ms, ms)`, at most one day ahead; the helper never returns 0.
 - `draw` draws the body only. The shell clips to the body first.
-- `hint` returns the footer text, or NULL for the default.
+- `hint` returns the footer text, or NULL for the shell's own. See [Footer hints](#footer-hints).
 
 `dx_ctx_t` carries the drawing table, the theme and the current tick time. A minimal screen with a counter:
 
@@ -304,7 +342,7 @@ The tab keeps the active category and the selected row of each category while th
 
 Changes go through `dx_items_add` and `dx_items_toggle_marked`. They count a change in the overlay, and the autosave writes INV.SAV. A refused step counts none.
 
-The footer says `UP/DOWN: item  SELECT: open` at the list, `LEFT/RIGHT: category  DIAL: tab` at an empty category and `UP/DOWN: count  SELECT: mark  BACK` in the detail. The empty states keep the shell's hint.
+The footer hints are in [Footer hints](#footer-hints). The state without items keeps the shell's hint.
 
 Each key the tab takes logs one serial line before the redraw, for the QEMU tests: `deitrix: inv cat=1 row=0`, `open=knife`, `count=3`, `refused count=999`, `marked=1`, `back row=0`, `end row=0` at a list end, and `idle` for a key that changes nothing. LEFT or RIGHT that changes the tab logs no `inv` line.
 
@@ -360,7 +398,7 @@ When MAP.INI is missing, ignored or holds no valid map, the body shows "No map o
 
 Leaving the tab closes the detail. The sub-tab and each map's selected place stay.
 
-The hint names the keys that do something now: "UP/DOWN: place  SELECT: open  RIGHT: map" on LOCAL with WORLD next, "BACK/LEFT: back to the map" in the detail. A single map without places and the empty state use the shell's hint.
+The hint names the keys that do something now. See [Footer hints](#footer-hints). A single map without places and the empty state use the shell's hint.
 
 `src/model/map_view.c` holds the pure helpers: the pane fit with its margin, a line in pixels, the place cycling, the marker squares and the position text. A map point lands on the pixel `dx_map_to_px()` gives: rounded to the nearest, halves up.
 
@@ -402,7 +440,7 @@ When the service changes what plays, such as at the end of a track played once, 
 
 Without RADIO.INI, or with a file the loader ignored, the list area says "No stations on the card." and the reason in dim text, such as `RADIO.INI missing`. The settings still work.
 
-The footer says `UP/DOWN: station  SELECT: play` on a station, `SELECT: stop` on the one on air, `LEFT/RIGHT: volume  UP/DOWN: move` on Volume and `SELECT: UI sounds on/off  UP/DOWN: move` on UI sounds.
+The footer hints are in [Footer hints](#footer-hints).
 
 Each key the tab takes logs one serial line before the redraw: `deitrix: radio row=3`, `end row=0`, `station=4`, `off`, `volume=70`, `refused volume=100`, `sound=0`, and `idle` for a key that changes nothing. A start that fails adds `deitrix: radio cannot play`. A frame that shows another state logs `deitrix: radio shows Playing Hearth`, `shows Off` or `shows Cannot play Lullaby`, just before the present.
 

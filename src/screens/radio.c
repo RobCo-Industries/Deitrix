@@ -355,15 +355,15 @@ static const char *hint(void *st)
     (void)st;
     sync(r);
     if (sel == row_volume(r)) {
-        return "LEFT/RIGHT: volume  UP/DOWN: move";
+        return "UP/DOWN: move  LEFT/RIGHT: volume";
     }
     if (sel == row_sound(r)) {
-        return "SELECT: UI sounds on/off  UP/DOWN: move";
+        return "UP/DOWN: move  SELECT: sound on/off";
     }
     if (dx_radio_current() == sel) {
-        return "UP/DOWN: station  SELECT: stop";
+        return "UP/DOWN: move  SELECT: stop";
     }
-    return "UP/DOWN: station  SELECT: play";
+    return "UP/DOWN: move  SELECT: play";
 }
 
 const dx_screen_t dx_screen_radio = {

@@ -115,7 +115,7 @@ TEST(notes_none)
     draw_body();
     CHECK(fake_find_text("No notes on the card.") != NULL);
     CHECK(body_inside());
-    CHECK_STR(hint(), "RIGHT: TAPES   LEFT or DIAL: tab");
+    CHECK_STR(hint(), "LEFT/RIGHT: page");
     /* SELECT, UP, DOWN and Back do nothing. */
     fake.log[0] = '\0';
     key(DX_UI_SELECT);
@@ -140,7 +140,7 @@ TEST(notes_folder_error)
     CHECK(fake_find_text("The notes were not read.") != NULL);
     CHECK(fake_find_text("No notes on the card.") == NULL);
     CHECK(fake_find_text("NOTES read error") != NULL);
-    CHECK_STR(hint(), "RIGHT: TAPES   LEFT or DIAL: tab");
+    CHECK_STR(hint(), "LEFT/RIGHT: page");
     CHECK(body_inside());
 }
 
@@ -151,7 +151,7 @@ TEST(notes_one_open_and_back)
     fake_reset();
     add_note("ONLY.TXT", "A single note\nFirst line of the body.\nSecond line.\n");
     boot();
-    CHECK_STR(hint(), "UP/DOWN: move   SELECT: open");
+    CHECK_STR(hint(), "UP/DOWN: move  SELECT: open");
     draw_body();
     t = fake_find_text("A single note");
     CHECK(t != NULL && t->y == 42 + 6 && t->bg == fake.theme.fg);
@@ -161,7 +161,7 @@ TEST(notes_one_open_and_back)
     CHECK_STR(fake.log, "");
     key(DX_UI_SELECT);
     CHECK_STR(last_log(), "deitrix: data note ONLY.TXT top=0 lines=2");
-    CHECK_STR(hint(), "BACK/LEFT: list   DIAL: tab");
+    CHECK_STR(hint(), "BACK: list");
     draw_body();
     t = fake_find_text("A single note");
     CHECK(t != NULL && t->x == 4 && t->y == 42 + 4 && t->bg == DX_COLOR_NONE);
@@ -272,7 +272,7 @@ TEST(note_scrolls_and_is_cut)
     boot();
     key(DX_UI_SELECT);
     CHECK_STR(last_log(), "deitrix: data note A.TXT top=0 lines=104");
-    CHECK_STR(hint(), "UP/DOWN: scroll   BACK/LEFT: list");
+    CHECK_STR(hint(), "UP/DOWN: scroll  BACK: list");
     draw_body();
     CHECK(body_inside());
     for (i = 0; i < 200; i++) {
@@ -359,7 +359,7 @@ TEST(tapes_none_and_list_error)
     boot_tapes();
     CHECK_INT(fake.holo_lists, 1);
     CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=0 | ");
-    CHECK_STR(hint(), "LEFT/RIGHT: page   DIAL: tab");
+    CHECK_STR(hint(), "LEFT/RIGHT: page");
     draw_body();
     CHECK(fake_find_text("No holotapes on the card.") != NULL);
     CHECK(body_inside());
@@ -393,7 +393,7 @@ TEST(tapes_list_kinds_titles_and_icon)
                   "A title as long as the kernel allows: sixty-three characters!!", NULL);
     boot_tapes();
     CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=4 | ");
-    CHECK_STR(hint(), "UP/DOWN: move   SELECT: run tape");
+    CHECK_STR(hint(), "UP/DOWN: move  SELECT: run tape");
     draw_body();
     CHECK(body_inside());
     t = fake_find_text("Beacon sample tape");
@@ -521,7 +521,7 @@ TEST(tapes_failed_save_asks_for_a_second_press)
     CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | Save failed. SELECT again runs it.");
     draw_body();
     CHECK(fake_find_text(line) != NULL);
-    CHECK_STR(hint(), "UP/DOWN: move   SELECT: run tape");
+    CHECK_STR(hint(), "UP/DOWN: move  SELECT: run tape");
     CHECK(body_inside());
     /* A repeat of the held key is not the second press. */
     key_ev(DX_UI_SELECT, 1);
@@ -692,7 +692,7 @@ TEST(clock_page_and_tick)
     fake.clock = T_2026_11_23_093007;
     boot_clock();
     CHECK_STR(last_log(), "deitrix: data clock 09:30:07 2026-11-23 Monday | ");
-    CHECK_STR(hint(), "SELECT: set time   LEFT/RIGHT: page");
+    CHECK_STR(hint(), "SELECT: set time");
     draw_body();
     CHECK(body_inside());
     CHECK(fake_find_text("2026-11-23  Monday") != NULL);
@@ -753,7 +753,7 @@ TEST(setter_starts_from_the_clock_or_2026)
     boot_clock();
     key(DX_UI_SELECT);
     CHECK_STR(last_log(), "deitrix: data setter field=0 2026-01-01 00:00 | ");
-    CHECK_STR(hint(), "UP/DN: set  SELECT: store  BACK: cancel");
+    CHECK_STR(hint(), "UP/DOWN: set  SELECT: ok  BACK: cancel");
     draw_body();
     CHECK(body_inside());
     CHECK(fake_find_text("Year") != NULL);
@@ -946,13 +946,13 @@ TEST(hints_fit)
     fake_reset();
     boot();
     h = hint();
-    CHECK(strlen(h) <= 40);
+    CHECK(strlen(h) <= DX_HINT_MAX);
     key(DX_UI_RIGHT);
-    CHECK(strlen(hint()) <= 40);
+    CHECK(strlen(hint()) <= DX_HINT_MAX);
     key(DX_UI_RIGHT);
-    CHECK(strlen(hint()) <= 40);
+    CHECK(strlen(hint()) <= DX_HINT_MAX);
     key(DX_UI_SELECT);
-    CHECK(strlen(hint()) <= 40);
+    CHECK(strlen(hint()) <= DX_HINT_MAX);
 }
 
 /* ---- Held keys ---------------------------------------------------------- */
@@ -1019,13 +1019,13 @@ TEST(held_back_or_left_closes_the_setter_once)
     hold(DX_UI_BACK, 8);
     CHECK(!dx_data_clock_nested());
     CHECK_INT(app.tab, DATA_TAB);
-    CHECK_STR(hint(), "SELECT: set time   LEFT/RIGHT: page");
+    CHECK_STR(hint(), "SELECT: set time");
     /* LEFT on the first field cancels; its repeats stay on CLOCK. */
     key(DX_UI_SELECT);
     hold(DX_UI_LEFT, 8);
     CHECK(!dx_data_clock_nested());
     CHECK_INT(app.tab, DATA_TAB);
-    CHECK_STR(hint(), "SELECT: set time   LEFT/RIGHT: page");
+    CHECK_STR(hint(), "SELECT: set time");
     /* A LEFT held from the second field stops at the first. */
     key(DX_UI_SELECT);
     key(DX_UI_RIGHT);
@@ -1055,7 +1055,7 @@ TEST(held_keys_open_and_close_a_note_once)
     hold(DX_UI_LEFT, 8);
     CHECK_INT(app.tab, DATA_TAB);
     CHECK_STR(last_log(), "deitrix: data notes sel=0 top=0 count=3");
-    CHECK_STR(hint(), "UP/DOWN: move   SELECT: open");
+    CHECK_STR(hint(), "UP/DOWN: move  SELECT: open");
     /* A held BACK closes it once. */
     key(DX_UI_SELECT);
     hold(DX_UI_BACK, 8);

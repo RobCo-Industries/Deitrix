@@ -139,7 +139,7 @@ static void check_hint(const char *want)
     const char *h = radio->hint(radio->st);
 
     CHECK_STR(h, want);
-    CHECK(strlen(h) <= 40);
+    CHECK(strlen(h) <= DX_HINT_MAX);
 }
 
 TEST(first_view_draw_list)
@@ -162,7 +162,7 @@ TEST(first_view_draw_list)
               "text 12 190 \"UI sounds\" fg none s1\n"
               "text 300 190 \"On\" fg none s1\n");
     CHECK(inside_body());
-    check_hint("UP/DOWN: station  SELECT: play");
+    check_hint("UP/DOWN: move  SELECT: play");
     /* Off at start: no line until what is shown changes. */
     CHECK_STR(fake.log, "");
 }
@@ -199,14 +199,14 @@ TEST(start_stop_and_switch)
               "text 12 190 \"UI sounds\" fg none s1\n"
               "text 300 190 \"On\" fg none s1\n");
     CHECK(inside_body());
-    check_hint("UP/DOWN: station  SELECT: stop");
+    check_hint("UP/DOWN: move  SELECT: stop");
     /* A held SELECT does nothing more. */
     CHECK_INT(send(DX_UI_SELECT, 1), DX_UI_IGNORED);
     CHECK_INT(fake.seq_count, 1);
     /* Another station switches: the tune stops, the stream starts. */
     CHECK_INT(key(DX_UI_DOWN), DX_UI_HANDLED | DX_UI_DIRTY);
     CHECK_STR(last_log(), "deitrix: radio row=1");
-    check_hint("UP/DOWN: station  SELECT: play");
+    check_hint("UP/DOWN: move  SELECT: play");
     CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY);
     CHECK_STR(last_log(), "deitrix: radio station=2");
     CHECK_INT(dx_radio_state(), DX_RADIO_PCM);
@@ -307,7 +307,7 @@ TEST(block_follows_the_track_and_its_wrap)
     CHECK(fake_find_text("ON AIR") == NULL);
     CHECK(strstr(fake.log, "deitrix: radio shows Playing Once\n"
                            "deitrix: radio shows Off\n") != NULL);
-    CHECK(fake_find_text("UP/DOWN: station  SELECT: play") != NULL);
+    CHECK(fake_find_text("UP/DOWN: move  SELECT: play") != NULL);
 }
 
 TEST(station_with_nothing_to_play)
@@ -327,7 +327,7 @@ TEST(station_with_nothing_to_play)
     CHECK(!has_text("ON AIR"));
     CHECK(inside_body());
     CHECK_STR(last_log(), "deitrix: radio shows Cannot play Gone");
-    check_hint("UP/DOWN: station  SELECT: play");
+    check_hint("UP/DOWN: move  SELECT: play");
     /* A file that breaks while it streams says the same. */
     key(DX_UI_UP);
     key(DX_UI_UP);
@@ -365,7 +365,7 @@ TEST(volume_to_both_limits)
         key(DX_UI_DOWN);
     }
     CHECK_STR(last_log(), "deitrix: radio row=4");
-    check_hint("LEFT/RIGHT: volume  UP/DOWN: move");
+    check_hint("UP/DOWN: move  LEFT/RIGHT: volume");
     draw();
     /* The row is inverse, the station list has no selection. */
     CHECK(strstr(fake.draws, "text 12 24 \"Morning\" fg none s1\n") != NULL);
@@ -460,7 +460,7 @@ TEST(ui_sounds_toggle)
     }
     CHECK_INT(key(DX_UI_DOWN), DX_UI_IGNORED);
     CHECK_STR(last_log(), "deitrix: radio end row=5");
-    check_hint("SELECT: UI sounds on/off  UP/DOWN: move");
+    check_hint("UP/DOWN: move  SELECT: sound on/off");
     changes = set->changes;
     CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY);
     CHECK_STR(last_log(), "deitrix: radio sound=0");
@@ -576,7 +576,7 @@ TEST(no_file)
     CHECK(has_text("Radio off."));
     CHECK(inside_body());
     /* The cursor starts on the volume; the settings still work. */
-    check_hint("LEFT/RIGHT: volume  UP/DOWN: move");
+    check_hint("UP/DOWN: move  LEFT/RIGHT: volume");
     CHECK_INT(key(DX_UI_UP), DX_UI_IGNORED);
     CHECK_STR(last_log(), "deitrix: radio end row=0");
     CHECK_INT(key(DX_UI_SELECT), DX_UI_IGNORED);
