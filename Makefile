@@ -72,13 +72,16 @@ $(EXPECT_H): tests/host/gen_expect.py tools/tun2notes.py tests/tools/test_check_
 	$(PYTHON) tests/host/gen_expect.py $@
 
 HOST_TEST_DIR := tests/host
-HOST_SRCS     := $(PURE_SRCS) $(ICONS_C) tests/host/fake_platform.c tests/host/tfmt.c
-HOST_INCLUDES := src $(BUILD)/gen
+# Culvert's pure files build into every host test too.
+CV_DIR        := holotapes/culvert
+CV_PURE_SRCS  := $(CV_DIR)/logic.c
+HOST_SRCS     := $(PURE_SRCS) $(ICONS_C) $(CV_PURE_SRCS) tests/host/fake_platform.c tests/host/tfmt.c
+HOST_INCLUDES := src $(BUILD)/gen $(CV_DIR)
 HOST_DEFINES  := DX_VERSION=$(VERSION)
 include $(ROBCO_CORE)/mk/host.mk
 
 # host.mk only sees the headers at the top of src/.
-$(HOST_TESTS): $(wildcard src/*/*.h) tests/host/fake_platform.h tests/host/tfmt.h $(EXPECT_H) $(wildcard tests/host/*.inc)
+$(HOST_TESTS): $(wildcard src/*/*.h) $(wildcard $(CV_DIR)/*.h) tests/host/fake_platform.h tests/host/tfmt.h $(EXPECT_H) $(wildcard tests/host/*.inc)
 
 # QEMU runs and builds below share build/; keep top-level goals serial.
 .NOTPARALLEL:
