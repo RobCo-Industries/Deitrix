@@ -30,11 +30,11 @@ The icons, as plain PBM files. `tools/pbm2c.py` turns them into `build/gen/icons
 
 ### `content/`
 
-Files copied to the card root by `make sdimage` and `make bootdir`. Today it holds `PIPBOY/DATA/README.TXT`.
+The sample content of the card: `PIPBOY/DATA/` with the profile, items, notes, maps, stations and tunes. `make card-tree` copies it to `build/card/` and adds the two PCM tracks from `tools/mkpcm.py`. `make sdimage` and `make bootdir` copy `build/card/` to the card root. The formats are in [CONTENT.md](CONTENT.md).
 
 ### `tests/`
 
-`tests/host/` holds the C host tests, the fake platform and the `pbm2c.py` test. `tests/gallery/` holds the widget gallery's screens. `tests/*.py` are the QEMU tests, with their screen goldens in `tests/golden/`. See [TESTING.md](TESTING.md).
+`tests/host/` holds the C host tests, the fake platform and the `pbm2c.py` test. `tests/tools/` holds the tests of the content tools. `tests/gallery/` holds the widget gallery's screens. `tests/*.py` are the QEMU tests, with their screen goldens in `tests/golden/`. See [TESTING.md](TESTING.md).
 
 ## The UI framework
 
@@ -168,7 +168,7 @@ The list, text, gauge, key and value, and sub-tab widgets are structs the screen
 
 These are plans, not code:
 
-- Content files under `/PIPBOY/DATA/` on the card, from `content/`.
-- Saves through the Pip-OS save calls.
+- A data model that reads the content files under `/PIPBOY/DATA/`, as [CONTENT.md](CONTENT.md) defines them.
+- Saves through the Pip-OS save calls, with the layouts in [CONTENT.md](CONTENT.md#saves).
 - The five screens with real content: STAT, INV, DATA, MAP and RADIO.
 - A holotape game.
