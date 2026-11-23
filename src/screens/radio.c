@@ -25,22 +25,25 @@ static unsigned event(void *st, const dx_ui_event_t *ev)
 
         next = dx_content_settings()->last_station == 0 ? 0 : last + 1;
     }
+    /* The line goes out before the sound starts, so a test sees the
+     * audio trace after it. */
     dx_sb_init(&sb, line, sizeof(line));
     dx_sb_str(&sb, "deitrix: radio ");
     if (next >= r->count) {
+        dx_sb_str(&sb, "off\n");
+        dx_plat_log(line);
         dx_radio_stop();
         dx_settings_set_station(dx_content_settings(), 0);
-        dx_sb_str(&sb, "off");
     } else {
-        dx_settings_set_station(dx_content_settings(), r->stations[next].number);
         dx_sb_str(&sb, "station=");
         dx_sb_uint(&sb, (uint32_t)r->stations[next].number);
+        dx_sb_char(&sb, '\n');
+        dx_plat_log(line);
+        dx_settings_set_station(dx_content_settings(), r->stations[next].number);
         if (dx_radio_play(next, 0) != 0) {
-            dx_sb_str(&sb, " cannot play");
+            dx_plat_log("deitrix: radio cannot play\n");
         }
     }
-    dx_sb_char(&sb, '\n');
-    dx_plat_log(line);
     return DX_UI_HANDLED | DX_UI_DIRTY;
 }
 
