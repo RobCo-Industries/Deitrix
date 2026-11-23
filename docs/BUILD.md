@@ -18,7 +18,8 @@ The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its gu
 
 | Target | What it does |
 |---|---|
-| `make`, `make all` | Builds `build/ROM1.ROM` with the SDK |
+| `make`, `make all` | Builds `build/ROM1.ROM` and the holotapes with the SDK |
+| `make holotapes` | Builds the holotapes only: `build/holo/CULVERT.HTP` |
 | `make test-host` | Host unit tests, `check-pins`, the `check-pins` wiring test, the `pbm2c.py` test, `check-content`, `tools-test` and the card check |
 | `make card-tree` | `build/card/`: a fresh copy of `content/` plus the PCM tracks from `tools/mkpcm.py`, kept in `build/pcm/`. Then `tools/check_content.py` checks it, and any problem stops the build. `sdimage`, `run`, `bootdir` and `check-content` run it first. |
 | `make check-content` | `tools/check_content.py` on `content/`, where the generated tracks may be missing, and on `build/card/`, where they must be there. See [CONTENT.md](CONTENT.md) |
@@ -51,7 +52,7 @@ The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its gu
 - `all` includes the SDK's `pipos-app.mk` with `KIND=rom`, `NAME=DEITRIX` and `TITLE=Deitrix`.
 - `test-host` includes RobCo-Core's `mk/host.mk` for the C tests.
 - `kernel`, `sdimage`, `run` and `bootdir` call the same targets in Pip-OS's Makefile, with `BUILD=build/pipos`. This is the interface of Pip-OS's [Using Pip-OS from another repository](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/ROM_DEVELOPMENT.md#using-pip-os-from-another-repository).
-- `sdimage`, `run` and `bootdir` pass `ROM=build/ROM1.ROM`, `TAPE=none` and `CARD_DIR=build/card`. `bootdir` also passes `DIR`, `FIRMWARE` and `CLEAN`. Pip-OS writes the same files to the card and to the folder.
+- `sdimage`, `run` and `bootdir` pass `ROM=build/ROM1.ROM`, `TAPE=build/holo/CULVERT.HTP` and `CARD_DIR=build/card`. `bootdir` also passes `DIR`, `FIRMWARE` and `CLEAN`. Pip-OS writes the same files to the card and to the folder.
 - Pip-OS checks the staged card. Two paths that differ only in case stop the build, and a name longer than 8.3 gets a warning. `tools/check_content.py` already refuses any name under `PIPBOY/DATA/` that is not upper-case 8.3, so the Deitrix content passes with no warning.
 - `bootdir` keeps a `PIPBOY/PIPOS.CFG` that is already in the folder. Its other rules, `BOOTDIR.LST` and `CLEAN=1` are in Pip-OS's [A real card](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/BUILD.md#a-real-card).
 - `check-pins` runs RobCo-Core's `tools/check_pins.sh` on the CI workflow, then its `tools/check_doc_links.sh` twice: once with `--repo RobCo-Industries/Pip-OS` for `external/pip-os`, once for the RobCo-Core inside it.
@@ -65,7 +66,7 @@ The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its gu
 | `PIPOS.IMG`, `config.txt` | The Pip-OS kernel and its boot config |
 | `PIPBOY/PIPOS.CFG` | Pip-OS's sample settings, green scheme |
 | `PIPBOY/ROM1.ROM` | `build/ROM1.ROM` |
-| `PIPBOY/HOLO/` | Empty |
+| `PIPBOY/HOLO/CULVERT.HTP` | `build/holo/CULVERT.HTP`, through Pip-OS's `TAPE=` list |
 | everything else | `build/card/`, copied to the card root |
 
 `build/card/` is `content/` plus `PIPBOY/DATA/RADIO/HEARTH.PCM` and `DRIFT.PCM`. `tools/mkpcm.py` generates the two tracks into `build/pcm/`, 250 KiB each, so git does not hold them. `tools/mkpcm.py --list` names the tracks, and each one is its own make target. A track runs again when it is missing or when `tools/mkpcm.py` changes. The copy of `content/` runs every time. The checker then runs on `build/card/`, so a station whose file is missing stops `sdimage`, `run` and `bootdir`. To put a file on the card, add it under `content/` at the path it should have. [CONTENT.md](CONTENT.md) lists the files Deitrix reads and their formats.

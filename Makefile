@@ -5,6 +5,7 @@
 #   make test                 test-host, then the QEMU tests on every board
 #   make test BOARD=raspi0    the QEMU tests on one board
 #   make test-target          the QEMU tests only
+#   make holotapes            build/holo/CULVERT.HTP, the Culvert holotape
 #   make gallery              build/gallery/: the widget gallery ROM and its
 #                             card, for the QEMU tests only
 #   make check-pins           CI pins and doc links match the submodules
@@ -58,6 +59,20 @@ SRCS         := $(DX_SRCS) $(ICONS_C)
 CFLAGS_EXTRA := -Isrc -DDX_VERSION=$(VERSION)
 include $(PIPOS_SDK)/pipos-app.mk
 
+# ---- Holotapes ---------------------------------------------------------------
+
+# Each tape has its own Makefile with the SDK's pipos-app.mk, built into
+# build/holo/. `make` builds them with the ROM; the card gets them through
+# Pip-OS's TAPE= list.
+HOLO_BUILD := $(abspath $(BUILD))/holo
+TAPES      := $(HOLO_BUILD)/CULVERT.HTP
+
+.PHONY: holotapes
+holotapes:
+	$(MAKE) --no-print-directory -C holotapes/culvert BUILD=$(HOLO_BUILD) CI=$(CI) PYTHON=$(PYTHON)
+
+all: holotapes
+
 $(ICONS_C): tools/pbm2c.py $(ICONS)
 	$(PYTHON) tools/pbm2c.py $@ $(ICONS)
 
@@ -72,13 +87,22 @@ $(EXPECT_H): tests/host/gen_expect.py tools/tun2notes.py tests/tools/test_check_
 	$(PYTHON) tests/host/gen_expect.py $@
 
 HOST_TEST_DIR := tests/host
-HOST_SRCS     := $(PURE_SRCS) $(ICONS_C) tests/host/fake_platform.c tests/host/tfmt.c
-HOST_INCLUDES := src $(BUILD)/gen
+# Culvert's pure files build into every host test too.
+CV_DIR        := holotapes/culvert
+CV_PURE_SRCS  := $(CV_DIR)/logic.c $(CV_DIR)/game.c
+HOST_SRCS     := $(PURE_SRCS) $(ICONS_C) $(CV_PURE_SRCS) tests/host/fake_platform.c tests/host/tfmt.c
+HOST_INCLUDES := src $(BUILD)/gen $(CV_DIR)
 HOST_DEFINES  := DX_VERSION=$(VERSION)
 include $(ROBCO_CORE)/mk/host.mk
 
 # host.mk only sees the headers at the top of src/.
-$(HOST_TESTS): $(wildcard src/*/*.h) tests/host/fake_platform.h tests/host/tfmt.h $(EXPECT_H) $(wildcard tests/host/*.inc)
+$(HOST_TESTS): $(wildcard src/*/*.h) $(wildcard $(CV_DIR)/*.h) tests/host/fake_platform.h tests/host/tfmt.h $(EXPECT_H) $(wildcard tests/host/*.inc)
+
+# The turns that solve a Culvert level, for the QEMU tests.
+CV_SOLVE := $(BUILD)/host/culvert_solve
+$(CV_SOLVE): tests/tools/culvert_solve.c $(CV_DIR)/logic.c $(CV_DIR)/logic.h
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=gnu11 -Wall -Wextra -Werror -O1 -I $(CV_DIR) -o $@ $< $(CV_DIR)/logic.c
 
 # QEMU runs and builds below share build/; keep top-level goals serial.
 .NOTPARALLEL:
@@ -116,12 +140,12 @@ card-tree: $(PCM_FILES)
 
 # Pip-OS's own Makefile, building into build/pipos, through the interface
 # of its ROM_DEVELOPMENT.md, "Using Pip-OS from another repository". ROM
-# and TAPE pick the card's ROM and holotape. CARD_DIR is the card tree,
+# and TAPE pick the card's ROM and holotapes. CARD_DIR is the card tree,
 # copied to the card root after the standard files. Pip-OS checks the
 # staged card: a case clash stops the build, a name longer than 8.3 warns.
 PIPOS_BUILD := $(abspath $(BUILD))/pipos
 PIPOS_MAKE  := $(MAKE) --no-print-directory -C $(PIP_OS) BUILD=$(PIPOS_BUILD) PYTHON=$(PYTHON)
-CARD_VARS   := ROM=$(abspath $(PIP_OUT)) TAPE=none CARD_DIR=$(abspath $(CARD_TREE))
+CARD_VARS   := ROM=$(abspath $(PIP_OUT)) TAPE="$(TAPES)" CARD_DIR=$(abspath $(CARD_TREE))
 KERNEL      := $(PIPOS_BUILD)/pipos.img
 CARD        := $(PIPOS_BUILD)/sd.img
 
@@ -178,7 +202,7 @@ pbm2c-test:
 	$(PYTHON) tests/host/test_pbm2c.py
 
 sdimage-test: sdimage
-	tests/host/sdimage_test.sh $(CARD) $(PIP_OUT) $(CARD_TREE)
+	tests/host/sdimage_test.sh $(CARD) $(PIP_OUT) $(CARD_TREE) $(TAPES)
 
 # content/ alone: the generated tracks may be missing there. card-tree
 # checks the built tree, where they must be present.
@@ -202,5 +226,5 @@ $(VENV)/.installed: $(ROBCO_CORE)/tests/requirements.txt
 test: test-host
 	$(MAKE) --no-print-directory test-target
 
-test-target: sdimage kernel gallery venv
+test-target: sdimage kernel gallery $(CV_SOLVE) venv
 	$(VENV)/bin/pytest tests -v --board $(BOARD) --build-dir $(BUILD)
