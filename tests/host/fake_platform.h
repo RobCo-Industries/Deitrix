@@ -45,6 +45,8 @@ typedef struct fake_platform {
     uint32_t clock;
     uint32_t ticks;
     uint32_t tick_step; /* added to ticks at each wait */
+    uint32_t draw_ms;   /* added to ticks at each present: a slow draw */
+    uint32_t draw_s;    /* added to the clock at each present */
     dx_event_t events[FAKE_MAX_EVENTS];
     int event_count;
     /* The theme the draw list names colours by. */

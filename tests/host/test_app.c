@@ -340,3 +340,73 @@ TEST(hint_and_tick)
     CHECK_EQ(fake.presents, 2);
     CHECK_EQ(fake.last_timeout, DX_WAIT_FOREVER);
 }
+
+/* ---- The wait after a slow draw ----------------------------------------- */
+
+TEST(slow_draw_does_not_delay_the_wake)
+{
+    dx_app_t app;
+
+    probe_start(&app);
+    fake_push(DX_EV_DIAL, 0, 1);
+    dx_app_step(&app); /* draws A, takes the dial */
+    pb.next_wake = fake.ticks + 250;
+    fake.draw_ms = 300; /* each frame takes longer than the wait */
+    dx_app_step(&app); /* ticks B, draws it: the wake passed meanwhile */
+    CHECK_INT(pb.ticks, 1);
+    CHECK_EQ(fake.last_timeout, 0);
+    pb.next_wake = 0;
+    fake.draw_ms = 0;
+    dx_app_step(&app); /* the next step ticks at once */
+    CHECK_INT(pb.ticks, 2);
+    CHECK_EQ(fake.last_timeout, DX_WAIT_FOREVER);
+}
+
+TEST(short_draw_waits_the_rest)
+{
+    dx_app_t app;
+
+    probe_start(&app);
+    fake_push(DX_EV_DIAL, 0, 1);
+    dx_app_step(&app);
+    pb.next_wake = fake.ticks + 250;
+    fake.draw_ms = 100;
+    dx_app_step(&app); /* ticks, draws in 100 ms */
+    CHECK_INT(pb.ticks, 1);
+    CHECK_EQ(fake.last_timeout, 150);
+}
+
+TEST(slow_draw_across_the_minute)
+{
+    dx_app_t app;
+
+    fake_reset();
+    fake.clock_valid = 1;
+    fake.clock = T0 + 50; /* 09:47:55 */
+    start(&app);
+    fake.draw_s = 6; /* the first frame ends at 09:48:01 */
+    fake.draw_ms = 6000;
+    dx_app_step(&app);
+    CHECK(fake_find_text("09:47") != NULL);
+    CHECK_EQ(fake.last_timeout, 0);
+    fake.draw_s = 0;
+    fake.draw_ms = 0;
+    fake_clear_draws();
+    dx_app_step(&app); /* draws 09:48 without a wait between */
+    CHECK_EQ(fake.presents, 1);
+    CHECK(fake_find_text("09:48") != NULL);
+    CHECK_EQ(fake.last_timeout, 59000);
+}
+
+TEST(short_draw_waits_to_the_minute)
+{
+    dx_app_t app;
+
+    fake_reset();
+    fake.clock_valid = 1;
+    fake.clock = T0; /* 09:47:05 */
+    start(&app);
+    fake.draw_s = 3;
+    dx_app_step(&app);
+    CHECK_EQ(fake.last_timeout, 52000);
+}

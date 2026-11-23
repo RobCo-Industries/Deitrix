@@ -134,7 +134,7 @@ Each step of `dx_app_step()`:
 2. Calls the screen's `tick` when its wake time has passed.
 3. Redraws when the tab or the minute changed or a screen asked for it: clear, header, body inside the clip, footer, then one `present`.
 4. Logs on serial after the `present`: `deitrix: ready` after the first frame, `deitrix: tab=<NAME>` after a frame for a new tab.
-5. Waits in `wait_event` until the earlier of the next whole minute and the screen's wake time, or with no timeout when there is neither.
+5. Reads the clock and the tick counter again, since the tick and the draw take time. Waits in `wait_event` until the earlier of the next whole minute and the screen's wake time, or with no timeout when there is neither. When the minute changed or the wake time passed during the draw, the timeout is 0 and the next step starts at once.
 6. Translates the event and routes it.
 
 The clock has whole seconds only, so the wait can end up to 1 s before the minute changes. Then the next step sees the same minute, does not redraw, and waits again, at most 1 s. The time is shown in UTC: Pip-OS has no time zone.

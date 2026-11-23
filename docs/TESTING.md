@@ -13,7 +13,7 @@
 
 ## Host tests
 
-Each `tests/host/test_<name>.c` builds into one program with RobCo-Core's `mk/host.mk`: `-Werror`, AddressSanitizer and UndefinedBehaviorSanitizer when the compiler has them. Every program links all of `src/` except `src/platform/`, the generated `build/gen/icons.c` and `tests/host/fake_platform.c`. The fake records draw calls, log lines and tones, and plays back scripted events, clock readings and ticks.
+Each `tests/host/test_<name>.c` builds into one program with RobCo-Core's `mk/host.mk`: `-Werror`, AddressSanitizer and UndefinedBehaviorSanitizer when the compiler has them. Every program links all of `src/` except `src/platform/`, the generated `build/gen/icons.c` and `tests/host/fake_platform.c`. The fake records draw calls, log lines and tones, and plays back scripted events, clock readings and ticks. It can also move its clock and tick counter forward at each `present`, to play a slow draw.
 
 | File | Covers |
 |---|---|
@@ -21,7 +21,7 @@ Each `tests/host/test_<name>.c` builds into one program with RobCo-Core's `mk/ho
 | `test_clock.c` | `00:00`, `23:59`, `--:--`, the minute of the day, the wait to the next minute |
 | `test_ui.c` | The theme shades, event translation, the sound for each outcome, the tones, number text, cut text |
 | `test_frame.c` | The header and footer draw lists, the active-tab block, the tab pad with many tabs, every label left of the clock for 1 to 8 tabs of 1 to 5 letters, the cut labels, the refused tables, the placeholder body, the ROM's screen table |
-| `test_app.c` | The refused tab tables, one `present` per redraw, the clip around the body, no redraw without a change, the log lines, the wait timeout, the scheme colour, routing of the dial, LEFT, RIGHT, BACK and other keys, `enter` and `leave`, the hint, `tick` and the wake time |
+| `test_app.c` | The refused tab tables, one `present` per redraw, the clip around the body, no redraw without a change, the log lines, the wait timeout, the scheme colour, routing of the dial, LEFT, RIGHT, BACK and other keys, `enter` and `leave`, the hint, `tick` and the wake time, the wait after a slow or a quick draw for the wake time and the minute |
 | `test_list.c` | Selection, the ends, the scroll window for every size up to 30 rows, draw lists, the scroll bar, cut labels, the empty message, coordinates inside the area |
 | `test_text.c` | Wrap cases with exact breaks, no line past the width, scrolling, a draw list, coordinates inside the area |
 | `test_widgets.c` | Gauge clamps and draw lists, key and value rows, sub-tab ends and draw list, the generated icons |

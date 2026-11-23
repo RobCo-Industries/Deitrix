@@ -158,6 +158,30 @@ static int due(uint32_t t, uint32_t when)
     return (int32_t)(t - when) >= 0;
 }
 
+/* The wait until the next minute change or the screen's wake time,
+ * from the clocks read now. 0 when either has already passed. */
+static uint32_t wait_time(const dx_app_t *app)
+{
+    uint32_t now = 0;
+    int valid = dx_plat_time(&now);
+    uint32_t ticks = dx_plat_ticks();
+    uint32_t timeout;
+
+    if (dx_clock_minute(valid, now) != app->drawn_min) {
+        timeout = 0; /* the minute changed during the tick or the draw */
+    } else {
+        timeout = valid ? dx_clock_wait_ms(now) : DX_WAIT_FOREVER;
+    }
+    if (app->wake_on) {
+        uint32_t until = due(ticks, app->wake) ? 0 : app->wake - ticks;
+
+        if (until < timeout) {
+            timeout = until;
+        }
+    }
+    return timeout;
+}
+
 void dx_app_step(dx_app_t *app)
 {
     const dx_screen_t *s = active(app);
@@ -165,7 +189,6 @@ void dx_app_step(dx_app_t *app)
     int valid = dx_plat_time(&now);
     int32_t minute = dx_clock_minute(valid, now);
     uint32_t ticks = dx_plat_ticks();
-    uint32_t timeout = valid ? dx_clock_wait_ms(now) : DX_WAIT_FOREVER;
     dx_event_t ev;
     dx_ui_event_t uev;
 
@@ -183,14 +206,9 @@ void dx_app_step(dx_app_t *app)
     if (app->dirty || app->tab != app->drawn_tab || minute != app->drawn_min) {
         draw(app, minute);
     }
-    if (app->wake_on) {
-        uint32_t until = due(ticks, app->wake) ? 0 : app->wake - ticks;
-
-        if (until < timeout) {
-            timeout = until;
-        }
-    }
-    if (dx_plat_wait(&ev, timeout) && dx_ui_translate(&ev, &uev)) {
+    /* The tick and the draw took time: the wait starts from the clocks
+     * read again, so a slow frame does not push the next wake back. */
+    if (dx_plat_wait(&ev, wait_time(app)) && dx_ui_translate(&ev, &uev)) {
         dx_app_route(app, &uev);
     }
 }

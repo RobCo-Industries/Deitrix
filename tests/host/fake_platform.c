@@ -208,6 +208,8 @@ static void f_clip(int x, int y, int w, int h)
 static void f_present(void)
 {
     fake.presents++;
+    fake.ticks += fake.draw_ms;
+    fake.clock += fake.draw_s;
     emit("present");
 }
 
