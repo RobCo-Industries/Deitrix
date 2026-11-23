@@ -262,6 +262,32 @@ class Cli(unittest.TestCase):
             self.assertEqual(r.returncode, 1)
             self.assertEqual(r.stdout, os.path.join(D, "EXTRA.DAT") + ":0: unknown file: Deitrix ignores it\n")
 
+    def test_help_and_bad_arguments(self):
+        tool = os.path.join(ROOT, "tools", "check_content.py")
+
+        def run(*args):
+            return subprocess.run([sys.executable, tool, *args], capture_output=True,
+                                  env=minimal_env(), text=True)
+
+        # --help is not a folder: it prints the usage and exits 0.
+        r = run("--help")
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("usage: check_content.py", r.stdout)
+        self.assertIn("--generated NAME.PCM", r.stdout)
+        self.assertNotIn("PIPBOY", r.stderr)
+        # No folder, two folders or an unknown option: exit 2.
+        for args in ((), ("a", "b"), ("--nope", "a"), ("--generated",)):
+            r = run(*args)
+            self.assertEqual(r.returncode, 2, args)
+            self.assertIn("usage: check_content.py", r.stderr)
+            self.assertEqual(r.stdout, "")
+        # --generated still works, before or after the folder.
+        with tempfile.TemporaryDirectory() as d:
+            tree = os.path.join(d, "card")
+            make_tree(tree)
+            self.assertEqual(run("--generated", "X.PCM", tree).returncode, 0)
+            self.assertEqual(run(tree, "--generated", "X.PCM").returncode, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
