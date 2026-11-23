@@ -72,7 +72,7 @@ def key(vm, name, want):
     """Taps a key, waits for the tape's next line and matches it with the
     regular expression `want`."""
     before = len(lines(vm))
-    if name.startswith("dial"):
+    if name.startswith("dial "):
         script(vm, name)
     else:
         press(vm, name)
@@ -258,6 +258,44 @@ def test_culvert_play(board, kernel_image, card, solver, tmp_path, need_mtools):
         before = count(vm, SHOWN)
         script(vm, "dial 2")
         assert wait_count(vm, SHOWN, before + 1)[-1] == "Off", vm.serial
+        no_exception(vm)
+
+
+def test_culvert_dial_solve(board, kernel_image, card, solver, need_mtools):
+    """Level 1 played with the dial: the push starts the game, the first
+    tile turns by a dial event, and the last tile gets a two-step event
+    whose first quarter solves the level. The second step is dropped. The
+    push then starts level 2."""
+    (w, h, sx, sy), turns = solution(solver, 1)
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        assert to_tapes(vm) == LISTED
+        launch(vm)
+        key(vm, "dial_push", r"level n=1 w=5 h=4 seed=0x[0-9a-f]{8}")
+        pos = (sx, sy)
+        moves = 0
+        for i, (x, y, n) in enumerate(turns):
+            pos = go(vm, pos, x, y)
+            if i == 0 and len(turns) > 1:
+                moves += n
+                key(vm, f"dial {n}", rf"turn x={x} y={y} connected=\d+")
+            elif i < len(turns) - 1:
+                for _ in range(n):
+                    moves += 1
+                    key(vm, "select", rf"turn x={x} y={y} connected=\d+")
+            else:
+                # One quarter before the solution, then two steps.
+                for _ in range(n - 1):
+                    moves += 1
+                    key(vm, "select", rf"turn x={x} y={y} connected=\d+")
+                moves += 1
+                key(vm, "dial 2", rf"solved level=1 moves={moves}")
+        solved = vm.serial.rindex("culvert: solved")
+        tune_after(vm, solved)
+        finish(vm)
+        key(vm, "dial_push", r"level n=2 w=5 h=4 seed=0x[0-9a-f]{8}")
+        quit_from_play(vm)
+        ended(vm)
         no_exception(vm)
 
 

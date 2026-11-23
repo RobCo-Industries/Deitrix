@@ -117,19 +117,25 @@ static void solved(cv_game_t *g, uint32_t now)
     g->log = CV_LOG_SOLVED;
 }
 
+/* Turns the tile under the cursor one quarter at a time, in the sign's
+ * direction. Each quarter counts as a move. The first quarter that solves
+ * the level ends the turn; the rest are dropped. */
 static void turn(cv_game_t *g, int quarters, uint32_t now)
 {
     int before = g->nconn;
+    int dir = quarters < 0 ? -1 : 1;
     int n = quarters < 0 ? -quarters : quarters;
 
-    cv_turn(&g->lv, g->cx, g->cy, quarters);
     g->tx = g->cx;
     g->ty = g->cy;
-    g->moves += (uint32_t)n;
-    g->nconn = cv_flood(&g->lv, g->conn);
-    if (cv_solved(&g->lv)) {
-        solved(g, now);
-        return;
+    while (n-- > 0) {
+        cv_turn(&g->lv, g->cx, g->cy, dir);
+        g->moves++;
+        g->nconn = cv_flood(&g->lv, g->conn);
+        if (cv_solved(&g->lv)) {
+            solved(g, now);
+            return;
+        }
     }
     g->fx |= CV_FX_DRAW_GRID | (g->nconn > before ? CV_FX_CONNECT : CV_FX_TICK);
     g->log = CV_LOG_TURN;
@@ -306,15 +312,16 @@ void cv_game_event(cv_game_t *g, const cv_input_t *ev, uint32_t now)
     g->py = g->cy;
     if (ev->type == CV_EV_DIAL) {
         if (g->st == CV_ST_PLAY && ev->value != 0) {
-            /* One quarter per detent; a huge count is cut to 64. */
-            int32_t q = ev->value;
+            /* One quarter per detent. Four quarters bring the tile back,
+             * so only the count modulo 4 is applied, in the dial's
+             * direction. C keeps the sign of the dividend. */
+            int q = (int)(ev->value % 4);
 
-            if (q > 64) {
-                q = 64;
-            } else if (q < -64) {
-                q = -64;
+            if (q == 0) {
+                g->log = CV_LOG_IDLE;
+            } else {
+                turn(g, q, now);
             }
-            turn(g, (int)q, now);
         } else if (g->st == CV_ST_TITLE || g->st == CV_ST_PAUSE) {
             move_menu(g, ev->value > 0 ? 1 : -1);
         } else {

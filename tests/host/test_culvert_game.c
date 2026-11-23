@@ -375,3 +375,97 @@ TEST(culvert_dial_push_is_select)
     CHECK_INT(g.st, CV_ST_PLAY);
     CHECK_INT(g.lv.level, 2);
 }
+
+/* Sets every tile to the solution, then puts the first end cap or tee
+ * (four distinct orientations) `ahead` clockwise quarters before its
+ * solution, with the cursor on it. Returns 0 if level 1 has no such tile. */
+static int one_tile_left(int ahead)
+{
+    int i, n;
+
+    start_fresh(0);
+    n = g.lv.w * g.lv.h;
+    for (i = 0; i < n; i++) {
+        g.lv.mask[i] = g.lv.goal[i];
+    }
+    for (i = 0; i < n; i++) {
+        int b = cv_bits(g.lv.goal[i]);
+
+        if (b == 1 || b == 3) {
+            g.lv.mask[i] = cv_rot_n(g.lv.goal[i], -ahead);
+            go(i % g.lv.w, i / g.lv.w, 0);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static uint8_t here(void)
+{
+    return g.lv.mask[g.cy * g.lv.w + g.cx];
+}
+
+TEST(culvert_dial_two_detents_stop_at_solve)
+{
+    CHECK(one_tile_left(1));
+    CHECK_INT(g.st, CV_ST_PLAY);
+    ev(CV_EV_DIAL, 0, 2, 0);
+    CHECK_INT(g.st, CV_ST_SOLVED);
+    CHECK_INT(g.log, CV_LOG_SOLVED);
+    CHECK_INT(g.moves, 1);
+    CHECK_INT(here(), g.lv.goal[g.cy * g.lv.w + g.cx]);
+}
+
+TEST(culvert_dial_three_detents_stop_at_solve)
+{
+    CHECK(one_tile_left(2));
+    ev(CV_EV_DIAL, 0, 3, 0);
+    CHECK_INT(g.st, CV_ST_SOLVED);
+    CHECK_INT(g.moves, 2);
+    CHECK_INT(here(), g.lv.goal[g.cy * g.lv.w + g.cx]);
+    /* The same counter-clockwise. */
+    CHECK(one_tile_left(-1));
+    ev(CV_EV_DIAL, 0, -3, 0);
+    CHECK_INT(g.st, CV_ST_SOLVED);
+    CHECK_INT(g.moves, 1);
+}
+
+TEST(culvert_dial_spin_applies_count_mod_4)
+{
+    uint8_t before;
+
+    /* 3 quarters before the solution: 5 detents apply 1 quarter only. */
+    CHECK(one_tile_left(3));
+    before = here();
+    ev(CV_EV_DIAL, 0, 5, 0);
+    CHECK_INT(g.st, CV_ST_PLAY);
+    CHECK_INT(g.moves, 1);
+    CHECK_INT(here(), cv_rot_cw(before));
+    /* A full rotation does nothing and counts no move. */
+    ev(CV_EV_DIAL, 0, 8, 0);
+    CHECK_INT(g.st, CV_ST_PLAY);
+    CHECK_INT(g.log, CV_LOG_IDLE);
+    CHECK_INT(g.moves, 1);
+    CHECK_INT(here(), cv_rot_cw(before));
+    /* 2 before now. -4003 detents are 3 counter-clockwise quarters; the
+     * second reaches the solution and the third is dropped. */
+    ev(CV_EV_DIAL, 0, -4003, 0);
+    CHECK_INT(g.st, CV_ST_SOLVED);
+    CHECK_INT(g.moves, 3);
+    CHECK_INT(here(), g.lv.goal[g.cy * g.lv.w + g.cx]);
+}
+
+TEST(culvert_dial_multi_detent_without_solve)
+{
+    uint8_t before;
+
+    start_fresh(0);
+    before = here();
+    ev(CV_EV_DIAL, 0, 3, 0);
+    CHECK_INT(g.st, CV_ST_PLAY);
+    CHECK_INT(g.moves, 3);
+    CHECK_INT(here(), cv_rot_n(before, 3));
+    ev(CV_EV_DIAL, 0, -2, 0);
+    CHECK_INT(g.moves, 5);
+    CHECK_INT(here(), cv_rot_n(before, 1));
+}

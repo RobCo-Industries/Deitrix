@@ -26,7 +26,7 @@ Levels are not stored. The level number alone sets the puzzle, so level 12 is th
 | Dial | Turn the tile one quarter per step, in the dial's direction | Move the bar |
 | BACK | Open the pause menu | Title: quit. Pause menu: resume. |
 
-Each quarter turn counts as one move. The status row shows the level, the moves and the time as `m:ss`. The clock stops while the pause menu is open.
+Each quarter turn counts as one move. A dial event of several steps turns the tile one quarter at a time. If a quarter solves the level, the turn stops there and the other steps are dropped. Four quarters bring a tile back, so a fast spin applies only its step count modulo 4, in the dial's direction. A spin of 5 steps turns one quarter and counts one move. A spin of 8 steps does nothing. The status row shows the level, the moves and the time as `m:ss`. The clock stops while the pause menu is open.
 
 When the level is solved, the network flashes and a short tune plays. Then the screen shows "Level N done in M moves". SELECT or the dial push starts the next level. The on-screen hints name SELECT only.
 
