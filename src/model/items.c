@@ -267,11 +267,13 @@ dx_cat_total_t dx_items_total(const dx_items_t *it, int cat)
 
     t.entries = 0;
     t.grams = 0;
+    t.weighed = 0;
     for (i = 0; i < it->item_count; i++) {
         if (it->items[i].cat == cat) {
             t.entries++;
             if (it->items[i].weight != DX_WEIGHT_NONE) {
                 t.grams += it->items[i].weight; /* at most 64 * 999999 */
+                t.weighed = 1;
             }
         }
     }

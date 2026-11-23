@@ -197,11 +197,20 @@ TEST(totals)
     t = dx_items_total(&it, 1);
     CHECK_EQ(t.entries, 2);
     CHECK_EQ(t.grams, 900);
+    CHECK_EQ(t.weighed, 1);
     t = dx_items_total(&it, 0);
     CHECK_EQ(t.entries, 1);
     CHECK_EQ(t.grams, 999999);
+    CHECK_EQ(t.weighed, 1);
     t = dx_items_total(&it, 4);
     CHECK_EQ(t.entries, 0);
+    CHECK_EQ(t.weighed, 0);
+    /* Items without a weight: entries, but nothing weighed. */
+    load(HEAD "[item.a]\nname = A\ncat = food\n[item.b]\nname = B\ncat = food\n");
+    t = dx_items_total(&it, 1);
+    CHECK_EQ(t.entries, 2);
+    CHECK_EQ(t.grams, 0);
+    CHECK_EQ(t.weighed, 0);
 }
 
 TEST(file_ignored)
