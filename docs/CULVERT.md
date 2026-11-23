@@ -22,12 +22,13 @@ Levels are not stored. The level number alone sets the puzzle, so level 12 is th
 |---|---|---|
 | UP, DOWN, LEFT, RIGHT | Move the cursor. Hold to repeat. The cursor stops at the edges. | UP and DOWN move the bar |
 | SELECT | Turn the tile a quarter turn clockwise. Holding it turns once. | Choose |
+| Dial push | Same as SELECT. Holding it turns once. | Choose |
 | Dial | Turn the tile one quarter per step, in the dial's direction | Move the bar |
 | BACK | Open the pause menu | Title: quit. Pause menu: resume. |
 
 Each quarter turn counts as one move. The status row shows the level, the moves and the time as `m:ss`. The clock stops while the pause menu is open.
 
-When the level is solved, the network flashes and a short tune plays. Then the screen shows "Level N done in M moves". SELECT starts the next level.
+When the level is solved, the network flashes and a short tune plays. Then the screen shows "Level N done in M moves". SELECT or the dial push starts the next level. The on-screen hints name SELECT only.
 
 ## The pause menu
 

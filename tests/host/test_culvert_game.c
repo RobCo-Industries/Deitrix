@@ -338,3 +338,40 @@ TEST(culvert_timer_across_wrap)
     CHECK_INT(cv_game_time(&g, 0x7FFFFF00u), 3000);
     CHECK_INT(cv_game_time(&g, 0x00000100u), 3000 + 0x200);
 }
+
+TEST(culvert_dial_push_is_select)
+{
+    uint8_t before;
+    int i;
+
+    /* Title: the push chooses New game. */
+    cv_game_init(&g, 0, 0);
+    key(CV_KEY_DIAL, 0);
+    CHECK_INT(g.st, CV_ST_PLAY);
+    CHECK_INT(g.lv.level, 1);
+    /* Play: the push turns once, and a held push does not repeat. */
+    before = g.lv.mask[g.cy * g.lv.w + g.cx];
+    key(CV_KEY_DIAL, 0);
+    CHECK_INT(g.log, CV_LOG_TURN);
+    CHECK_INT(g.moves, 1);
+    for (i = 0; i < 10; i++) {
+        ev(CV_EV_BUTTON, CV_KEY_DIAL, CV_REPEAT, 0);
+        CHECK_INT(g.log, CV_LOG_NONE);
+    }
+    ev(CV_EV_BUTTON, CV_KEY_DIAL, CV_RELEASE, 0);
+    CHECK_INT(g.moves, 1);
+    CHECK_INT(g.lv.mask[g.cy * g.lv.w + g.cx], cv_rot_cw(before));
+    /* Pause: the push picks Resume. */
+    key(CV_KEY_BACK, 0);
+    CHECK_INT(g.st, CV_ST_PAUSE);
+    key(CV_KEY_DIAL, 0);
+    CHECK_INT(g.st, CV_ST_PLAY);
+    CHECK_INT(g.log, CV_LOG_RESUME);
+    /* Solved: the push starts the next level after the flourish. */
+    solve(0);
+    CHECK_INT(g.st, CV_ST_SOLVED);
+    cv_game_tick(&g, CV_FLOURISH_MS * CV_FLOURISH_FRAMES);
+    key(CV_KEY_DIAL, 5000);
+    CHECK_INT(g.st, CV_ST_PLAY);
+    CHECK_INT(g.lv.level, 2);
+}

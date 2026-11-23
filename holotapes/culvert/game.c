@@ -298,6 +298,8 @@ static void solved_key(cv_game_t *g, uint32_t code, uint32_t now)
 
 void cv_game_event(cv_game_t *g, const cv_input_t *ev, uint32_t now)
 {
+    uint32_t code;
+
     g->fx = 0;
     g->log = CV_LOG_NONE;
     g->px = g->cx;
@@ -327,18 +329,20 @@ void cv_game_event(cv_game_t *g, const cv_input_t *ev, uint32_t now)
     if (ev->value == CV_REPEAT && ev->code > CV_KEY_RIGHT) {
         return;
     }
+    /* The dial push acts as SELECT everywhere. */
+    code = ev->code == CV_KEY_DIAL ? CV_KEY_SELECT : ev->code;
     switch (g->st) {
     case CV_ST_TITLE:
-        title_key(g, ev->code, now);
+        title_key(g, code, now);
         break;
     case CV_ST_PLAY:
-        play_key(g, ev->code, ev->value, now);
+        play_key(g, code, ev->value, now);
         break;
     case CV_ST_PAUSE:
-        pause_key(g, ev->code, now);
+        pause_key(g, code, now);
         break;
     case CV_ST_SOLVED:
-        solved_key(g, ev->code, now);
+        solved_key(g, code, now);
         break;
     default:
         break;
