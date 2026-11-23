@@ -155,6 +155,21 @@ TEST(sound_plays_tone)
     CHECK(fake.tones[1][1] > fake.tones[0][1]);
 }
 
+TEST(sound_off_and_blocked)
+{
+    fake_reset();
+    dx_ui_sound_enable(0);
+    dx_ui_sound(DX_SND_MOVE);
+    CHECK_INT(fake.tone_count, 0);
+    dx_ui_sound_enable(1);
+    dx_ui_sound_block(1);
+    dx_ui_sound(DX_SND_MOVE);
+    CHECK_INT(fake.tone_count, 0);
+    dx_ui_sound_block(0);
+    dx_ui_sound(DX_SND_MOVE);
+    CHECK_INT(fake.tone_count, 1);
+}
+
 TEST(itoa)
 {
     char b[12];
