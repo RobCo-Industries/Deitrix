@@ -2,7 +2,7 @@
 
 ## Tools
 
-Deitrix needs the same tools as Pip-OS: the `arm-none-eabi` GCC toolchain, GNU Make, Python 3, QEMU with the Raspberry Pi boards, mtools and a host C compiler. RobCo-Core's [getting started guide](https://github.com/RobCo-Industries/RobCo-Core/blob/222f4e44f67cdca2a65da12c7b0a90ea0d9aa087/docs/guide/GETTING_STARTED.md) lists them per system. CI uses RobCo-Core's `robco-ci` container, which has all of them.
+Deitrix needs the same tools as Pip-OS: the `arm-none-eabi` GCC toolchain, GNU Make, Python 3, QEMU with the Raspberry Pi boards, mtools and a host C compiler. RobCo-Core's [getting started guide](https://github.com/RobCo-Industries/RobCo-Core/blob/00d9a2d1efa10b08ea1c14f087f7e3316647d6a1/docs/guide/GETTING_STARTED.md) lists them per system. CI uses RobCo-Core's `robco-ci` container, which has all of them.
 
 ## Sources
 
@@ -12,7 +12,7 @@ Pip-OS is the only submodule, in `external/pip-os`. RobCo-Core comes with it, in
 git submodule update --init --recursive
 ```
 
-The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its guide is Pip-OS's [ROM_DEVELOPMENT.md](https://github.com/RobCo-Industries/Pip-OS/blob/4178b7f96f8c7051c8d75d5bc18f611dce30a999/docs/ROM_DEVELOPMENT.md).
+The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its guide is Pip-OS's [ROM_DEVELOPMENT.md](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/ROM_DEVELOPMENT.md).
 
 ## Make targets
 

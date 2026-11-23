@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ## [Unreleased]
 
+### Changed
+
+- Pip-OS moves to `bd5fa36`, with RobCo-Core `00d9a2d` inside it.
+
 ### Added
 
 - Pip-OS as the only submodule, at `4178b7f`, with RobCo-Core `222f4e4` inside it.
