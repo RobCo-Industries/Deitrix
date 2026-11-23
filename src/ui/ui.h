@@ -82,6 +82,27 @@ int dx_ui_translate(const dx_event_t *ev, dx_ui_event_t *out);
 #define DX_UI_HANDLED 1u
 #define DX_UI_DIRTY   2u
 
+/* ---- Tick arithmetic ---------------------------------------------------- */
+
+/* The Pip-OS ABI: ticks_ms "wraps at 2^31 ... Measure the time from a to
+ * b as (b - a) & 0x7FFFFFFF. Plain unsigned subtraction is wrong across
+ * the wrap". Every comparison, difference or sum of tick values goes
+ * through these helpers. */
+#define DX_TICKS_MASK 0x7fffffffu
+/* The longest interval a screen may schedule: one day, far below 2^30. */
+#define DX_TICKS_MAX_MS 86400000u
+
+/* The time from tick a to tick b, in 0 .. 2^31 - 1. */
+uint32_t dx_ticks_since(uint32_t a, uint32_t b);
+/* The tick `ms` after t, wrapped at 2^31. Never 0, since 0 means "no
+ * wake": a sum that lands on 0 becomes 1. `ms` above DX_TICKS_MAX_MS is
+ * cut to it. */
+uint32_t dx_ticks_add(uint32_t t, uint32_t ms);
+/* 1 when `wake` is at or before `now`, less than 2^30 ms in the past. A
+ * wake further back reads as a future one: the loop checks often enough
+ * that this never happens. */
+int dx_ticks_due(uint32_t now, uint32_t wake);
+
 /* ---- Drawing context ---------------------------------------------------- */
 
 typedef struct dx_ctx {
@@ -98,7 +119,9 @@ typedef struct dx_screen {
     void (*leave)(void *st);
     unsigned (*event)(void *st, const dx_ui_event_t *ev);
     /* Called when its wake time passes. Returns the next wake time in
-     * ticks, or 0 for none. May set DX_UI_DIRTY in *flags. */
+     * ticks, or 0 for none. May set DX_UI_DIRTY in *flags. Build the wake
+     * time with dx_ticks_add(now_ms, ms), ms at most DX_TICKS_MAX_MS: the
+     * tick counter wraps at 2^31, and the helper never returns 0. */
     uint32_t (*tick)(void *st, uint32_t now_ms, unsigned *flags);
     void (*draw)(void *st, const dx_ctx_t *ctx, dx_rect_t area); /* the body only */
     const char *(*hint)(void *st); /* footer text, or NULL for the default */

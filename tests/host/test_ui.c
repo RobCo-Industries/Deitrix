@@ -26,6 +26,44 @@ TEST(theme_fractions)
     CHECK_EQ(dx_theme_from_fg(0x010101u).dim, 0u);
 }
 
+TEST(ticks_since)
+{
+    CHECK_EQ(dx_ticks_since(0, 0), 0u);
+    CHECK_EQ(dx_ticks_since(0, 0x7fffffffu), 0x7fffffffu);
+    CHECK_EQ(dx_ticks_since(0x7fffffffu, 0x7fffffffu), 0u);
+    /* Across the wrap, forward and back. */
+    CHECK_EQ(dx_ticks_since(0x7ffffff0u, 0x10u), 0x20u);
+    CHECK_EQ(dx_ticks_since(0x10u, 0x7ffffff0u), 0x7fffffe0u);
+    CHECK_EQ(dx_ticks_since(0x7fffffffu, 0), 1u);
+}
+
+TEST(ticks_add)
+{
+    CHECK_EQ(dx_ticks_add(0, 5), 5u);
+    CHECK_EQ(dx_ticks_add(0x7ffffff0u, 0x20), 0x10u);
+    CHECK_EQ(dx_ticks_add(0x7fffffffu, 2), 1u);
+    /* 0 means "no wake": a wake that lands on 0 moves to 1. */
+    CHECK_EQ(dx_ticks_add(0x7fffffffu, 1), 1u);
+    CHECK_EQ(dx_ticks_add(0, 0), 1u);
+    /* A screen schedules at most a day ahead. */
+    CHECK_EQ(dx_ticks_add(0, 0xffffffffu), DX_TICKS_MAX_MS);
+}
+
+TEST(ticks_due)
+{
+    CHECK_INT(dx_ticks_due(0, 0), 1);
+    CHECK_INT(dx_ticks_due(0x7fffffffu, 0x7fffffffu), 1);
+    CHECK_INT(dx_ticks_due(5, 6), 0);
+    CHECK_INT(dx_ticks_due(6, 5), 1);
+    /* Across the wrap: a wake just after it is not due before it. */
+    CHECK_INT(dx_ticks_due(0x7ffffff0u, 0x10u), 0);
+    /* A wake just before the wrap is due just after it. */
+    CHECK_INT(dx_ticks_due(0x10u, 0x7ffffff0u), 1);
+    /* Up to half the range in the past is due, beyond that is future. */
+    CHECK_INT(dx_ticks_due(0x3fffffffu, 0), 1);
+    CHECK_INT(dx_ticks_due(0x40000000u, 0), 0);
+}
+
 static int tr(uint32_t type, uint32_t code, int32_t value, dx_ui_event_t *out)
 {
     dx_event_t ev = { type, code, value };

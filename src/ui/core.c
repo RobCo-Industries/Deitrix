@@ -11,6 +11,27 @@ dx_theme_t dx_theme_from_fg(uint32_t fg)
     return t;
 }
 
+uint32_t dx_ticks_since(uint32_t a, uint32_t b)
+{
+    return (b - a) & DX_TICKS_MASK;
+}
+
+uint32_t dx_ticks_add(uint32_t t, uint32_t ms)
+{
+    uint32_t r;
+
+    if (ms > DX_TICKS_MAX_MS) {
+        ms = DX_TICKS_MAX_MS;
+    }
+    r = (t + ms) & DX_TICKS_MASK;
+    return r != 0 ? r : 1;
+}
+
+int dx_ticks_due(uint32_t now, uint32_t wake)
+{
+    return dx_ticks_since(wake, now) <= (DX_TICKS_MASK >> 1);
+}
+
 int dx_ui_translate(const dx_event_t *ev, dx_ui_event_t *out)
 {
     static const int buttons[] = {

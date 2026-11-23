@@ -152,12 +152,6 @@ void dx_app_route(dx_app_t *app, const dx_ui_event_t *ev)
     dx_ui_sound(dx_ui_sound_for(ev, result, changed));
 }
 
-/* 1 when tick time `t` is at or after `when`, across the wrap. */
-static int due(uint32_t t, uint32_t when)
-{
-    return (int32_t)(t - when) >= 0;
-}
-
 /* The wait until the next minute change or the screen's wake time,
  * from the clocks read now. 0 when either has already passed. */
 static uint32_t wait_time(const dx_app_t *app)
@@ -173,7 +167,9 @@ static uint32_t wait_time(const dx_app_t *app)
         timeout = valid ? dx_clock_wait_ms(now) : DX_WAIT_FOREVER;
     }
     if (app->wake_on) {
-        uint32_t until = due(ticks, app->wake) ? 0 : app->wake - ticks;
+        /* The counter wraps at 2^31: see dx_ticks_since in ui.h. */
+        uint32_t until = dx_ticks_due(ticks, app->wake)
+                             ? 0 : dx_ticks_since(ticks, app->wake);
 
         if (until < timeout) {
             timeout = until;
@@ -193,7 +189,7 @@ void dx_app_step(dx_app_t *app)
     dx_ui_event_t uev;
 
     app->ctx.now_ms = ticks;
-    if (app->wake_on && due(ticks, app->wake)) {
+    if (app->wake_on && dx_ticks_due(ticks, app->wake)) {
         unsigned flags = 0;
         uint32_t next = s->tick(s->st, ticks, &flags);
 

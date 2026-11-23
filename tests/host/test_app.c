@@ -341,6 +341,72 @@ TEST(hint_and_tick)
     CHECK_EQ(fake.last_timeout, DX_WAIT_FOREVER);
 }
 
+/* ---- The tick counter wraps at 2^31 ------------------------------------- */
+
+/* Starts on B with the counter at `start`, after B's first tick. */
+static void wrap_start(dx_app_t *app, uint32_t start, uint32_t first_wake)
+{
+    probe_start(app);
+    dx_app_step(app);
+    fake.ticks = start;
+    pb.next_wake = first_wake;
+    fake_push(DX_EV_DIAL, 0, 1);
+    dx_app_step(app); /* takes the dial */
+    dx_app_step(app); /* B ticks on enter */
+    CHECK_INT(pb.ticks, 1);
+    pb.next_wake = 0;
+}
+
+TEST(wake_after_the_wrap_is_not_early)
+{
+    dx_app_t app;
+
+    /* 0x200 ms after 0x7fffff00 is tick 0x100. */
+    wrap_start(&app, 0x7fffff00u, dx_ticks_add(0x7fffff00u, 0x200));
+    CHECK_EQ(fake.last_timeout, 0x200);
+    fake.ticks = 0x7fffffffu;
+    dx_app_step(&app);
+    CHECK_INT(pb.ticks, 1);
+    CHECK_EQ(fake.last_timeout, 0x101);
+    fake.ticks = 0xffu;
+    dx_app_step(&app);
+    CHECK_INT(pb.ticks, 1);
+    CHECK_EQ(fake.last_timeout, 1);
+    fake.ticks = 0x100u;
+    dx_app_step(&app);
+    CHECK_INT(pb.ticks, 2);
+}
+
+TEST(wake_before_the_wrap_is_not_late)
+{
+    dx_app_t app;
+
+    wrap_start(&app, 0x7fffff00u, dx_ticks_add(0x7fffff00u, 0xf0));
+    CHECK_EQ(fake.last_timeout, 0xf0);
+    /* The counter wrapped past the wake: due now. */
+    fake.ticks = 0x10u;
+    dx_app_step(&app);
+    CHECK_INT(pb.ticks, 2);
+}
+
+TEST(wake_on_tick_zero_still_fires)
+{
+    dx_app_t app;
+
+    /* 0x100 ms after 0x7fffff00 is tick 0, nudged to 1. */
+    wrap_start(&app, 0x7fffff00u, dx_ticks_add(0x7fffff00u, 0x100));
+    CHECK_INT(app.wake_on, 1);
+    CHECK_EQ(app.wake, 1u);
+    CHECK_EQ(fake.last_timeout, 0x101);
+    fake.ticks = 0;
+    dx_app_step(&app);
+    CHECK_INT(pb.ticks, 1);
+    CHECK_EQ(fake.last_timeout, 1);
+    fake.ticks = 1;
+    dx_app_step(&app);
+    CHECK_INT(pb.ticks, 2);
+}
+
 /* ---- The wait after a slow draw ----------------------------------------- */
 
 TEST(slow_draw_does_not_delay_the_wake)

@@ -101,7 +101,7 @@ A screen is a `dx_screen_t`: a tab label of 1 to 5 letters, six callbacks and a 
 
 - `enter` and `leave` run when the tab becomes active and when it stops.
 - `event` gets each routed event.
-- `tick` runs when the screen's wake time passes. It returns the next wake time in ticks, or 0 for none, and may set `DX_UI_DIRTY`. The shell calls it once on `enter` and once after each handled event.
+- `tick` runs when the screen's wake time passes. It returns the next wake time in ticks, or 0 for none, and may set `DX_UI_DIRTY`. The shell calls it once on `enter` and once after each handled event. The tick counter wraps at 2^31, so a screen builds its wake time with `dx_ticks_add(now_ms, ms)`, at most one day ahead; the helper never returns 0.
 - `draw` draws the body only. The shell clips to the body first.
 - `hint` returns the footer text, or NULL for the default.
 
@@ -140,7 +140,7 @@ Each step of `dx_app_step()`:
 2. Calls the screen's `tick` when its wake time has passed.
 3. Redraws when the tab or the minute changed or a screen asked for it: clear, header, body inside the clip, footer, then one `present`.
 4. Logs on serial after the `present`: `deitrix: ready` after the first frame, `deitrix: tab=<NAME>` after a frame for a new tab.
-5. Reads the clock and the tick counter again, since the tick and the draw take time. Waits in `wait_event` until the earlier of the next whole minute and the screen's wake time, or with no timeout when there is neither. When the minute changed or the wake time passed during the draw, the timeout is 0 and the next step starts at once.
+5. Reads the clock and the tick counter again, since the tick and the draw take time. Waits in `wait_event` until the earlier of the next whole minute and the screen's wake time, or with no timeout when there is neither. When the minute changed or the wake time passed during the draw, the timeout is 0 and the next step starts at once. The loop compares and subtracts ticks only through `dx_ticks_due` and `dx_ticks_since`, which mask the difference to 31 bits as the Pip-OS ABI asks.
 6. Translates the event and routes it.
 
 The clock has whole seconds only, so the wait can end up to 1 s before the minute changes. Then the next step sees the same minute, does not redraw, and waits again, at most 1 s. The time is shown in UTC: Pip-OS has no time zone.
