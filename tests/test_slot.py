@@ -179,9 +179,13 @@ def test_slot_tape_shadows_a_boot_tape(board, holotest_kernel, card, tmp_path, n
     with boot(holotest_kernel, board, card, cards) as vm:
         wait_ready(vm)
         to_tapes(vm)
+        # The boot LINETEST runs and ends on SELECT: its result line.
+        press(vm, "select")
+        wait_line(vm, 'linetest: ready args ""')
         before = count(vm, TAPES_LINE)
         press(vm, "select")
-        assert wait_count(vm, TAPES_LINE, before + 1)[-1][3] != ""
+        assert wait_count(vm, TAPES_LINE, before + 1)[-1] == \
+            ("0", "0", "1", "Tape ended, status 42.")
         before = count(vm, TAPES_LINE)
         insert(vm, 0)
         wait_bits(vm, 1)
