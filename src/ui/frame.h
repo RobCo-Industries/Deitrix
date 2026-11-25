@@ -7,8 +7,18 @@
 
 #include "ui/ui.h"
 
-/* The footer text when a screen has no hint of its own. */
-#define DX_FRAME_HINT "DIAL or LEFT/RIGHT: change tab"
+/*
+ * The footer hints follow one style, checked by tests/host/test_hints.c
+ * and listed in docs/ARCHITECTURE.md: "KEY: action" groups two spaces
+ * apart, the keys UP/DOWN, LEFT/RIGHT, SELECT, BACK and DIAL, movement
+ * first, then SELECT, then BACK, at most DX_HINT_MAX characters. A
+ * screen's hint never names the tab change: the header shows the tabs.
+ * DX_FRAME_HINT is the shell's own, for a state with no key of its own.
+ */
+#define DX_HINT_MAX   38
+#define DX_FRAME_HINT "DIAL: change tab"
+/* A top level whose only keys move between sub-tabs. */
+#define DX_HINT_PAGE  "LEFT/RIGHT: page"
 
 /* The body area between the header and the footer rules. */
 dx_rect_t dx_frame_body(void);
@@ -41,6 +51,10 @@ int dx_frame_tab_x(const char *const *names, int count, int tab);
  * table dx_frame_tab_cut refuses draws no tabs. */
 void dx_frame_header(const dx_ctx_t *ctx, const char *const *names, int count, int active,
                      const char *clock);
+
+/* The unsaved mark: a "!" in fg in the gap left of the clock. */
+#define DX_MARK_X (DX_CLOCK_X - DX_FONT_W)
+void dx_frame_mark(const dx_ctx_t *ctx);
 
 /* Draws the rule and the hint, centred. */
 void dx_frame_footer(const dx_ctx_t *ctx, const char *hint);

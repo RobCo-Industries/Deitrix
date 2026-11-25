@@ -2,6 +2,7 @@
 #include "rc_test.h"
 
 #include "fake_platform.h"
+#include "ui/latch.h"
 #include "ui/ui.h"
 
 #define CHECK_INT(a, b) CHECK_EQ((int64_t)(a), (int64_t)(b))
@@ -216,4 +217,61 @@ TEST(is_back)
             CHECK(!dx_ui_is_back(&ev));
         }
     }
+}
+
+/* ---- The held-key rule ---------------------------------------------------- */
+
+static int swallowed(dx_latch_t *l, int type, int repeat)
+{
+    dx_ui_event_t ev = { type, repeat, 0 };
+
+    return dx_latch_swallow(l, &ev);
+}
+
+static void noted(dx_latch_t *l, int type, int repeat, unsigned result, int tab_changed)
+{
+    dx_ui_event_t ev = { type, repeat, 0 };
+
+    dx_latch_note(l, &ev, result, tab_changed);
+}
+
+TEST(latch_swallows_the_repeats_of_a_level_change)
+{
+    const unsigned level = DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL;
+    dx_latch_t l;
+
+    dx_latch_init(&l);
+    /* No level change: repeats go through. */
+    CHECK_INT(swallowed(&l, DX_UI_DOWN, 0), 0);
+    noted(&l, DX_UI_DOWN, 0, DX_UI_HANDLED | DX_UI_DIRTY, 0);
+    CHECK_INT(swallowed(&l, DX_UI_DOWN, 1), 0);
+    /* A press that closes a level: its repeats are dropped. */
+    CHECK_INT(swallowed(&l, DX_UI_LEFT, 0), 0);
+    noted(&l, DX_UI_LEFT, 0, level, 0);
+    CHECK_INT(swallowed(&l, DX_UI_LEFT, 1), 1);
+    CHECK_INT(swallowed(&l, DX_UI_LEFT, 1), 1);
+    /* Only that key's. */
+    CHECK_INT(swallowed(&l, DX_UI_UP, 1), 0);
+    /* A fresh event of any key ends it, the dial too. */
+    CHECK_INT(swallowed(&l, DX_UI_DIAL, 0), 0);
+    CHECK_INT(swallowed(&l, DX_UI_LEFT, 1), 0);
+    /* A tab change latches as well. */
+    CHECK_INT(swallowed(&l, DX_UI_RIGHT, 0), 0);
+    noted(&l, DX_UI_RIGHT, 0, DX_UI_IGNORED, 1);
+    CHECK_INT(swallowed(&l, DX_UI_RIGHT, 1), 1);
+    CHECK_INT(swallowed(&l, DX_UI_SELECT, 0), 0);
+    CHECK_INT(swallowed(&l, DX_UI_RIGHT, 1), 0);
+}
+
+TEST(latch_ignores_repeats_and_the_dial)
+{
+    dx_latch_t l;
+
+    dx_latch_init(&l);
+    /* A repeat that changed the level does not latch: only a press. */
+    noted(&l, DX_UI_SELECT, 1, DX_UI_HANDLED | DX_UI_LEVEL, 0);
+    CHECK_INT(swallowed(&l, DX_UI_SELECT, 1), 0);
+    /* The dial has no repeats to drop. */
+    noted(&l, DX_UI_DIAL, 0, DX_UI_IGNORED, 1);
+    CHECK_INT(l.on, 0);
 }

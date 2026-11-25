@@ -8,23 +8,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Changed
 
-- Pip-OS moves to `bd5fa36`, with RobCo-Core `00d9a2d` inside it.
+- `tools/check_content.py --help` prints the usage instead of checking a folder named `--help`. Exit codes stay the same.
+- STAT's ABOUT page shows the true uptime past 24.8 days: a new uptime service counts the wraps of `ticks_ms`.
+- The profile's gauge type is `dx_profile_gauge_t`, apart from the gauge widget. The widget has a selected, inverse mode, and RADIO's Volume row uses it.
+- STAT's ABOUT page logs its device line when it shows and once per uptime minute, not every second.
+- The header shows a `!` left of the clock while changes have not reached the card for 12 s, for example on a card that cannot be written.
+- Every tab uses one layout grid for its body. Lists start 6 px under the sub-tab row or the header, and status rows sit on one line at the bottom.
+- The footer hints follow one style: the same key names, two spaces between groups, movement first, at most 38 characters. No screen hint names the tab change.
+- One held-key rule for every tab, in the shell: after a press opens or closes a view or changes the tab, the repeats of that key do nothing until the next press. A held LEFT in INV's detail no longer changes the category and the tab.
+- Pip-OS moves to `2d10c2c`, with RobCo-Core `f5bba36` inside it. The kernel mounts the card with the shared boot volume rule.
 
 ### Added
 
+- Culvert, a pipe-turning puzzle holotape with generated levels, built by `make holotapes` and shipped on the card as `CULVERT.HTP`. DATA's TAPES list starts it.
 - The STAT tab: the owner and gauges, the attributes, and the device data with the uptime, refreshed each second.
 - The INV tab: one sub-tab per category, a list of its items with a summary row, and a detail view where UP and DOWN change the count and SELECT marks the item.
+- The DATA tab: the notes, a holotape launcher, and the clock with a time setter.
 - The MAP tab: the local and world maps with their places, and a detail per place.
 - The RADIO tab: the stations with the one on air marked, what plays now, the volume and the UI sounds. SELECT starts or stops a station.
 - A data model in `src/model/` that loads PROFILE.INI, ITEMS.INI, the notes, MAP.INI, RADIO.INI and the tunes as `docs/CONTENT.md` says, with fixed tables and no allocation. One serial line per file loaded.
 - DEITRIX.SAV and INV.SAV: the settings and the item overlay, read at start and written by an autosave service.
 - Services in the app shell: a table of background jobs with their own wake times. The radio service plays tunes and streams PCM tracks on any tab.
-- The placeholder tabs show a line or two from the content. SELECT on RADIO cycles the stations.
 - UI tones stay silent while the radio plays, and when the settings turn them off.
 - The platform layer reads files, lists folders, reads and writes saves, plays sequences and samples, and reports system information. It wraps libpip's INI parser and CRC-32.
 - Host tests for every loader, the saves, the services and the content loader, with fixtures generated from `tools/tun2notes.py` and the checker's test table. QEMU tests for the load log, a save across a reboot, a broken file, a card without data and the radio.
 - Pip-OS as the only submodule, at `4178b7f`, with RobCo-Core `222f4e4` inside it.
-- `build/ROM1.ROM` built with the Pip-OS SDK: a frame with five placeholder tabs, a UTC clock and a key hint. The dial, LEFT and RIGHT change tabs.
+- `build/ROM1.ROM` built with the Pip-OS SDK: a frame with five tabs, a UTC clock and a key hint. The dial, LEFT and RIGHT change tabs.
 - `make sdimage`, `run` and `bootdir` through Pip-OS's Makefile, with the `content/` tree on the card.
 - Host unit tests, QEMU tests on four boards with screen goldens, and a card check.
 - `make check-pins` and `tools/check_pipos_links.sh`.

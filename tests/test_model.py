@@ -15,11 +15,12 @@ import sys
 import time
 
 from pipos_testing import TIMEOUT, booted, minimal_env, no_exception, script
+from conftest import serial_line
 
-READY_LINE = re.compile(r"^deitrix: ready\r?$", re.M)
-TAB_LINE = re.compile(r"^deitrix: tab=(\w+)\r?$", re.M)
-AUDIO = re.compile(r"^@RC stage=pipos ev=audio op=(\w+)(.*?)\r?$", re.M)
-SHOWS_OFF = re.compile(r"^deitrix: radio shows Off\r?$", re.M)
+READY_LINE = serial_line(r"deitrix: ready")
+TAB_LINE = serial_line(r"deitrix: tab=(\w+)")
+AUDIO = serial_line(r"@RC stage=pipos ev=audio op=(\w+)(.*?)")
+SHOWS_OFF = serial_line(r"deitrix: radio shows Off")
 PART = 2048 * 512  # the card's FAT partition starts at LBA 2048
 
 TUNES = ("MORNING", "WALK", "LULLABY")
@@ -61,7 +62,7 @@ def matches(lines, want):
 
 
 def wait_line(vm, text, timeout=TIMEOUT):
-    vm.wait_for(re.compile("^" + re.escape(text) + r"\r?$", re.M), timeout=timeout)
+    vm.wait_for(serial_line(re.escape(text)), timeout=timeout)
 
 
 def mtools(*args):

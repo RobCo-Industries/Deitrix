@@ -2,7 +2,8 @@
 
 STAT logs a "deitrix: stat ..." line when a frame shows another view:
 "shows ATTRS sel=<n> top=<n>", "shows STATUS" after a return, and on
-ABOUT one "about" line per frame with every device value. The first
+ABOUT one "about" line with every device value when the page shows and
+when the uptime's minute changes. The first
 STATUS frame after the tab opens logs nothing. A line goes out during
 the draw, just before the present, so a test takes its screenshot once
 two in a row match.
@@ -18,10 +19,11 @@ import time
 from test_deitrix import boot_rom, golden, tabs, wait_ready, wait_tabs
 from test_model import card_target, mtools
 from pipos_testing import TIMEOUT, no_exception, press, screenshot, script
+from conftest import serial_line
 
-ATTRS = re.compile(r"^deitrix: stat shows ATTRS sel=(\d+) top=(\d+)\r?$", re.M)
-STATUS = re.compile(r"^deitrix: stat shows STATUS\r?$", re.M)
-ABOUT = re.compile(r"^deitrix: stat about (.*?)\r?$", re.M)
+ATTRS = serial_line(r"deitrix: stat shows ATTRS sel=(\d+) top=(\d+)")
+STATUS = serial_line(r"deitrix: stat shows STATUS")
+ABOUT = serial_line(r"deitrix: stat about (.*?)")
 SOC = {"raspi0": "BCM2835", "raspi1ap": "BCM2835", "raspi2b": "BCM2836", "raspi3b": "BCM2837"}
 SAMPLE_ATTRS = 6
 
@@ -119,9 +121,16 @@ def test_stat_walk(board, kernel_image, card, tmp_path, need_mtools):
         assert re.fullmatch(r"[1-9]\d* MiB", f["RAM"]), line
         assert f["Time"] == "no clock", line
         first = uptime_s(f["Uptime"])
+        # One line on entry, then one per uptime minute: none in 2.5 s
+        # unless the minute changed.
         n = count(vm, ABOUT)
-        later = about_fields(wait_count(vm, ABOUT, n + 2)[-1])
-        assert uptime_s(later["Uptime"]) - first in (2, 3), (line, later)
+        time.sleep(2.5)
+        assert count(vm, ABOUT) - n <= (1 if first % 60 >= 57 else 0), vm.serial
+        # Back to ATTRS and to ABOUT again: a new line, the uptime 2 to
+        # 4 s later.
+        assert key(vm, "left", ATTRS) == ("0", "0")
+        later = about_fields(key(vm, "right", ABOUT))
+        assert uptime_s(later["Uptime"]) - first in (2, 3, 4), (line, later)
         img = settled_about(vm, tmp_path)
         golden(img.crop(ABOUT_TOP), "stat_about_top")
         golden(img.crop(ABOUT_BOTTOM), "stat_about_bottom")

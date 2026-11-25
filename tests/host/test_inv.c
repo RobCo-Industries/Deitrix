@@ -140,15 +140,15 @@ TEST(first_view_draw_list)
               "text 60 23 \"FOOD\" dim none s1\n"
               "text 108 23 \"EMPTY\" dim none s1\n"
               "line 0 41 319 41 faint\n"
-              "rect 0 44 320 16 fg fill\n"
-              "text 308 44 \"1\" bg fg s1\n"
-              "text 12 44 \"Folding knife\" bg fg s1\n"
-              "text 284 60 \"20 m\" fg none s1\n"
-              "text 12 60 \"Rope\" fg none s1\n"
-              "line 0 191 319 191 faint\n"
-              "text 12 195 \"2 entries, 1.5 kg\" dim none s1\n");
+              "rect 0 48 320 16 fg fill\n"
+              "text 308 48 \"1\" bg fg s1\n"
+              "text 12 48 \"Folding knife\" bg fg s1\n"
+              "text 284 64 \"20 m\" fg none s1\n"
+              "text 12 64 \"Rope\" fg none s1\n"
+              "line 0 193 319 193 faint\n"
+              "text 12 197 \"2 entries, 1.5 kg\" dim none s1\n");
     CHECK(inside_body());
-    CHECK_STR(inv->hint(inv->st), "UP/DOWN: item  SELECT: open");
+    CHECK_STR(inv->hint(inv->st), "UP/DOWN: move  SELECT: open");
 }
 
 TEST(categories_and_empty_category)
@@ -160,18 +160,18 @@ TEST(categories_and_empty_category)
     CHECK_STR(last_log(), "deitrix: inv cat=1 row=0");
     draw();
     /* A count of 0 is dim. No weight in the category: entries only. */
-    CHECK_STR(strstr(fake.draws, "rect 0 44"),
-              "rect 0 44 320 16 dim fill\n"
-              "text 268 44 \"0 loaf\" bg dim s1\n"
-              "text 12 44 \"Rye bread\" bg dim s1\n"
-              "line 0 191 319 191 faint\n"
-              "text 12 195 \"1 entry\" dim none s1\n");
+    CHECK_STR(strstr(fake.draws, "rect 0 48"),
+              "rect 0 48 320 16 dim fill\n"
+              "text 268 48 \"0 loaf\" bg dim s1\n"
+              "text 12 48 \"Rye bread\" bg dim s1\n"
+              "line 0 193 319 193 faint\n"
+              "text 12 197 \"1 entry\" dim none s1\n");
     CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY);
     draw();
     CHECK(has_text("Nothing here."));
     CHECK(!has_text("0 entries"));
     CHECK(inside_body());
-    CHECK_STR(inv->hint(inv->st), "LEFT/RIGHT: category  DIAL: tab");
+    CHECK_STR(inv->hint(inv->st), "LEFT/RIGHT: page");
     /* Nothing to open, nothing to move. */
     CHECK_INT(key(DX_UI_SELECT), DX_UI_IGNORED);
     CHECK_INT(key(DX_UI_DOWN), DX_UI_IGNORED);
@@ -200,33 +200,33 @@ TEST(list_moves_and_ends)
     CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY);
     CHECK_STR(last_log(), "deitrix: inv cat=0 row=1");
     draw();
-    CHECK(strstr(fake.draws, "text 12 60 \"Rope\" bg fg s1\n") != NULL);
+    CHECK(strstr(fake.draws, "text 12 64 \"Rope\" bg fg s1\n") != NULL);
 }
 
 TEST(detail_view)
 {
     load(SMALL);
-    CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
     CHECK_STR(last_log(), "deitrix: inv open=knife");
     draw();
     CHECK_STR(fake.draws,
-              "text 4 24 \"Folding knife\" fg none s1\n"
+              "text 4 23 \"Folding knife\" fg none s1\n"
               "line 0 41 319 41 faint\n"
-              "text 4 46 \"Count\" dim none s1\n"
-              "text 84 46 \"1\" fg none s1\n"
-              "text 4 62 \"Weight\" dim none s1\n"
-              "text 84 62 \"90 g\" fg none s1\n"
-              "text 4 78 \"Category\" dim none s1\n"
-              "text 84 78 \"TOOLS\" fg none s1\n"
-              "text 4 94 \"Marked\" dim none s1\n"
-              "text 84 94 \"No\" fg none s1\n"
-              "text 4 118 \"A small knife with a wooden handle.\" dim none s1\n");
+              "text 4 48 \"Count\" dim none s1\n"
+              "text 84 48 \"1\" fg none s1\n"
+              "text 4 64 \"Weight\" dim none s1\n"
+              "text 84 64 \"90 g\" fg none s1\n"
+              "text 4 80 \"Category\" dim none s1\n"
+              "text 84 80 \"TOOLS\" fg none s1\n"
+              "text 4 96 \"Marked\" dim none s1\n"
+              "text 84 96 \"No\" fg none s1\n"
+              "text 4 120 \"A small knife with a wooden handle.\" dim none s1\n");
     CHECK(inside_body());
-    CHECK_STR(inv->hint(inv->st), "UP/DOWN: count  SELECT: mark  BACK");
+    CHECK_STR(inv->hint(inv->st), "UP/DOWN: +/-  SELECT: mark  BACK: list");
     /* An item without weight or note: no Weight row, no note. */
-    CHECK_INT(key(DX_UI_BACK), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_BACK), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
     CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY);
-    CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
     draw();
     CHECK(!has_text("Weight"));
     CHECK(has_text("0 loaf"));
@@ -296,18 +296,18 @@ TEST(mark_back_and_summary)
     CHECK_STR(last_log(), "deitrix: inv idle");
     CHECK_INT(key(DX_UI_DIAL), DX_UI_IGNORED);
     /* LEFT goes back, with the same row selected. */
-    CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
     CHECK_STR(last_log(), "deitrix: inv back row=1");
     draw();
     /* The row shows the mark and the new count; the weight stays. */
-    CHECK(strstr(fake.draws, "rect 0 60 320 16 fg fill\n"
-                             "rect 4 66 4 4 bg fill\n"
-                             "text 284 60 \"21 m\" bg fg s1\n"
-                             "text 12 60 \"Rope\" bg fg s1\n") != NULL);
+    CHECK(strstr(fake.draws, "rect 0 64 320 16 fg fill\n"
+                             "rect 4 70 4 4 bg fill\n"
+                             "text 284 64 \"21 m\" bg fg s1\n"
+                             "text 12 64 \"Rope\" bg fg s1\n") != NULL);
     CHECK(has_text("2 entries, 1.5 kg"));
     /* The Back button goes back too. */
     key(DX_UI_SELECT);
-    CHECK_INT(key(DX_UI_BACK), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_BACK), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
     CHECK_STR(last_log(), "deitrix: inv back row=1");
     CHECK_INT(it->changes, changes + 2);
 }
@@ -342,7 +342,7 @@ TEST(shell_routing_and_leave)
     CHECK_INT(app.tab, TAB_INV);
     CHECK(strstr(fake.log, "deitrix: inv open=rope\ndeitrix: inv idle\n"
                            "deitrix: inv count=21\n") != NULL);
-    CHECK(fake_find_text("UP/DOWN: count  SELECT: mark  BACK") != NULL);
+    CHECK(fake_find_text("UP/DOWN: +/-  SELECT: mark  BACK: list") != NULL);
     /* A refused press denies with a tone; a refused repeat is silent. */
     dx_items_set_count(dx_content_items(), 1, 999);
     tones = fake.tone_count;
@@ -360,7 +360,7 @@ TEST(shell_routing_and_leave)
     steps(&app, 3);
     CHECK_INT(app.tab, TAB_INV);
     CHECK(strstr(fake.log, "deitrix: tab=DATA\ndeitrix: tab=INV\n") != NULL);
-    CHECK(fake_find_text("UP/DOWN: item  SELECT: open") != NULL);
+    CHECK(fake_find_text("UP/DOWN: move  SELECT: open") != NULL);
     CHECK(fake_find_text("999 m") != NULL);
     CHECK_INT(fake_find_text("Rope")->bg, fake.theme.fg);
     /* LEFT at the first category changes the tab. */
@@ -450,4 +450,34 @@ TEST(limits_stay_inside_the_body)
     }
     /* The last category, UVWXY, holds two items. */
     CHECK_STR(last_log(), "deitrix: inv end row=1");
+}
+
+/* The held-key rule through the shell: a held SELECT opens the detail
+ * once, a held LEFT or BACK closes it once, and the category and the
+ * tab stay. */
+TEST(held_keys_open_and_close_once)
+{
+    static const uint32_t backs[2] = { DX_BTN_LEFT, DX_BTN_BACK };
+    dx_app_t app;
+    int i;
+
+    for (i = 0; i < 2; i++) {
+        load(SMALL);
+        CHECK_INT(dx_app_init(&app, dx_rom_screens, dx_rom_screen_count), 0);
+        dx_app_set_tab(&app, TAB_INV);
+        dx_app_step(&app);
+        steps(&app, fake_hold(DX_BTN_RIGHT, 0));
+        fake.log[0] = '\0';
+        steps(&app, fake_hold(DX_BTN_SELECT, 12));
+        CHECK_STR(fake.log, "deitrix: inv open=bread\n");
+        fake.log[0] = '\0';
+        steps(&app, fake_hold(backs[i], 12));
+        CHECK_INT(app.tab, TAB_INV);
+        CHECK_STR(fake.log, "deitrix: inv back row=0\n");
+        CHECK_STR(inv->hint(inv->st), "UP/DOWN: move  SELECT: open");
+        /* The next fresh press acts again: FOOD to TOOLS. */
+        steps(&app, fake_hold(DX_BTN_LEFT, 0));
+        CHECK_STR(last_log(), "deitrix: inv cat=0 row=0");
+        CHECK_INT(app.tab, TAB_INV);
+    }
 }

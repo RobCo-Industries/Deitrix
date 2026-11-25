@@ -9,6 +9,9 @@
 #include "model/stat_fmt.h"
 #include "model/util.h"
 #include "screens/stat_draw.h"
+#include "services/services.h"
+#include "ui/frame.h"
+#include "ui/grid.h"
 #include "ui/list.h"
 #include "ui/subtabs.h"
 
@@ -23,8 +26,8 @@ static const char *const sub_labels[SUB_COUNT] = { "STATUS", "ATTRS", "ABOUT" };
 #define RULE_DY   60 /* a faint rule over the gauges */
 #define GAUGE_DY  66
 #define GAUGE_PITCH 18
-#define LIST_DY   6
-#define KV_DY     4
+#define LIST_DY   DX_GRID_GAP
+#define KV_DY     DX_GRID_GAP
 #define KV_ROWS   7
 #define ABOUT_GAP 4  /* from the last key row to the rule */
 
@@ -43,6 +46,7 @@ typedef struct stat_state {
     int sys_ok;
     dx_sysinfo_t sys;
     char logged[LOG_SIZE];
+    uint32_t logged_min; /* ABOUT: the uptime minute of its last line */
 } stat_state_t;
 
 static stat_state_t stat;
@@ -107,6 +111,20 @@ static void log_once(const char *line)
     dx_plat_log(line);
 }
 
+/* 1 when the last line logged is ABOUT's: the page is still shown. */
+static int about_logged(void)
+{
+    static const char prefix[] = "deitrix: stat about";
+    int i;
+
+    for (i = 0; prefix[i] != '\0'; i++) {
+        if (stat.logged[i] != prefix[i]) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static void enter(void *st)
 {
     (void)st;
@@ -138,7 +156,7 @@ static unsigned event(void *st, const dx_ui_event_t *ev)
 
 static uint32_t uptime_s(uint32_t now_ms)
 {
-    return now_ms / 1000u;
+    return dx_uptime_s(now_ms, NULL);
 }
 
 static uint32_t tick(void *st, uint32_t now_ms, unsigned *flags)
@@ -157,7 +175,12 @@ static uint32_t tick(void *st, uint32_t now_ms, unsigned *flags)
         *flags |= DX_UI_DIRTY;
     }
     /* The next whole second of the uptime. */
-    return dx_ticks_add(now_ms, 1000u - now_ms % 1000u);
+    {
+        uint32_t ms = 0;
+
+        dx_uptime_s(now_ms, &ms);
+        return dx_ticks_add(now_ms, 1000u - ms);
+    }
 }
 
 /* A centred message in the area, and a dim second line when given. */
@@ -186,7 +209,7 @@ static int no_profile(const dx_ctx_t *ctx, dx_rect_t r)
         message(ctx, r, "No profile on the card.", NULL);
     } else {
         message(ctx, r, "The profile was not read.",
-                dx_placeholder_reason(&p->load, "PROFILE.INI", why, sizeof(why)));
+                dx_file_reason(&p->load, "PROFILE.INI", why, sizeof(why)));
     }
     return 1;
 }
@@ -275,7 +298,7 @@ static void draw_about(const dx_ctx_t *ctx, dx_rect_t r)
             dx_str_cut(vals[i], DX_STAT_TEXT_SIZE, "unknown", 7);
         }
     }
-    dx_stat_uptime(ctx->now_ms, vals[5]);
+    dx_stat_uptime(uptime_s(ctx->now_ms), vals[5]);
     dx_stat_datetime(valid, clock, vals[6]);
     stat.shown_s = uptime_s(ctx->now_ms);
     stat.shown_clock_valid = valid;
@@ -290,7 +313,13 @@ static void draw_about(const dx_ctx_t *ctx, dx_rect_t r)
         dx_sb_str(&sb, vals[i]);
     }
     dx_sb_char(&sb, '\n');
-    log_once(line);
+    /* One line when the page shows, then one per uptime minute: enough
+     * for the tests, quiet for normal use. */
+    if (!about_logged() ||
+        stat.shown_s / 60u != stat.logged_min) {
+        stat.logged_min = stat.shown_s / 60u;
+        log_once(line);
+    }
 
     for (i = 0; i < KV_ROWS; i++) {
         y = r.y + KV_DY + i * DX_ROW_H;
@@ -334,12 +363,9 @@ static const char *hint(void *st)
     setup();
     switch (stat.subs.active) {
     case SUB_ATTRS:
-        return stat.attrs.count > 1 ? "UP/DOWN: move   LEFT/RIGHT: page"
-                                    : "LEFT/RIGHT: page   DIAL: tab";
-    case SUB_ABOUT:
-        return "LEFT: ATTRS   RIGHT or DIAL: tab";
+        return stat.attrs.count > 1 ? "UP/DOWN: move" : DX_HINT_PAGE;
     default:
-        return "RIGHT: ATTRS   LEFT or DIAL: tab";
+        return DX_HINT_PAGE;
     }
 }
 

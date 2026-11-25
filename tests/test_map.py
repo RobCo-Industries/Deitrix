@@ -83,7 +83,8 @@ def test_map_walk(board, kernel_image, card, tmp_path, need_mtools):
         assert wait_tabs(vm, 4)[-1] == "DATA", vm.serial
 
         # The dial leaves from the detail; coming back shows the map.
-        press(vm, "right")
+        # RIGHT on DATA changes its sub-tab, so the dial goes back.
+        script(vm, "dial 1")
         assert wait_tabs(vm, 5)[-1] == "MAP", vm.serial
         settled(vm, tmp_path)
         assert key(vm, "select", DETAIL) == ("LOCAL", "6")

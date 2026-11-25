@@ -1,6 +1,6 @@
 /*
  * The background services of the app shell: the radio, which keeps
- * playing whatever tab is shown, and the autosave.
+ * playing whatever tab is shown, the autosave and the uptime.
  */
 #ifndef DX_SERVICES_SERVICES_H
 #define DX_SERVICES_SERVICES_H
@@ -48,21 +48,50 @@ int dx_radio_failed(void);
 /* ---- Autosave ---------------------------------------------------------- */
 
 /* A save waits for 2 s with no change, and at most 10 s after the first
- * change. A failed write is tried again 5 s later, at most 3 times. */
+ * change. A failed write is tried again 5 s later, at most 3 times.
+ * Then the service stops trying until the next change or flush. */
 #define DX_SAVE_QUIET_MS 2000u
 #define DX_SAVE_MAX_MS   10000u
 #define DX_SAVE_RETRY_MS 5000u
 #define DX_SAVE_RETRIES  3
+/* Changes not on the card this long show the unsaved mark: past the
+ * longest wait of a healthy save, so it never shows on one. */
+#define DX_SAVE_MARK_MS  (DX_SAVE_MAX_MS + DX_SAVE_QUIET_MS)
 
 extern const dx_service_t dx_service_autosave;
 
 /* The model the autosave watches. Call before the services start. */
 void dx_autosave_attach(dx_settings_t *settings, dx_items_t *items);
 
-/* Writes every changed save now. Returns 0 when nothing is left to write. */
+/* Tries once to write every save not on the card, even after the retries
+ * gave up. Returns 0 when every save is on the card. */
 int dx_autosave_flush(uint32_t now_ms);
 
-/* 1 while a change waits to be written. */
+/* 1 while the service plans to write a change. 0 after it gave up. */
 int dx_autosave_pending(void);
+
+/* 1 while a change is not on the card, even after the retries gave up. */
+int dx_autosave_unsaved(void);
+
+/* 1 while the header shows the unsaved mark: a change has not reached
+ * the card for DX_SAVE_MARK_MS. The service's tick turns it on and off,
+ * logs "deitrix: unsaved mark on" or "off", and asks for a redraw. */
+int dx_autosave_marked(void);
+
+/* ---- Uptime ------------------------------------------------------------ */
+
+/* The service samples ticks_ms this often at least: far less than the
+ * 24.8 days between two wraps. */
+#define DX_UPTIME_SAMPLE_MS 3600000u
+
+extern const dx_service_t dx_service_uptime;
+
+/* The whole seconds since the start, past the wraps of ticks_ms at 2^31,
+ * and the ms into the current second in *ms_in_s when not NULL. Samples
+ * now_ms, as the service does. */
+uint32_t dx_uptime_s(uint32_t now_ms, uint32_t *ms_in_s);
+
+/* Starts the count again at now_ms with no wrap, for the host tests. */
+void dx_uptime_reset(uint32_t now_ms);
 
 #endif

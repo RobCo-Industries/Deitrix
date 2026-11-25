@@ -8,19 +8,19 @@ the new frame on screen sends one more key that changes nothing and
 waits for its line: the shell draws before it takes the next event.
 """
 
-import re
 import time
 
 from test_deitrix import boot_rom, golden, tabs, wait_ready, wait_tabs
 from pipos_testing import TIMEOUT, no_exception, press, screenshot, script
+from conftest import serial_line
 
-SEL = re.compile(r"^gallery: list sel=(\d+) top=(\d+)\r?$", re.M)
-LIST_END = re.compile(r"^gallery: list end=(\d+)\r?$", re.M)
-TEXT_TOP = re.compile(r"^gallery: text top=(\d+)\r?$", re.M)
-TEXT_END = re.compile(r"^gallery: text end=(\d+)\r?$", re.M)
-SUB = re.compile(r"^gallery: sub=(\d+)\r?$", re.M)
-DETAIL = re.compile(r"^gallery: detail=(\d+)\r?$", re.M)
-BACK = re.compile(r"^gallery: back=(\d+)\r?$", re.M)
+SEL = serial_line(r"gallery: list sel=(\d+) top=(\d+)")
+LIST_END = serial_line(r"gallery: list end=(\d+)")
+TEXT_TOP = serial_line(r"gallery: text top=(\d+)")
+TEXT_END = serial_line(r"gallery: text end=(\d+)")
+SUB = serial_line(r"gallery: sub=(\d+)")
+DETAIL = serial_line(r"gallery: detail=(\d+)")
+BACK = serial_line(r"gallery: back=(\d+)")
 
 LIST_ROWS = 12
 LIST_WINDOW = 8

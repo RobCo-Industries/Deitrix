@@ -25,7 +25,7 @@ Deitrix has only run in the QEMU emulator so far. Nobody has tried it on a real 
 
 ## What you need
 
-- A device that runs Pip-OS. Pip-OS's [user manual](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/USER_MANUAL.md) lists the boards and the parts.
+- A device that runs Pip-OS. Pip-OS's [user manual](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/USER_MANUAL.md) lists the boards and the parts.
 - An SD card built for Deitrix. [BUILD.md](BUILD.md) explains how to build one.
 
 At power-on Pip-OS prints its boot lines, then loads Deitrix from `/PIPBOY/ROM1.ROM` on the card. The line `LOAD ROM(1): DEITRIX 0.1.0` says Deitrix passed its checks. Deitrix then reads its content and opens the tab you used last.
@@ -336,7 +336,7 @@ A short path:
 
 | Symptom | Cause | What to do |
 |---|---|---|
-| `ROM(1) NOT LOADED: ...` at boot | Pip-OS could not load Deitrix | See the table in Pip-OS's [user manual](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/USER_MANUAL.md#what-you-see-at-boot) |
+| `ROM(1) NOT LOADED: ...` at boot | Pip-OS could not load Deitrix | See the table in Pip-OS's [user manual](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/USER_MANUAL.md#what-you-see-at-boot) |
 | `--:--` in the header | The device has no time | Set it on DATA, CLOCK. Fit a clock chip to keep it. |
 | The time is lost after power-off | No clock chip | Fit a clock chip, then set the time again |
 | `The clock chip did not take the time.` | The chip did not store the time | The time runs until power-off. Check the chip. |

@@ -139,7 +139,7 @@ static void check_hint(const char *want)
     const char *h = radio->hint(radio->st);
 
     CHECK_STR(h, want);
-    CHECK(strlen(h) <= 40);
+    CHECK(strlen(h) <= DX_HINT_MAX);
 }
 
 TEST(first_view_draw_list)
@@ -147,22 +147,22 @@ TEST(first_view_draw_list)
     load(SMALL);
     draw();
     CHECK_STR(fake.draws,
-              "rect 0 24 320 16 fg fill\n"
-              "text 12 24 \"Morning\" bg fg s1\n"
-              "text 12 40 \"Hearth\" fg none s1\n"
-              "text 12 56 \"Once\" fg none s1\n"
-              "text 12 72 \"Gone\" dim none s1\n"
-              "line 0 124 319 124 faint\n"
-              "text 12 130 \"Radio off.\" dim none s1\n"
-              "line 0 168 319 168 faint\n"
-              "text 12 174 \"Volume\" fg none s1\n"
-              "rect 108 177 176 10 dim outline\n"
-              "rect 110 179 137 6 fg fill\n"
-              "text 300 174 \"80\" fg none s1\n"
-              "text 12 190 \"UI sounds\" fg none s1\n"
-              "text 300 190 \"On\" fg none s1\n");
+              "rect 0 28 320 16 fg fill\n"
+              "text 12 28 \"Morning\" bg fg s1\n"
+              "text 12 44 \"Hearth\" fg none s1\n"
+              "text 12 60 \"Once\" fg none s1\n"
+              "text 12 76 \"Gone\" dim none s1\n"
+              "line 0 128 319 128 faint\n"
+              "text 12 134 \"Radio off.\" dim none s1\n"
+              "line 0 172 319 172 faint\n"
+              "text 12 178 \"Volume\" dim none s1\n"
+              "text 300 178 \"80\" fg none s1\n"
+              "rect 108 181 176 10 dim outline\n"
+              "rect 110 183 137 6 fg fill\n"
+              "text 12 194 \"UI sounds\" dim none s1\n"
+              "text 300 194 \"On\" fg none s1\n");
     CHECK(inside_body());
-    check_hint("UP/DOWN: station  SELECT: play");
+    check_hint("UP/DOWN: move  SELECT: play");
     /* Off at start: no line until what is shown changes. */
     CHECK_STR(fake.log, "");
 }
@@ -181,32 +181,32 @@ TEST(start_stop_and_switch)
     CHECK_INT(set->last_station, 1);
     CHECK_INT(set->changes, changes + 1);
     draw();
-    CHECK_STR(strstr(fake.draws, "rect 0 24"),
-              "rect 0 24 320 16 fg fill\n"
-              "text 268 24 \"ON AIR\" bg fg s1\n"
-              "text 12 24 \"Morning\" bg fg s1\n"
-              "text 12 40 \"Hearth\" fg none s1\n"
-              "text 12 56 \"Once\" fg none s1\n"
-              "text 12 72 \"Gone\" dim none s1\n"
-              "line 0 124 319 124 faint\n"
-              "text 12 130 \"Playing Morning\" fg none s1\n"
-              "text 12 146 \"tune\" dim none s1\n"
-              "line 0 168 319 168 faint\n"
-              "text 12 174 \"Volume\" fg none s1\n"
-              "rect 108 177 176 10 dim outline\n"
-              "rect 110 179 137 6 fg fill\n"
-              "text 300 174 \"80\" fg none s1\n"
-              "text 12 190 \"UI sounds\" fg none s1\n"
-              "text 300 190 \"On\" fg none s1\n");
+    CHECK_STR(strstr(fake.draws, "rect 0 28"),
+              "rect 0 28 320 16 fg fill\n"
+              "text 268 28 \"ON AIR\" bg fg s1\n"
+              "text 12 28 \"Morning\" bg fg s1\n"
+              "text 12 44 \"Hearth\" fg none s1\n"
+              "text 12 60 \"Once\" fg none s1\n"
+              "text 12 76 \"Gone\" dim none s1\n"
+              "line 0 128 319 128 faint\n"
+              "text 12 134 \"Playing Morning\" fg none s1\n"
+              "text 12 150 \"tune\" dim none s1\n"
+              "line 0 172 319 172 faint\n"
+              "text 12 178 \"Volume\" dim none s1\n"
+              "text 300 178 \"80\" fg none s1\n"
+              "rect 108 181 176 10 dim outline\n"
+              "rect 110 183 137 6 fg fill\n"
+              "text 12 194 \"UI sounds\" dim none s1\n"
+              "text 300 194 \"On\" fg none s1\n");
     CHECK(inside_body());
-    check_hint("UP/DOWN: station  SELECT: stop");
+    check_hint("UP/DOWN: move  SELECT: stop");
     /* A held SELECT does nothing more. */
     CHECK_INT(send(DX_UI_SELECT, 1), DX_UI_IGNORED);
     CHECK_INT(fake.seq_count, 1);
     /* Another station switches: the tune stops, the stream starts. */
     CHECK_INT(key(DX_UI_DOWN), DX_UI_HANDLED | DX_UI_DIRTY);
     CHECK_STR(last_log(), "deitrix: radio row=1");
-    check_hint("UP/DOWN: station  SELECT: play");
+    check_hint("UP/DOWN: move  SELECT: play");
     CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY);
     CHECK_STR(last_log(), "deitrix: radio station=2");
     CHECK_INT(dx_radio_state(), DX_RADIO_PCM);
@@ -214,7 +214,7 @@ TEST(start_stop_and_switch)
     CHECK_INT(fake_audio_ops(FAKE_AU_SAMPLE), 1);
     CHECK_INT(set->last_station, 2);
     draw();
-    CHECK_INT(text_y("ON AIR"), 40);
+    CHECK_INT(text_y("ON AIR"), 44);
     CHECK(has_text("Playing Hearth"));
     CHECK(has_text("recording"));
     CHECK(!has_text("HEARTH"));
@@ -307,7 +307,7 @@ TEST(block_follows_the_track_and_its_wrap)
     CHECK(fake_find_text("ON AIR") == NULL);
     CHECK(strstr(fake.log, "deitrix: radio shows Playing Once\n"
                            "deitrix: radio shows Off\n") != NULL);
-    CHECK(fake_find_text("UP/DOWN: station  SELECT: play") != NULL);
+    CHECK(fake_find_text("UP/DOWN: move  SELECT: play") != NULL);
 }
 
 TEST(station_with_nothing_to_play)
@@ -322,12 +322,12 @@ TEST(station_with_nothing_to_play)
     CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
     CHECK_INT(dx_content_settings()->last_station, 4);
     draw();
-    CHECK_INT(text_y("Station has nothing to play."), 130);
-    CHECK_INT(text_y("GONE.PCM missing"), 146);
+    CHECK_INT(text_y("Station has nothing to play."), 134);
+    CHECK_INT(text_y("GONE.PCM missing"), 150);
     CHECK(!has_text("ON AIR"));
     CHECK(inside_body());
     CHECK_STR(last_log(), "deitrix: radio shows Cannot play Gone");
-    check_hint("UP/DOWN: station  SELECT: play");
+    check_hint("UP/DOWN: move  SELECT: play");
     /* A file that breaks while it streams says the same. */
     key(DX_UI_UP);
     key(DX_UI_UP);
@@ -365,13 +365,14 @@ TEST(volume_to_both_limits)
         key(DX_UI_DOWN);
     }
     CHECK_STR(last_log(), "deitrix: radio row=4");
-    check_hint("LEFT/RIGHT: volume  UP/DOWN: move");
+    check_hint("UP/DOWN: move  LEFT/RIGHT: volume");
     draw();
     /* The row is inverse, the station list has no selection. */
-    CHECK(strstr(fake.draws, "text 12 24 \"Morning\" fg none s1\n") != NULL);
-    CHECK(strstr(fake.draws, "rect 0 174 320 16 fg fill\n"
-                             "text 12 174 \"Volume\" bg fg s1\n"
-                             "rect 108 177 176 10 bg outline\n") != NULL);
+    CHECK(strstr(fake.draws, "text 12 28 \"Morning\" fg none s1\n") != NULL);
+    CHECK(strstr(fake.draws, "rect 0 178 320 16 fg fill\n"
+                             "text 12 178 \"Volume\" bg fg s1\n"
+                             "text 300 178 \"83\" bg fg s1\n"
+                             "rect 108 181 176 10 bg outline\n") != NULL);
     /* Off the grid: the next multiple of 10 each way. */
     changes = set->changes;
     CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY);
@@ -392,7 +393,7 @@ TEST(volume_to_both_limits)
     CHECK_INT(set->changes, changes + 2);
     draw();
     CHECK(has_text("100"));
-    CHECK(strstr(fake.draws, "rect 110 179 172 6 bg fill\n") != NULL);
+    CHECK(strstr(fake.draws, "rect 110 183 172 6 bg fill\n") != NULL);
     CHECK(inside_body());
     for (v = 90; v >= 0; v -= 10) {
         CHECK_INT(send(DX_UI_LEFT, 1), DX_UI_HANDLED | DX_UI_DIRTY);
@@ -406,7 +407,8 @@ TEST(volume_to_both_limits)
     CHECK_INT(set->changes, changes + 12);
     draw();
     /* An empty bar: the outline only. */
-    CHECK(strstr(fake.draws, "rect 108 177 176 10 bg outline\ntext 308 174 \"0\" bg fg s1\n") != NULL);
+    CHECK(strstr(fake.draws, "text 308 178 \"0\" bg fg s1\nrect 108 181 176 10 bg outline\n"
+                             "text 12 194") != NULL);
     /* SELECT and Back on the row do nothing. */
     CHECK_INT(key(DX_UI_SELECT), DX_UI_IGNORED);
     CHECK_INT(key(DX_UI_BACK), DX_UI_IGNORED);
@@ -460,7 +462,7 @@ TEST(ui_sounds_toggle)
     }
     CHECK_INT(key(DX_UI_DOWN), DX_UI_IGNORED);
     CHECK_STR(last_log(), "deitrix: radio end row=5");
-    check_hint("SELECT: UI sounds on/off  UP/DOWN: move");
+    check_hint("UP/DOWN: move  SELECT: sound on/off");
     changes = set->changes;
     CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY);
     CHECK_STR(last_log(), "deitrix: radio sound=0");
@@ -470,9 +472,9 @@ TEST(ui_sounds_toggle)
     dx_ui_sound(DX_SND_MOVE);
     CHECK_INT(fake.tone_count, 0);
     draw();
-    CHECK(strstr(fake.draws, "rect 0 190 320 16 fg fill\n"
-                             "text 12 190 \"UI sounds\" bg fg s1\n"
-                             "text 292 190 \"Off\" bg fg s1\n") != NULL);
+    CHECK(strstr(fake.draws, "rect 0 194 320 16 fg fill\n"
+                             "text 12 194 \"UI sounds\" bg fg s1\n"
+                             "text 292 194 \"Off\" bg fg s1\n") != NULL);
     /* A held key does not toggle again, and never changes the tab. */
     CHECK_INT(send(DX_UI_SELECT, 1), DX_UI_HANDLED);
     CHECK_INT(send(DX_UI_RIGHT, 1), DX_UI_HANDLED);
@@ -554,13 +556,13 @@ TEST(cursor_starts_at_the_last_station)
     dx_settings_set_station(dx_content_settings(), 3);
     dx_radio_screen_reset();
     draw();
-    CHECK(strstr(fake.draws, "text 12 56 \"Once\" bg fg s1\n") != NULL);
+    CHECK(strstr(fake.draws, "text 12 60 \"Once\" bg fg s1\n") != NULL);
     CHECK_INT(dx_radio_state(), DX_RADIO_OFF); /* picked, not playing */
     /* A number with no station: the first row. */
     dx_settings_set_station(dx_content_settings(), 6);
     dx_radio_screen_reset();
     draw();
-    CHECK(strstr(fake.draws, "text 12 24 \"Morning\" bg fg s1\n") != NULL);
+    CHECK(strstr(fake.draws, "text 12 28 \"Morning\" bg fg s1\n") != NULL);
 }
 
 TEST(no_file)
@@ -576,7 +578,7 @@ TEST(no_file)
     CHECK(has_text("Radio off."));
     CHECK(inside_body());
     /* The cursor starts on the volume; the settings still work. */
-    check_hint("LEFT/RIGHT: volume  UP/DOWN: move");
+    check_hint("UP/DOWN: move  LEFT/RIGHT: volume");
     CHECK_INT(key(DX_UI_UP), DX_UI_IGNORED);
     CHECK_STR(last_log(), "deitrix: radio end row=0");
     CHECK_INT(key(DX_UI_SELECT), DX_UI_IGNORED);
@@ -623,7 +625,7 @@ TEST(limits_stay_inside_the_body)
     CHECK(inside_body());
     CHECK(has_text("WWWWWWWWWWWWWWWWWWW1"));
     CHECK(has_text("ON AIR"));
-    CHECK_INT(text_y("WWWWWWWWWWWWWWWWWWW6"), 104);
+    CHECK_INT(text_y("WWWWWWWWWWWWWWWWWWW6"), 108);
     CHECK(text_y("WWWWWWWWWWWWWWWWWWW6") + DX_ROW_H <= text_y("Playing WWWWWWWWWWWWWWWWWWW1"));
     for (i = 1; i < 6; i++) {
         key(DX_UI_DOWN);
@@ -639,4 +641,35 @@ TEST(limits_stay_inside_the_body)
     draw();
     CHECK(inside_body());
     CHECK(strstr(fake.log, "deitrix: radio shows Cannot play WWWWWWWWWWWWWWWWWWW6\n") != NULL);
+}
+
+/* The held-key rule through the shell. RADIO has no nested view: a held
+ * LEFT on a station changes the tab once, and a held LEFT on the
+ * Volume row still steps the volume on every repeat. */
+TEST(held_left_changes_the_tab_once)
+{
+    dx_app_t app;
+    int n;
+
+    load(SMALL);
+    shell_start(&app);
+    fake.log[0] = '\0';
+    for (n = fake_hold(DX_BTN_LEFT, 12); n > 0; n--) {
+        step(&app);
+    }
+    CHECK_INT(app.tab, TAB_RADIO - 1);
+    CHECK_STR(fake.log, "deitrix: tab=MAP\n");
+    dx_app_set_tab(&app, TAB_RADIO);
+    step(&app);
+    dx_radio_screen_reset();
+    dx_settings_set_station(dx_content_settings(), 4);
+    step(&app);
+    fake.log[0] = '\0';
+    push_key(DX_BTN_DOWN);
+    for (n = 2 + fake_hold(DX_BTN_LEFT, 3); n > 0; n--) {
+        step(&app);
+    }
+    CHECK_INT(app.tab, TAB_RADIO);
+    CHECK(strstr(fake.log, "deitrix: radio volume=70\ndeitrix: radio volume=60\n"
+                           "deitrix: radio volume=50\ndeitrix: radio volume=40\n") != NULL);
 }

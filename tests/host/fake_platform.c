@@ -81,6 +81,18 @@ void fake_push(uint32_t type, uint32_t code, int32_t value)
     ev->value = value;
 }
 
+int fake_hold(uint32_t btn, int repeats)
+{
+    int i;
+
+    fake_push(DX_EV_BUTTON, btn, DX_PRESS_DOWN);
+    for (i = 0; i < repeats; i++) {
+        fake_push(DX_EV_BUTTON, btn, DX_PRESS_REPEAT);
+    }
+    fake_push(DX_EV_BUTTON, btn, DX_PRESS_RELEASE);
+    return repeats + 2;
+}
+
 void fake_clear_draws(void)
 {
     fake.text_count = 0;
@@ -679,7 +691,7 @@ int32_t dx_plat_save_read(const char *name, uint8_t *buf, uint32_t size)
 int32_t dx_plat_save_write(const char *name, const uint8_t *buf, uint32_t size)
 {
     fake.save_writes++;
-    if (fake.save_fail > 0) {
+    if (fake.save_fail > 0 && (fake.save_fail_only == NULL || strcmp(name, fake.save_fail_only) == 0)) {
         fake.save_fail--;
         return DX_FILE_ERROR;
     }
@@ -721,6 +733,67 @@ int fake_audio_ops(int op)
         n += fake.audio[i].op == op;
     }
     return n;
+}
+
+/* ---- The clock and holotapes ------------------------------------------- */
+
+int32_t dx_plat_set_time(uint32_t unix_seconds)
+{
+    if (fake.set_time_count < FAKE_MAX_SET_TIMES) {
+        fake.set_times[fake.set_time_count] = unix_seconds;
+    }
+    fake.set_time_count++;
+    if (fake.set_time_rc == 0 || fake.set_time_rc == DX_EIO) {
+        fake.clock = unix_seconds;
+        fake.clock_valid = 1;
+    }
+    return fake.set_time_rc;
+}
+
+void fake_add_holo(const char *file, int kind, const char *title, const uint8_t *icon)
+{
+    dx_holo_t *h = &fake.holos[fake.holo_count++];
+
+    memset(h, 0, sizeof(*h));
+    tfmt(h->file, sizeof(h->file), "%s", file);
+    tfmt(h->title, sizeof(h->title), "%s", title);
+    h->kind = (uint8_t)kind;
+    if (icon != NULL) {
+        memcpy(h->icon, icon, sizeof(h->icon));
+        for (int i = 0; i < DX_HOLO_ICON_SIZE; i++) {
+            h->has_icon |= icon[i] != 0;
+        }
+    }
+}
+
+int32_t dx_plat_holo_list(dx_holo_t *out, uint32_t max)
+{
+    int n = fake.holo_count < (int)max ? fake.holo_count : (int)max;
+
+    fake.holo_lists++;
+    if (max == 0 || max > DX_HOLO_MAX) {
+        return DX_EINVAL;
+    }
+    if (fake.holo_list_rc != 0) {
+        return fake.holo_list_rc;
+    }
+    memcpy(out, fake.holos, (size_t)n * sizeof(*out));
+    return n;
+}
+
+int32_t dx_plat_holo_launch(const char *file, const char *args)
+{
+    fake.launch_count++;
+    tfmt(fake.launch_file, sizeof(fake.launch_file), "%s", file);
+    tfmt(fake.launch_args, sizeof(fake.launch_args), "%s", args);
+    fake.launch_audio_at = fake.audio_count;
+    fake.launch_stops_at = fake_audio_ops(FAKE_AU_STOP);
+    fake.launch_writes_at = fake.save_writes;
+    /* The kernel stops the sound when a tape starts. */
+    fake.au_on = 0;
+    fake.au_wait = 0;
+    fake.ticks += fake.launch_draw_ms;
+    return fake.launch_rc;
 }
 
 /* Moves the voice to fake.ticks: a waiting sample takes over at the end. */

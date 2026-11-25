@@ -7,16 +7,15 @@ line: the shell draws before it takes the next event. At the list that
 key is Back, in the detail it is RIGHT.
 """
 
-import re
 import time
 
 from test_deitrix import boot_rom, golden, tabs, wait_ready, wait_tabs
 from test_model import card_target, mtools, wait_line
 from pipos_testing import TIMEOUT, no_exception, press, screenshot, script
+from conftest import serial_line
 
-# Whole lines only: the serial buffer can end in the middle of one.
-INV = re.compile(r"^deitrix: inv (.*?)\r?\n", re.M)
-COUNT = re.compile(r"^deitrix: inv count=(\d+)\r?\n", re.M)
+INV = serial_line(r"deitrix: inv (.*?)")
+COUNT = serial_line(r"deitrix: inv count=(\d+)")
 
 
 def inv_lines(vm):
@@ -189,4 +188,29 @@ def test_inv_hold_counts_up(board, kernel_image, card, need_mtools):
         # One step per event, from the file's 20.
         assert counts == list(range(21, 21 + len(counts))), counts
         assert len(counts) >= MIN_STEPS, f"held {held:.2f} s, {len(counts)} steps"
+        no_exception(vm)
+
+
+def test_inv_held_left_closes_the_detail_once(board, kernel_image, card, need_mtools):
+    """A held LEFT in the detail closes it, and its repeats change
+    neither the category nor the tab: the shell's held-key rule."""
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        to_inv(vm)
+        key(vm, "right", "cat=1 row=0")
+        key(vm, "select", "open=bread")
+        before = len(inv_lines(vm))
+        script(vm, "key left 1")
+        held = time.monotonic()
+        time.sleep(1.5)
+        script(vm, "key left 0")
+        assert time.monotonic() - held >= 1.5
+        seen = -1
+        while len(inv_lines(vm)) != seen:
+            seen = len(inv_lines(vm))
+            time.sleep(0.5)
+        # Back at the list logs idle: the frame is on screen.
+        key(vm, "back", "idle")
+        assert inv_lines(vm)[before:] == ["back row=0", "idle"], vm.serial
+        assert tabs(vm) == ["INV"], vm.serial
         no_exception(vm)

@@ -140,17 +140,17 @@ TEST(first_view)
     t = fake_find_text("Alder Brook");
     CHECK(t != NULL && t->fg == fake.theme.dim && t->x + 11 * 8 == 316);
     t = fake_find_text("House");
-    CHECK(t != NULL && t->fg == fake.theme.fg && t->x == 4 && t->y == 199);
+    CHECK(t != NULL && t->fg == fake.theme.fg && t->x == 4 && t->y == 197);
     t = fake_find_text("home");
-    CHECK(t != NULL && t->fg == fake.theme.dim && t->x + 4 * 8 == 316 && t->y == 199);
+    CHECK(t != NULL && t->fg == fake.theme.dim && t->x + 4 * 8 == 316 && t->y == 197);
     /* The lines dim, under the clip of the pane, and the clip off. */
-    CHECK(strstr(fake.draws, "clip 0 42 320 154\npolyline 8 open dim\npolyline 5 open dim\n") !=
+    CHECK(strstr(fake.draws, "clip 0 48 320 145\npolyline 8 open dim\npolyline 5 open dim\n") !=
           NULL);
     CHECK(strstr(fake.draws, "clip off\n") != NULL);
     /* The rule over the place row. */
-    CHECK(strstr(fake.draws, "line 4 196 315 196 faint\n") != NULL);
+    CHECK(strstr(fake.draws, "line 4 193 315 193 faint\n") != NULL);
     CHECK(fake_all_points_inside(dx_frame_body()));
-    CHECK_STR(hint(), "UP/DOWN: place  SELECT: open  RIGHT: map");
+    CHECK_STR(hint(), "UP/DOWN: place  SELECT: open");
     /* Later frames log the view and the time the map took. */
     fake.log[0] = '\0';
     key(DX_UI_DOWN);
@@ -167,7 +167,7 @@ TEST(markers)
     boot(SAMPLE);
     to_map();
     draw_body();
-    f = dx_map_pane_fit(&dx_content_maps()->maps[0], 0, 42, 320, 154);
+    f = dx_map_pane_fit(&dx_content_maps()->maps[0], 0, 48, 320, 145);
     /* An unselected place: a 5 px square in fg. */
     dx_map_to_px(&f, 70, 62, &px, &py);
     s = dx_map_square(px, py, DX_MAP_MARK);
@@ -211,7 +211,7 @@ TEST(detail_and_back)
         key(DX_UI_DOWN);
         key(DX_UI_SELECT);
         CHECK_STR(last_view(), "deitrix: map detail LOCAL place=1");
-        CHECK_STR(hint(), "BACK/LEFT: back to the map");
+        CHECK_STR(hint(), "BACK: map");
         draw_body();
         t = fake_find_text("Spring");
         CHECK(t != NULL && t->fg == fake.theme.fg && t->y == 23);
@@ -247,7 +247,7 @@ TEST(sub_tabs_and_neighbours)
     key(DX_UI_RIGHT);
     CHECK_INT(app.tab, TAB_MAP);
     CHECK_STR(last_view(), "deitrix: map shows WORLD place=0");
-    CHECK_STR(hint(), "UP/DOWN: place  SELECT: open  LEFT: map");
+    CHECK_STR(hint(), "UP/DOWN: place  SELECT: open");
     key(DX_UI_DOWN);
     /* RIGHT on the last sub-tab: RADIO. Back by the dial: this card has
      * no stations, so RADIO's cursor is on Volume and takes LEFT.
@@ -282,7 +282,7 @@ TEST(dial_leaves_the_detail)
     dial(-1);
     CHECK_INT(app.tab, TAB_MAP);
     CHECK_STR(last_view(), "");
-    CHECK_STR(hint(), "UP/DOWN: place  SELECT: open  RIGHT: map");
+    CHECK_STR(hint(), "UP/DOWN: place  SELECT: open");
     key(DX_UI_DOWN);
     CHECK_STR(last_view(), "deitrix: map shows LOCAL place=2");
 }
@@ -436,7 +436,7 @@ TEST(limits_inside_body)
         }
         CHECK_STR(last_view(), sub == 0 ? "deitrix: map shows LOCAL place=1"
                                         : "deitrix: map shows WORLD place=1");
-        CHECK(strlen(hint()) <= 40);
+        CHECK(strlen(hint()) <= DX_HINT_MAX);
         key(DX_UI_RIGHT);
     }
 }
@@ -449,12 +449,12 @@ TEST(hints_fit)
     for (f = 0; f < 4; f++) {
         boot(files[f]);
         to_map();
-        CHECK(strlen(hint()) <= 40);
+        CHECK(strlen(hint()) <= DX_HINT_MAX);
         key(DX_UI_SELECT);
-        CHECK(strlen(hint()) <= 40);
+        CHECK(strlen(hint()) <= DX_HINT_MAX);
         key(DX_UI_BACK);
         key(DX_UI_RIGHT);
-        CHECK(strlen(hint()) <= 40);
+        CHECK(strlen(hint()) <= DX_HINT_MAX);
     }
 }
 
@@ -467,4 +467,36 @@ TEST(zz_no_leaks)
 {
     fake_reset();
     CHECK_INT(fake_live_blocks(), 0);
+}
+
+/* The held-key rule through the shell: a held SELECT opens the detail
+ * once, a held LEFT or BACK closes it once, and the map and the tab
+ * stay. */
+TEST(held_keys_open_and_close_once)
+{
+    static const uint32_t backs[2] = { DX_BTN_LEFT, DX_BTN_BACK };
+    int i, n;
+
+    for (i = 0; i < 2; i++) {
+        boot(SAMPLE);
+        to_map();
+        fake.log[0] = '\0';
+        for (n = fake_hold(DX_BTN_SELECT, 12); n > 0; n--) {
+            dx_app_step(&app);
+        }
+        CHECK_STR(last_view(), "deitrix: map detail LOCAL place=0");
+        CHECK(strstr(fake.log, "detail LOCAL place=0") ==
+              strstr(fake.log, "detail LOCAL"));
+        for (n = fake_hold(backs[i], 12); n > 0; n--) {
+            dx_app_step(&app);
+        }
+        CHECK_INT(app.tab, TAB_MAP);
+        CHECK_STR(last_view(), "deitrix: map shows LOCAL place=0");
+        /* The next fresh LEFT acts again: LOCAL is the first map, so
+         * the shell changes the tab. */
+        for (n = fake_hold(DX_BTN_LEFT, 0); n > 0; n--) {
+            dx_app_step(&app);
+        }
+        CHECK_INT(app.tab, TAB_MAP - 1);
+    }
 }

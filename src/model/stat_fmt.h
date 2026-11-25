@@ -29,7 +29,7 @@ void dx_stat_soc(uint32_t soc, char out[DX_STAT_TEXT_SIZE]);
 void dx_stat_mem(uint32_t bytes, char out[DX_STAT_TEXT_SIZE]);
 
 /* "Dd hh:mm:ss" for milliseconds, such as "0d 00:01:05". */
-void dx_stat_uptime(uint32_t ms, char out[DX_STAT_TEXT_SIZE]);
+void dx_stat_uptime(uint32_t seconds, char out[DX_STAT_TEXT_SIZE]);
 
 /* "YYYY-MM-DD hh:mm:ss UTC" for Unix seconds, "no clock" when !valid. */
 void dx_stat_datetime(int valid, uint32_t unix_seconds, char out[DX_STAT_TEXT_SIZE]);

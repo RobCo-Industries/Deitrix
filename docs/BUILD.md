@@ -6,7 +6,7 @@ Deitrix has only run in the QEMU emulator so far. The steps for a real card foll
 
 ## Tools
 
-Deitrix needs the same tools as Pip-OS. Pip-OS's [BUILD.md](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/BUILD.md#tools) and RobCo-Core's [getting started guide](https://github.com/RobCo-Industries/RobCo-Core/blob/00d9a2d1efa10b08ea1c14f087f7e3316647d6a1/docs/guide/GETTING_STARTED.md#prerequisites) list them. The versions below come from those guides.
+Deitrix needs the same tools as Pip-OS. Pip-OS's [BUILD.md](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/BUILD.md#tools) and RobCo-Core's [getting started guide](https://github.com/RobCo-Industries/RobCo-Core/blob/f5bba36132a0b10940898c681dde50b453bfffad/docs/guide/GETTING_STARTED.md#prerequisites) list them. The versions below come from those guides.
 
 | Tool | Version | Used for |
 |---|---|---|
@@ -57,7 +57,7 @@ git submodule update --init --recursive
 make
 ```
 
-This writes `build/ROM1.ROM`, the Deitrix ROM sealed by the Pip-OS SDK. It takes a few seconds. Other files in `build/`:
+This writes `build/ROM1.ROM`, the Deitrix ROM sealed by the Pip-OS SDK, and `build/holo/CULVERT.HTP`, the Culvert holotape. It takes a few seconds. Other files in `build/`:
 
 | Path | What it is |
 |---|---|
@@ -66,9 +66,10 @@ This writes `build/ROM1.ROM`, the Deitrix ROM sealed by the Pip-OS SDK. It takes
 | `build/gen/icons.c` | The icons, made from `assets/*.pbm` |
 | `build/card/` | The card tree, from `make card-tree` |
 | `build/pcm/` | The two generated radio tracks |
+| `build/holo/CULVERT.HTP` | The Culvert holotape. It goes on the card as `PIPBOY/HOLO/CULVERT.HTP`. |
 | `build/pipos/` | The Pip-OS kernel and the card image |
 
-The SDK's guide is Pip-OS's [ROM_DEVELOPMENT.md](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/ROM_DEVELOPMENT.md).
+The SDK's guide is Pip-OS's [ROM_DEVELOPMENT.md](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/ROM_DEVELOPMENT.md).
 
 ## Run it in QEMU
 
@@ -106,7 +107,7 @@ This writes `build/pipos/sd.img`, a 64 MiB FAT32 image for QEMU:
 | `PIPOS.IMG`, `config.txt` | The Pip-OS kernel and its boot config |
 | `PIPBOY/PIPOS.CFG` | Pip-OS's sample settings, green scheme |
 | `PIPBOY/ROM1.ROM` | `build/ROM1.ROM` |
-| `PIPBOY/HOLO/` | The holotapes |
+| `PIPBOY/HOLO/CULVERT.HTP` | `build/holo/CULVERT.HTP`, through Pip-OS's `TAPE=` list |
 | everything else | `build/card/`, copied to the card root |
 
 `build/card/` is `content/` plus `PIPBOY/DATA/RADIO/HEARTH.PCM` and `DRIFT.PCM`. `tools/mkpcm.py` generates the two tracks into `build/pcm/`, 250 KiB each, so git does not hold them. `tools/mkpcm.py --list` names them, and each one is its own make target. A track is made again when it is missing or when `tools/mkpcm.py` changes. The copy of `content/` runs every time. `tools/check_content.py` then checks `build/card/`, so a station whose file is missing stops `sdimage`, `run` and `bootdir`.
@@ -115,7 +116,7 @@ To put a file on the card, add it under `content/` at the path it should have. [
 
 ## Put it on a real card
 
-This follows Pip-OS's [A real card](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/BUILD.md#a-real-card). It has not been tried on hardware.
+This follows Pip-OS's [A real card](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/BUILD.md#a-real-card). It has not been tried on hardware.
 
 ```sh
 make bootdir DIR=card
@@ -129,13 +130,14 @@ This writes the files of the card into the folder `card/`: the Raspberry Pi firm
 
 The firmware comes from the network. `FIRMWARE=0` leaves it out, so the command needs no network. You then copy the firmware yourself.
 
-`bootdir` keeps a `PIPBOY/PIPOS.CFG` that is already in the folder. It writes `BOOTDIR.LST`, the list of files it wrote. Running it again into the same folder can stop and list old files. Use a new folder, or `CLEAN=1` to remove the files an earlier run wrote. Pip-OS's [Running bootdir again](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/BUILD.md#running-bootdir-again) gives every rule.
+`bootdir` keeps a `PIPBOY/PIPOS.CFG` that is already in the folder. It writes `BOOTDIR.LST`, the list of files it wrote. Running it again into the same folder can stop and list old files. Use a new folder, or `CLEAN=1` to remove the files an earlier run wrote. Pip-OS's [Running bootdir again](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/BUILD.md#running-bootdir-again) gives every rule.
 
 ## Make targets
 
 | Target | What it does |
 |---|---|
-| `make`, `make all` | Builds `build/ROM1.ROM` with the SDK |
+| `make`, `make all` | Builds `build/ROM1.ROM` and the holotapes with the SDK |
+| `make holotapes` | Builds the holotapes only: `build/holo/CULVERT.HTP` |
 | `make run` | Builds the card and boots it in QEMU on this terminal |
 | `make sdimage` | Builds the card image, `build/pipos/sd.img` |
 | `make bootdir DIR=<path>` | Writes the files of a real card into a folder |
@@ -172,8 +174,8 @@ The firmware comes from the network. `FIRMWARE=0` leaves it out, so the command 
 
 - `all` includes the SDK's `pipos-app.mk` with `KIND=rom`, `NAME=DEITRIX` and `TITLE=Deitrix`.
 - `test-host` includes RobCo-Core's `mk/host.mk` for the C tests.
-- `kernel`, `sdimage`, `run` and `bootdir` call the same targets in Pip-OS's Makefile, with `BUILD=build/pipos`. This is the interface of Pip-OS's [Using Pip-OS from another repository](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/ROM_DEVELOPMENT.md#using-pip-os-from-another-repository).
-- `sdimage`, `run` and `bootdir` pass `ROM`, `TAPE` and `CARD_DIR=build/card`. `bootdir` also passes `DIR`, `FIRMWARE` and `CLEAN`. Pip-OS writes the same files to the card and to the folder.
+- `kernel`, `sdimage`, `run` and `bootdir` call the same targets in Pip-OS's Makefile, with `BUILD=build/pipos`. This is the interface of Pip-OS's [Using Pip-OS from another repository](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/ROM_DEVELOPMENT.md#using-pip-os-from-another-repository).
+- `sdimage`, `run` and `bootdir` pass `ROM=build/ROM1.ROM`, `TAPE=build/holo/CULVERT.HTP` and `CARD_DIR=build/card`. `bootdir` also passes `DIR`, `FIRMWARE` and `CLEAN`. Pip-OS writes the same files to the card and to the folder.
 - Pip-OS checks the staged card. Two paths that differ only in case stop the build, and a name longer than 8.3 gets a warning. `tools/check_content.py` already refuses any name under `PIPBOY/DATA/` that is not upper-case 8.3, so the Deitrix content passes with no warning.
 - `check-pins` runs RobCo-Core's `tools/check_pins.sh` on the CI workflow, then its `tools/check_doc_links.sh` twice: once with `--repo RobCo-Industries/Pip-OS` for `external/pip-os`, once for the RobCo-Core inside it.
 

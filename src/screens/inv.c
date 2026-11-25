@@ -165,7 +165,7 @@ static unsigned list_event(const dx_items_t *it, const dx_ui_event_t *ev)
         }
         s.detail = dx_inv_item_at(it, s.cat, l.sel);
         log_line("open=", it->items[s.detail].id, -1);
-        return DX_UI_HANDLED | DX_UI_DIRTY;
+        return DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL;
     }
     r = dx_list_event(&l, ev);
     if (r & DX_UI_HANDLED) {
@@ -187,7 +187,7 @@ static unsigned detail_event(dx_items_t *it, const dx_ui_event_t *ev)
     if (dx_ui_is_back(ev)) {
         s.detail = -1;
         log_line("back row=", NULL, s.sel[s.cat]);
-        return DX_UI_HANDLED | DX_UI_DIRTY;
+        return DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL;
     }
     switch (ev->type) {
     case DX_UI_UP:
@@ -263,7 +263,7 @@ static void draw_detail(const dx_items_t *it, const dx_ctx_t *ctx, dx_rect_t are
     int n = 0;
     dx_rect_t r;
 
-    dx_text_cut(ctx, area.x + PAD, area.y + 2, item->name, (area.w - 2 * PAD) / DX_FONT_W,
+    dx_text_cut(ctx, area.x + PAD, area.y + DX_GRID_BAND_TEXT_DY, item->name, (area.w - 2 * PAD) / DX_FONT_W,
                 ctx->theme.fg, DX_COLOR_NONE);
     ctx->gfx->line(area.x, area.y + DX_SUBTABS_H - 1, area.x + area.w - 1,
                    area.y + DX_SUBTABS_H - 1, ctx->theme.faint);
@@ -325,7 +325,7 @@ static void draw_empty(const dx_items_t *it, const dx_ctx_t *ctx, dx_rect_t area
 
     dx_text_centered(ctx, y - DX_ROW_H / 2, "No items on the card.", ctx->theme.fg, 1);
     if (it->load.status != DX_LOAD_OK) {
-        dx_placeholder_reason(&it->load, "ITEMS.INI", reason, sizeof(reason));
+        dx_file_reason(&it->load, "ITEMS.INI", reason, sizeof(reason));
         dx_text_centered(ctx, y + DX_ROW_H, reason, ctx->theme.dim, 1);
     }
 }
@@ -375,12 +375,12 @@ static const char *hint(void *st)
         return NULL;
     }
     if (s.detail >= 0) {
-        return "UP/DOWN: count  SELECT: mark  BACK";
+        return "UP/DOWN: +/-  SELECT: mark  BACK: list";
     }
     if (dx_inv_cat_entries(it, s.cat) == 0) {
-        return "LEFT/RIGHT: category  DIAL: tab";
+        return DX_HINT_PAGE;
     }
-    return "UP/DOWN: item  SELECT: open";
+    return "UP/DOWN: move  SELECT: open";
 }
 
 const dx_screen_t dx_screen_inv = {

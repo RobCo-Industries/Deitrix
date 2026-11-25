@@ -64,6 +64,8 @@ typedef struct dx_ui_event {
  *   When the screen ignores them, the shell changes the tab. The shell
  *   ignores BACK: it never changes the tab.
  * - The dial push is SELECT. The dial turn always changes the tab.
+ * A screen returns DX_UI_LEVEL with an event that opens or closes a
+ * level; the shell then swallows that key's repeats (ui/latch.h).
  * A screen with levels tests dx_ui_is_back(), so the Back button, the
  * QEMU console's Backspace and LEFT all work the same. A Pip-OS older
  * than ABI 1.2 never sends Back: LEFT still works there.
@@ -83,6 +85,9 @@ int dx_ui_translate(const dx_event_t *ev, dx_ui_event_t *out);
 #define DX_UI_IGNORED 0u
 #define DX_UI_HANDLED 1u
 #define DX_UI_DIRTY   2u
+/* Set with DX_UI_HANDLED when the event opened or closed a nested view.
+ * The shell then swallows the repeats of that key: see ui/latch.h. */
+#define DX_UI_LEVEL   4u
 
 /* ---- Tick arithmetic ---------------------------------------------------- */
 

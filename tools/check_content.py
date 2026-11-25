@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Checks a Deitrix content tree against docs/CONTENT.md.
 
-    tools/check_content.py <dir>
+    tools/check_content.py [--generated NAME.PCM]... <dir>
 
 <dir> is the card root: it holds PIPBOY/DATA. Prints one
 "<path>:<line>: <message>" per problem, line 0 for the whole file, and
-exits 1. Exits 0 and prints nothing when the tree is valid. Standard
-library only, Python 3.9+.
+exits 1. Exits 0 and prints nothing when the tree is valid. Exits 2 for
+bad arguments; --help prints the usage and exits 0. Standard library
+only, Python 3.9+.
 """
 
+import argparse
 import os
 import re
 import sys
@@ -642,16 +644,21 @@ def check_tree(root, generated=()):
     return rep.errors
 
 
+def parse_args(argv):
+    parser = argparse.ArgumentParser(
+        prog="check_content.py",
+        description="Checks a Deitrix content tree against docs/CONTENT.md. Prints one "
+                    "<path>:<line>: <message> per problem and exits 1, or exits 0 when "
+                    "the tree is valid.")
+    parser.add_argument("--generated", action="append", default=[], metavar="NAME.PCM",
+                        help="a radio track the build makes: allowed to be missing")
+    parser.add_argument("dir", help="the card root, which holds PIPBOY/DATA")
+    return parser.parse_args(argv)
+
+
 def main(argv=None):
-    argv = sys.argv[1:] if argv is None else argv
-    generated = []
-    while len(argv) >= 2 and argv[0] == "--generated":
-        generated.append(argv[1])
-        argv = argv[2:]
-    if len(argv) != 1:
-        print("usage: check_content.py [--generated NAME.PCM]... <dir>", file=sys.stderr)
-        return 2
-    errors = check_tree(argv[0], generated)
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    errors = check_tree(args.dir, args.generated)
     for e in errors:
         print(e)
     return 1 if errors else 0

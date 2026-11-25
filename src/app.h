@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 
+#include "ui/latch.h"
 #include "ui/ui.h"
 
 /*
@@ -45,6 +46,7 @@ typedef struct dx_app {
     int svc_on[DX_SERVICES_MAX];       /* the service has a wake time */
     uint32_t svc_wake[DX_SERVICES_MAX];
     void (*tab_changed)(int tab);      /* optional: told after each tab change */
+    dx_latch_t latch;                  /* the held-key rule: ui/latch.h */
 } dx_app_t;
 
 /*
@@ -80,7 +82,9 @@ void dx_app_set_tab(dx_app_t *app, int tab);
 void dx_app_step(dx_app_t *app);
 
 /* Routes one event: the dial changes the tab, every other event goes to
- * the screen first, and LEFT or RIGHT it ignores change the tab. */
+ * the screen first, and LEFT or RIGHT it ignores change the tab. The
+ * repeats of a key whose press changed the level are dropped first:
+ * see ui/latch.h. */
 void dx_app_route(dx_app_t *app, const dx_ui_event_t *ev);
 
 /* Runs dx_app_step forever over dx_rom_screens. */

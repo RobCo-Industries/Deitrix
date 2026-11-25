@@ -95,9 +95,9 @@ static void hms(dx_sb_t *sb, uint32_t s)
     two(sb, s % 60u);
 }
 
-void dx_stat_uptime(uint32_t ms, char out[DX_STAT_TEXT_SIZE])
+void dx_stat_uptime(uint32_t seconds, char out[DX_STAT_TEXT_SIZE])
 {
-    uint32_t s = ms / 1000u;
+    uint32_t s = seconds;
     dx_sb_t sb;
 
     dx_sb_init(&sb, out, DX_STAT_TEXT_SIZE);
