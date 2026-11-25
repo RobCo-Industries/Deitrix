@@ -38,7 +38,7 @@ When the level is solved, the network flashes and a short tune plays. Then the s
 
 ## What is saved
 
-Culvert keeps one save, `CULVERT`, in `/PIPBOY/SAVE`. It holds the highest level you reached and, for each grid size, the fewest moves you solved a level of that size in. It is written each time you solve a level. A missing or damaged save starts fresh, with no message.
+Culvert keeps one save, `CULVERT.SAV`, in `/PIPBOY/SAVE`. It holds the highest level you reached and, for each grid size, the fewest moves you solved a level of that size in. It is written each time you solve a level. A missing or damaged save starts fresh, with no message.
 
 ## Sound
 

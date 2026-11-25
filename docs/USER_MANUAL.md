@@ -333,7 +333,7 @@ The time stops while the menu is open.
 
 ### How Culvert saves
 
-Culvert writes its save, `CULVERT` in `/PIPBOY/SAVE/`, each time you solve a level. It keeps the highest level you reached and, for each grid size, your fewest moves. A level you quit before solving is not saved. A missing or damaged save starts fresh, with no message.
+Culvert writes its save, `CULVERT.SAV` in `/PIPBOY/SAVE/`, each time you solve a level. It keeps the highest level you reached and, for each grid size, your fewest moves. A level you quit before solving is not saved. A missing or damaged save starts fresh, with no message.
 
 ### Sound
 
@@ -407,7 +407,7 @@ You never save by hand. Deitrix writes a file 2 seconds after the last change, a
 
 When the card cannot be written, Deitrix tries again 5 seconds later, up to 3 times, then waits for the next change. Your changes stay on screen but are not on the card, and the header shows the [unsaved mark](#the-unsaved-mark). They are lost at power-off. On TAPES, starting a tape then shows `Save failed. SELECT again runs it.`.
 
-To start over, delete `DEITRIX.SAV` and `INV.SAV` from the card's `/PIPBOY/SAVE/` folder on a computer. Delete `CULVERT` to start Culvert over. Leave files whose names start with `~` or `#` in place: Pip-OS uses them to finish an interrupted save.
+To start over, delete `DEITRIX.SAV` and `INV.SAV` from the card's `/PIPBOY/SAVE/` folder on a computer. Delete `CULVERT.SAV` from the same folder to start Culvert over. Leave files whose names start with `~` or `#` in place: Pip-OS uses them to finish an interrupted save.
 
 ## The clock
 
@@ -458,7 +458,7 @@ Everything Deitrix shows comes from text files in `/PIPBOY/DATA/` on the card. E
 | `Tape was stopped by the system.` | The tape crashed | Report it to the tape's author |
 | `Not a holotape.` | The file is damaged or not a holotape | Copy the tape again |
 | `Data tapes cannot be started.` | The tape holds data only | Nothing to do: it is not a program |
-| Culvert starts at level 1 again | Its save `CULVERT` was missing or damaged | Nothing to fix. The next solved level writes a new save. |
+| Culvert starts at level 1 again | Its save `CULVERT.SAV` was missing or damaged | Nothing to fix. The next solved level writes a new save. |
 | `No map on the card.` | `MAP.INI` is missing, broken or holds no valid map | Read the line under it. Run `tools/check_content.py`. |
 | `No stations on the card.` | `RADIO.INI` is missing or broken | Read the line under it. Run `tools/check_content.py`. |
 | A dim station, or `Station has nothing to play.` | The station's file is missing or broken | Put the file named on the second line in `/PIPBOY/DATA/RADIO/` |
