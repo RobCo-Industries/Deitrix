@@ -4,26 +4,18 @@ Deitrix is the user environment of a wrist computer, the ROM that [Pip-OS](https
 
 ## Status
 
-Deitrix has a UI framework, a data model and five tabs. It boots on Pip-OS in QEMU. Every frame shows:
+Deitrix has a UI framework, a data model, five tabs and one holotape game. It boots on Pip-OS in QEMU. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
 
-- a tab bar with STAT, INV, DATA, MAP and RADIO, the active tab drawn as a filled block;
-- the time as `HH:MM` in UTC at the top right, or `--:--` when Pip-OS has no clock, with a `!` before it while changes could not be saved to the card;
-- the active tab's body;
-- a key hint at the bottom.
+Every frame shows a tab bar with STAT, INV, DATA, MAP and RADIO, the time as `HH:MM` in UTC or `--:--`, the active tab's body, and a key hint at the bottom. A `!` left of the clock says changes have not reached the card for 12 s.
 
-STAT is built: the owner and gauges, the attributes, and the device data. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#stat).
+- STAT: the owner and gauges, the attributes, and the device data with the uptime.
+- INV: the items of ITEMS.INI by category, a detail per item, and counts and marks kept in INV.SAV.
+- DATA: the notes, the TAPES list that runs holotapes, and the clock with a time setter.
+- MAP: the local and world maps with their places, and a detail per place.
+- RADIO: the stations of RADIO.INI, what plays now, the volume and the UI sounds, kept in DEITRIX.SAV.
+- Culvert: a pipe-turning puzzle holotape with generated levels, on the card as `PIPBOY/HOLO/CULVERT.HTP`.
 
-INV is built: the items of ITEMS.INI by category, a detail per item, and counts and marks the owner changes, kept in INV.SAV. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#inv).
-
-DATA is built: the notes, the holotape launcher, and the clock with a time setter. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#data).
-
-MAP is built: the local and world maps with their places, and a detail per place. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#map).
-
-RADIO is built: the stations of RADIO.INI, what plays now, the volume and the UI sounds, kept in DEITRIX.SAV. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#radio).
-
-Culvert, a pipe-turning puzzle, ships on the card as the holotape `CULVERT.HTP`. Start it from DATA, TAPES. See [docs/CULVERT.md](docs/CULVERT.md).
-
-At start the ROM loads the content under `/PIPBOY/DATA/` on the card and its two saves. The formats are in [docs/CONTENT.md](docs/CONTENT.md). The dial, LEFT and RIGHT move between tabs and wrap at both ends. On STAT, INV, DATA and MAP, LEFT and RIGHT move between the sub-tabs first. On RADIO the Volume and UI sounds rows take them. BACK and LEFT go back one level in a nested view. SELECT on RADIO starts or stops the station under the cursor: tunes play through `play_seq`, PCM tracks stream in chunks. The radio keeps playing on other tabs. The last tab and station are saved a moment after they change. A test-only gallery ROM shows every widget of the framework. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
+Every tab follows one held-key rule, one footer hint style and one layout grid. [docs/USER_MANUAL.md](docs/USER_MANUAL.md) shows each screen. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the code.
 
 ## Build
 
@@ -33,7 +25,7 @@ cd Deitrix
 make
 ```
 
-`make` writes `build/ROM1.ROM`. The tools are the same as for Pip-OS: see [docs/BUILD.md](docs/BUILD.md).
+`make` writes `build/ROM1.ROM` and the Culvert holotape, `build/holo/CULVERT.HTP`. The tools are the same as for Pip-OS: see [docs/BUILD.md](docs/BUILD.md).
 
 ## Run in QEMU
 
@@ -45,8 +37,10 @@ This builds the Pip-OS kernel and a card with Deitrix, then boots it in QEMU on 
 
 | Key | Does |
 |---|---|
-| Right arrow | Next tab, or stays inside a nested view |
-| Left arrow | Previous tab, or back one level in a nested view |
+| Up and down arrows | UP and DOWN |
+| Right arrow | Next sub-tab or tab, or nothing inside a nested view |
+| Left arrow | Previous sub-tab or tab, or back one level in a nested view |
+| Enter | SELECT |
 | Backspace, or Escape alone | Back: one level up in a nested view. It never changes the tab. |
 | Ctrl-A, then x | Quits QEMU |
 
@@ -62,18 +56,21 @@ make test BOARD=raspi0
 
 See [docs/TESTING.md](docs/TESTING.md).
 
-## Docs
+## Documentation
 
-- [docs/BUILD.md](docs/BUILD.md): tools, make targets, card layout.
+- [docs/USER_MANUAL.md](docs/USER_MANUAL.md): how to use the device, tab by tab, with troubleshooting.
+- [docs/BUILD.md](docs/BUILD.md): tools, make targets and variables, building and writing a card.
 - [docs/CONTENT.md](docs/CONTENT.md): content files, tunes, PCM tracks and saves.
+- [docs/ASSETS.md](docs/ASSETS.md): every asset, where it comes from and its licence.
+- [docs/CULVERT.md](docs/CULVERT.md): the Culvert holotape, how to play it.
 - [docs/TESTING.md](docs/TESTING.md): test layers, goldens.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): source layout and main loop.
-- [docs/CULVERT.md](docs/CULVERT.md): the Culvert holotape, how to play it.
-- [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md).
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute.
+- [CHANGELOG.md](CHANGELOG.md): what changed.
 
 ## Assets
 
-All artwork, fonts, sounds, music, maps and text in this repo are original. Nothing is copied from the Fallout games.
+All artwork, sounds, music, maps and text in this repo are original. Nothing is copied from the Fallout games. The text font comes from Pip-OS: see [docs/ASSETS.md](docs/ASSETS.md).
 
 ## Licence
 

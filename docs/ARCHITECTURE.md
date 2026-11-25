@@ -473,7 +473,7 @@ A holotape is a separate image. DATA's TAPES list starts it with `holo_launch`, 
 
 ### Culvert
 
-Culvert is a pipe-turning puzzle, a game tape of about 14 KiB. Its save `CULVERT` sits in `/PIPBOY/SAVE` beside DEITRIX.SAV and INV.SAV, and none of them reads another. [CULVERT.md](CULVERT.md) says how to play it.
+Culvert is a pipe-turning puzzle, a game tape of about 14 KiB. Its save `CULVERT.SAV` sits in `/PIPBOY/SAVE` beside DEITRIX.SAV and INV.SAV, and none of them reads another. [CULVERT.md](CULVERT.md) says how to play it.
 
 | File | Role |
 |---|---|

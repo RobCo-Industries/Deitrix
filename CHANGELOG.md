@@ -39,6 +39,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 - `make check-pins` and `tools/check_pipos_links.sh`.
 - CI through RobCo-Core's reusable workflow.
 - README, build, testing, architecture and contributing docs.
+- `docs/USER_MANUAL.md` for the person who wears the device, `docs/ASSETS.md` for every asset and its licence, and a build guide for Mac and Linux in `docs/BUILD.md`.
 - A UI framework: a drawing table in the platform layer, a theme with dim and faint shades, UI events, a screen interface and an app shell that routes keys to the active screen. Each tab is a screen in `src/screens/`.
 - Widgets: a list, a text block, a gauge, key and value rows, sub-tabs, 1-bit icons and a stroke font for large text.
 - `tools/pbm2c.py`, which turns the icons in `assets/` into C at build time.
