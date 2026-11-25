@@ -114,6 +114,20 @@ This writes `build/pipos/sd.img`, a 64 MiB FAT32 image for QEMU:
 
 To put a file on the card, add it under `content/` at the path it should have. [CONTENT.md](CONTENT.md) lists the files Deitrix reads and their formats.
 
+## Holotapes
+
+A holotape is a program Deitrix runs from DATA, TAPES. Each one lives in its own folder under `holotapes/`, with a Makefile that includes the SDK's `pipos-app.mk` with `KIND := holotape`. The only one today is Culvert, in `holotapes/culvert/`.
+
+```sh
+make holotapes
+```
+
+This builds `build/holo/CULVERT.HTP`. `make` builds it too, with the ROM.
+
+Deitrix's Makefile lists the tapes in `TAPES` and passes them to Pip-OS as `TAPE=build/holo/CULVERT.HTP`. Pip-OS copies every file of that list to `PIPBOY/HOLO/` under its own name. So `make sdimage`, `make run` and `make bootdir` all put Culvert on the card, and Pip-OS's example tape is not there. To add a tape, give it a folder under `holotapes/`, then add its build and its `.HTP` file to the `holotapes` goal and to `TAPES`. Pip-OS's [BUILD.md](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/BUILD.md) gives the rules for `TAPE`: names end in `.HTP`, and two names may not differ only in case.
+
+To put a tape on a card by hand, copy its `.HTP` file to the card's `/PIPBOY/HOLO/` folder.
+
 ## Put it on a real card
 
 This follows Pip-OS's [A real card](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/BUILD.md#a-real-card). It has not been tried on hardware.
