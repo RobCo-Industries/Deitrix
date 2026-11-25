@@ -15,12 +15,12 @@
 #include "content.h"
 #include "services/services.h"
 #include "ui/frame.h"
+#include "ui/gauge.h"
 #include "ui/list.h"
 
 #define PAD_L    12 /* as the list's label */
 #define PAD_R    4
 #define BAR_X    108
-#define BAR_H    10
 #define GAP      8
 #define LOG_CAP  64 /* "deitrix: radio shows Cannot play ", a name of 20, "\n" */
 #define MARK     "ON AIR"
@@ -273,36 +273,35 @@ static void draw_now(const dx_radio_t *r, const dx_ctx_t *ctx, dx_rect_t area)
     }
 }
 
-/* One setting row: the label, an optional bar for `level` of 100, the
- * value at the right. Inverse when selected. */
+/* The UI sounds row: the label and the value at the right, inverse when
+ * selected, in the colours of the Volume gauge. */
 static void setting_row(const dx_ctx_t *ctx, dx_rect_t area, int y, const char *label,
-                        int level, const char *value, int selected)
+                        const char *value, int selected)
 {
     const dx_theme_t *t = &ctx->theme;
-    uint32_t fg = t->fg;
-    uint32_t bg = DX_COLOR_NONE;
+    uint32_t fg = selected ? t->bg : t->fg;
+    uint32_t bg = selected ? t->fg : DX_COLOR_NONE;
     int right = area.x + area.w - PAD_R;
-    int vx = right - dx_text_width(value, 1);
 
     if (selected) {
         ctx->gfx->rect(area.x, y, area.w, DX_ROW_H, t->fg, 1);
-        fg = t->bg;
-        bg = t->fg;
     }
-    ctx->gfx->text(area.x + PAD_L, y, label, fg, bg, 1);
-    if (level >= 0) {
-        /* The bar ends where a value of three digits would start. */
-        int bx = area.x + BAR_X;
-        int bw = right - 3 * DX_FONT_W - GAP - bx;
-        int by = y + (DX_ROW_H - BAR_H) / 2;
-        int fill = level * (bw - 4) / DX_VOLUME_MAX;
+    ctx->gfx->text(area.x + PAD_L, y, label, selected ? t->bg : t->dim, bg, 1);
+    ctx->gfx->text(right - dx_text_width(value, 1), y, value, fg, bg, 1);
+}
 
-        ctx->gfx->rect(bx, by, bw, BAR_H, selected ? t->bg : t->dim, 0);
-        if (fill > 0) {
-            ctx->gfx->rect(bx + 2, by + 2, fill, BAR_H - 4, fg, 1);
-        }
-    }
-    ctx->gfx->text(vx, y, value, fg, bg, 1);
+/* The Volume row: the gauge widget, its bar from BAR_X, three digits at
+ * the right, inverse when selected. */
+static void volume_row(const dx_ctx_t *ctx, dx_rect_t area, int y, int volume, int selected)
+{
+    dx_gauge_t g;
+
+    dx_gauge_init(&g, "Volume", volume, DX_VOLUME_MAX);
+    g.selected = selected;
+    g.value_only = 1;
+    g.pad = PAD_L;
+    dx_gauge_draw(&g, ctx, (dx_rect_t){ area.x, y, area.w, DX_ROW_H },
+                  (BAR_X - PAD_L - GAP) / DX_FONT_W, 3);
 }
 
 static void draw_empty(const dx_radio_t *r, const dx_ctx_t *ctx, dx_rect_t area)
@@ -321,7 +320,6 @@ static void draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
 {
     const dx_radio_t *r = dx_content_radio();
     const dx_settings_t *set = dx_content_settings();
-    char num[12];
     dx_list_t l;
     int y;
 
@@ -341,10 +339,9 @@ static void draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
     draw_now(r, ctx, area);
     y = area.y + DX_RADIO_RULE2_DY;
     ctx->gfx->line(area.x, y, area.x + area.w - 1, y, ctx->theme.faint);
-    dx_itoa(set->volume, num);
     y = area.y + DX_RADIO_SET_DY;
-    setting_row(ctx, area, y, "Volume", set->volume, num, sel == row_volume(r));
-    setting_row(ctx, area, y + DX_ROW_H, "UI sounds", -1, set->ui_sound ? "On" : "Off",
+    volume_row(ctx, area, y, set->volume, sel == row_volume(r));
+    setting_row(ctx, area, y + DX_ROW_H, "UI sounds", set->ui_sound ? "On" : "Off",
                 sel == row_sound(r));
 }
 
@@ -355,15 +352,15 @@ static const char *hint(void *st)
     (void)st;
     sync(r);
     if (sel == row_volume(r)) {
-        return "LEFT/RIGHT: volume  UP/DOWN: move";
+        return "UP/DOWN: move  LEFT/RIGHT: volume";
     }
     if (sel == row_sound(r)) {
-        return "SELECT: UI sounds on/off  UP/DOWN: move";
+        return "UP/DOWN: move  SELECT: sound on/off";
     }
     if (dx_radio_current() == sel) {
-        return "UP/DOWN: station  SELECT: stop";
+        return "UP/DOWN: move  SELECT: stop";
     }
-    return "UP/DOWN: station  SELECT: play";
+    return "UP/DOWN: move  SELECT: play";
 }
 
 const dx_screen_t dx_screen_radio = {

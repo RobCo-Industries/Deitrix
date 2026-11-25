@@ -21,11 +21,11 @@
 #define DX_ABOUT_MAX         8
 #define DX_ABOUT_LINE_MAX    38
 
-typedef struct dx_gauge {
+typedef struct dx_profile_gauge {
     uint16_t value; /* 0 to max */
     uint16_t max;   /* 1 to 9999 */
     char name[DX_GAUGE_NAME_MAX + 1];
-} dx_gauge_t;
+} dx_profile_gauge_t;
 
 typedef struct dx_attr {
     uint8_t value; /* 0 to 99 */
@@ -37,7 +37,7 @@ typedef struct dx_profile {
     char name[DX_OWNER_NAME_MAX + 1]; /* empty: no name row */
     char line[DX_OWNER_LINE_MAX + 1];
     /* Entries in ascending N, gaps closed. */
-    dx_gauge_t gauges[DX_GAUGES_MAX];
+    dx_profile_gauge_t gauges[DX_GAUGES_MAX];
     int gauge_count;
     dx_attr_t attrs[DX_ATTRS_MAX];
     int attr_count;

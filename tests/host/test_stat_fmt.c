@@ -7,7 +7,7 @@ static const char *up(uint32_t ms)
 {
     static char buf[DX_STAT_TEXT_SIZE];
 
-    dx_stat_uptime(ms, buf);
+    dx_stat_uptime(ms / 1000u, buf);
     return buf;
 }
 

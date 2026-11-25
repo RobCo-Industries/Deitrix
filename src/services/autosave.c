@@ -18,6 +18,8 @@ static uint32_t first_ms;  /* the first change since the last write */
 static uint32_t last_ms;   /* the latest change */
 static int failures;       /* failed attempts in a row */
 static uint32_t retry_ms;  /* the next attempt after a failure */
+static uint32_t dirty_ms;  /* when dirty last turned on from 0 */
+static int marked;         /* the header shows the unsaved mark */
 static uint8_t buf[DX_INV_SAVE_MAX];
 
 void dx_autosave_attach(dx_settings_t *s, dx_items_t *it)
@@ -34,6 +36,11 @@ int dx_autosave_pending(void)
 int dx_autosave_unsaved(void)
 {
     return dirty != 0;
+}
+
+int dx_autosave_marked(void)
+{
+    return marked;
 }
 
 static void note_changes(uint32_t now_ms)
@@ -55,6 +62,9 @@ static void note_changes(uint32_t now_ms)
     if ((dirty & ~stalled) == 0 || (found & stalled) != 0) {
         first_ms = now_ms;
         failures = 0;
+    }
+    if (dirty == 0) {
+        dirty_ms = now_ms;
     }
     stalled &= ~found;
     dirty |= found;
@@ -144,11 +154,35 @@ int dx_autosave_flush(uint32_t now_ms)
     return dirty != 0;
 }
 
-/* No screen shows the saves' state, so the tick never asks for a redraw. */
+/* The earlier of two wake times, 0 meaning none. */
+static uint32_t earlier(uint32_t now_ms, uint32_t a, uint32_t b)
+{
+    if (a == 0) {
+        return b;
+    }
+    if (b == 0) {
+        return a;
+    }
+    return dx_ticks_since(now_ms, a) <= dx_ticks_since(now_ms, b) ? a : b;
+}
+
+/* Writes as run() says, then follows the unsaved mark: on once changes
+ * stay unsaved for DX_SAVE_MARK_MS, off once they reach the card. A
+ * change of the mark asks for a redraw and logs a line. */
 static uint32_t tick(uint32_t now_ms, unsigned *flags)
 {
-    (void)flags;
-    return run(now_ms, 0);
+    uint32_t next = run(now_ms, 0);
+    int late = dirty != 0 && dx_ticks_since(dirty_ms, now_ms) >= DX_SAVE_MARK_MS;
+
+    if (late != marked) {
+        marked = late;
+        *flags |= DX_UI_DIRTY;
+        dx_plat_log(late ? "deitrix: unsaved mark on\n" : "deitrix: unsaved mark off\n");
+    }
+    if (dirty != 0 && !late) {
+        next = earlier(now_ms, next, dx_ticks_add(dirty_ms, DX_SAVE_MARK_MS));
+    }
+    return next;
 }
 
 /* What the model holds at start is what the saves hold: no write. */
@@ -160,6 +194,7 @@ static void init(uint32_t now_ms)
     dirty = 0;
     stalled = 0;
     failures = 0;
+    marked = 0;
 }
 
 static void stop(void)

@@ -2,7 +2,7 @@
 
 ## Tools
 
-Deitrix needs the same tools as Pip-OS: the `arm-none-eabi` GCC toolchain, GNU Make, Python 3, QEMU with the Raspberry Pi boards, mtools and a host C compiler. RobCo-Core's [getting started guide](https://github.com/RobCo-Industries/RobCo-Core/blob/00d9a2d1efa10b08ea1c14f087f7e3316647d6a1/docs/guide/GETTING_STARTED.md) lists them per system. CI uses RobCo-Core's `robco-ci` container, which has all of them.
+Deitrix needs the same tools as Pip-OS: the `arm-none-eabi` GCC toolchain, GNU Make, Python 3, QEMU with the Raspberry Pi boards, mtools and a host C compiler. RobCo-Core's [getting started guide](https://github.com/RobCo-Industries/RobCo-Core/blob/f5bba36132a0b10940898c681dde50b453bfffad/docs/guide/GETTING_STARTED.md) lists them per system. CI uses RobCo-Core's `robco-ci` container, which has all of them.
 
 ## Sources
 
@@ -12,7 +12,7 @@ Pip-OS is the only submodule, in `external/pip-os`. RobCo-Core comes with it, in
 git submodule update --init --recursive
 ```
 
-The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its guide is Pip-OS's [ROM_DEVELOPMENT.md](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/ROM_DEVELOPMENT.md).
+The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its guide is Pip-OS's [ROM_DEVELOPMENT.md](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/ROM_DEVELOPMENT.md).
 
 ## Make targets
 
@@ -51,10 +51,10 @@ The ROM is built with the Pip-OS SDK, `external/pip-os/sdk/pipos-app.mk`. Its gu
 
 - `all` includes the SDK's `pipos-app.mk` with `KIND=rom`, `NAME=DEITRIX` and `TITLE=Deitrix`.
 - `test-host` includes RobCo-Core's `mk/host.mk` for the C tests.
-- `kernel`, `sdimage`, `run` and `bootdir` call the same targets in Pip-OS's Makefile, with `BUILD=build/pipos`. This is the interface of Pip-OS's [Using Pip-OS from another repository](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/ROM_DEVELOPMENT.md#using-pip-os-from-another-repository).
+- `kernel`, `sdimage`, `run` and `bootdir` call the same targets in Pip-OS's Makefile, with `BUILD=build/pipos`. This is the interface of Pip-OS's [Using Pip-OS from another repository](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/ROM_DEVELOPMENT.md#using-pip-os-from-another-repository).
 - `sdimage`, `run` and `bootdir` pass `ROM=build/ROM1.ROM`, `TAPE=build/holo/CULVERT.HTP` and `CARD_DIR=build/card`. `bootdir` also passes `DIR`, `FIRMWARE` and `CLEAN`. Pip-OS writes the same files to the card and to the folder.
 - Pip-OS checks the staged card. Two paths that differ only in case stop the build, and a name longer than 8.3 gets a warning. `tools/check_content.py` already refuses any name under `PIPBOY/DATA/` that is not upper-case 8.3, so the Deitrix content passes with no warning.
-- `bootdir` keeps a `PIPBOY/PIPOS.CFG` that is already in the folder. Its other rules, `BOOTDIR.LST` and `CLEAN=1` are in Pip-OS's [A real card](https://github.com/RobCo-Industries/Pip-OS/blob/bd5fa36c68a46ede244f31a348e2446a8daa9f0d/docs/BUILD.md#a-real-card).
+- `bootdir` keeps a `PIPBOY/PIPOS.CFG` that is already in the folder. Its other rules, `BOOTDIR.LST` and `CLEAN=1` are in Pip-OS's [A real card](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/BUILD.md#a-real-card).
 - `check-pins` runs RobCo-Core's `tools/check_pins.sh` on the CI workflow, then its `tools/check_doc_links.sh` twice: once with `--repo RobCo-Industries/Pip-OS` for `external/pip-os`, once for the RobCo-Core inside it.
 
 ## The card

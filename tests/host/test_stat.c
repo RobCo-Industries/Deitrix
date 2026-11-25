@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "app.h"
+#include "services/services.h"
 #include "content.h"
 #include "fake_platform.h"
 #include "screens/screens.h"
@@ -85,6 +86,7 @@ static void boot(const char *profile)
     }
     dx_content_load();
     dx_stat_reset();
+    dx_uptime_reset(fake.ticks);
     fake.log[0] = '\0';
     CHECK_INT(dx_app_init(&app, dx_rom_screens, dx_rom_screen_count), 0);
     dx_app_step(&app);
@@ -143,7 +145,7 @@ TEST(status_full_profile)
     t = fake_find_text("1/1");
     CHECK(t != NULL && t->x == 316 - 3 * 8);
     CHECK_INT(fake_find_text("0/9999")->x, 316 - 6 * 8);
-    CHECK_STR(hint(), "RIGHT: ATTRS   LEFT or DIAL: tab");
+    CHECK_STR(hint(), "LEFT/RIGHT: page");
     CHECK_STR(fake.log, "");
 }
 
@@ -184,7 +186,7 @@ TEST(attrs_full_list_scrolls)
     key(DX_UI_RIGHT);
     CHECK_INT(app.tab, 0);
     CHECK_STR(fake.log, "deitrix: stat shows ATTRS sel=0 top=0\n");
-    CHECK_STR(hint(), "UP/DOWN: move   LEFT/RIGHT: page");
+    CHECK_STR(hint(), "UP/DOWN: move");
     draw_body();
     CHECK(body_inside());
     /* Ten rows of 16 px fit under the sub-tabs. */
@@ -230,12 +232,12 @@ TEST(about_full_profile)
     key(DX_UI_RIGHT);
     CHECK_STR(fake.log, "deitrix: stat about Deitrix=0.1.0 | Pip-OS=7.1.0 | ABI=1.2 | "
                         "SoC=BCM2836 | RAM=960 MiB | Uptime=1d 01:01:01 | Time=no clock\n");
-    CHECK_STR(hint(), "LEFT: ATTRS   RIGHT or DIAL: tab");
+    CHECK_STR(hint(), "LEFT/RIGHT: page");
     draw_body();
     CHECK(body_inside());
-    CHECK_INT(fake_find_text("Deitrix")->y, 42 + 4);
+    CHECK_INT(fake_find_text("Deitrix")->y, 42 + 6);
     CHECK_INT(fake_find_text("0.1.0")->x, 4 + 9 * 8);
-    CHECK_INT(fake_find_text("no clock")->y, 42 + 4 + 6 * 16);
+    CHECK_INT(fake_find_text("no clock")->y, 42 + 6 + 6 * 16);
     /* The about lines fill the rest of the body, never past it. */
     CHECK(fake_find_text("About line 3 is as long as allowed..") != NULL);
     CHECK(fake_find_text("About line 4 is as long as allowed..") == NULL);
@@ -274,7 +276,7 @@ TEST(minimal_profile)
     key(DX_UI_RIGHT);
     draw_body();
     CHECK(fake_find_text("No attributes in the profile.") != NULL);
-    CHECK_STR(hint(), "LEFT/RIGHT: page   DIAL: tab");
+    CHECK_STR(hint(), "LEFT/RIGHT: page");
     fake.tone_count = 0;
     key(DX_UI_DOWN);
     CHECK_INT(fake.tones[0][0], DENY_HZ);
@@ -417,8 +419,8 @@ TEST(about_day_and_tick_wrap)
     fake_clear_draws();
     dx_app_step(&app);
     CHECK(fake_find_text("1d 00:00:00") != NULL);
-    /* The tick counter wraps at 2^31: Pip-OS has nothing else, so the
-     * uptime shown starts again from 0d 00:00:00 after 24.8 days. */
+    /* The tick counter wraps at 2^31. The uptime service counts the
+     * wraps, so the uptime goes on past 24.8 days. */
     /* Days later: a new visit to ABOUT, just before the wrap. */
     fake.ticks = 0x7fffffffu - 100;
     key(DX_UI_LEFT);
@@ -432,8 +434,9 @@ TEST(about_day_and_tick_wrap)
     fake.ticks = 352;
     fake_clear_draws();
     dx_app_step(&app);
-    CHECK(fake_find_text("0d 00:00:00") != NULL);
-    CHECK_INT(app.wake, 1000);
+    /* 2^31 + 352 ms: the uptime goes on, the next second 1 s later. */
+    CHECK(fake_find_text("24d 20:31:24") != NULL);
+    CHECK_INT(app.wake, 1352);
 }
 
 /* Every view with the full profile stays inside the body. */
@@ -456,4 +459,65 @@ TEST(zz_no_leaks)
 {
     fake_reset();
     CHECK_INT(fake_live_blocks(), 0);
+}
+
+/* The held-key rule through the shell. STAT has no nested view, so a
+ * held LEFT on the first page changes the tab once and stays there, and
+ * a held RIGHT moves one page per event as before. */
+TEST(held_left_changes_the_tab_once)
+{
+    int n;
+
+    boot(FULL);
+    for (n = fake_hold(DX_BTN_LEFT, 12); n > 0; n--) {
+        dx_app_step(&app);
+    }
+    CHECK_INT(app.tab, dx_rom_screen_count - 1);
+    CHECK_STR(fake.log, "deitrix: tab=RADIO\n");
+}
+
+static int about_lines(void)
+{
+    int n = 0;
+    const char *p = fake.log;
+
+    while ((p = strstr(p, "deitrix: stat about ")) != NULL) {
+        n++;
+        p++;
+    }
+    return n;
+}
+
+/* ABOUT logs one line when it shows, then one per uptime minute, not
+ * one per frame. */
+TEST(about_logs_on_entry_and_each_minute)
+{
+    uint32_t t;
+
+    boot(FULL);
+    fake.ticks = 1500;
+    key(DX_UI_RIGHT);
+    key(DX_UI_RIGHT);
+    CHECK_INT(about_lines(), 1);
+    /* 58 more frames in the same minute: no line. */
+    for (t = 2000; t < 60000; t += 1000) {
+        fake.ticks = t;
+        fake_clear_draws();
+        dx_app_step(&app);
+    }
+    CHECK_INT(about_lines(), 1);
+    CHECK(fake_find_text("0d 00:00:59") != NULL);
+    /* The minute changes: one line, with the new uptime. */
+    fake.ticks = 60000;
+    fake_clear_draws();
+    dx_app_step(&app);
+    CHECK_INT(about_lines(), 2);
+    CHECK(strstr(fake.log, "Uptime=0d 00:01:00 |") != NULL);
+    fake.ticks = 61000;
+    dx_app_step(&app);
+    CHECK_INT(about_lines(), 2);
+    /* Leaving and coming back in the same minute logs again. */
+    key(DX_UI_LEFT);
+    key(DX_UI_RIGHT);
+    CHECK_INT(about_lines(), 3);
 }

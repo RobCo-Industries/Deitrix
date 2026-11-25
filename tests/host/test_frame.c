@@ -215,7 +215,7 @@ TEST(footer_draw_list)
     c = fake_ctx();
     dx_frame_footer(&c, DX_FRAME_HINT);
     CHECK_STR(fake.draws, "line 0 215 319 215 fg\n"
-                          "text 40 220 \"DIAL or LEFT/RIGHT: change tab\" dim none s1\n");
+                          "text 96 220 \"DIAL: change tab\" dim none s1\n");
 }
 
 TEST(rom_screens)

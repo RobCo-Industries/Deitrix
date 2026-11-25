@@ -10,6 +10,7 @@
 #include "model/map_view.h"
 #include "model/util.h"
 #include "screens/map_screen.h"
+#include "ui/frame.h"
 #include "ui/kv.h"
 #include "ui/subtabs.h"
 
@@ -25,7 +26,6 @@ typedef struct map_state {
     int detail;           /* 1 while the selected place's detail is open */
     int silent;           /* the first frame after the tab opens logs nothing */
     char logged[LOG_SIZE];
-    char hint[48];
 } map_state_t;
 
 static map_state_t map;
@@ -113,7 +113,7 @@ static unsigned event(void *st, const dx_ui_event_t *ev)
     if (map.detail) {
         if (dx_ui_is_back(ev)) {
             map.detail = 0;
-            return DX_UI_HANDLED | DX_UI_DIRTY;
+            return DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL;
         }
         /* RIGHT stays in the detail: no tab change. */
         return ev->type == DX_UI_RIGHT ? DX_UI_HANDLED : DX_UI_IGNORED;
@@ -141,7 +141,7 @@ static unsigned event(void *st, const dx_ui_event_t *ev)
             return DX_UI_IGNORED;
         }
         map.detail = 1;
-        return DX_UI_HANDLED | DX_UI_DIRTY;
+        return DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL;
     default:
         return DX_UI_IGNORED;
     }
@@ -226,8 +226,9 @@ static void draw_view(const dx_ctx_t *ctx, dx_rect_t area, dx_rect_t r)
 {
     const dx_map_t *m = shown();
     int sel = map.sel[map.subs.active];
-    dx_rect_t pane = { r.x, r.y, r.w, r.h - DX_MAP_INFO_H };
-    int ty = r.y + r.h - DX_ROW_H;
+    dx_rect_t pane = { r.x, r.y + DX_GRID_GAP, r.w,
+                       area.y + DX_GRID_STATUS_RULE_DY - (r.y + DX_GRID_GAP) };
+    int ty = area.y + DX_GRID_STATUS_DY;
     char line[LOG_SIZE];
     dx_sb_t sb;
     uint32_t t0 = dx_plat_ticks();
@@ -241,7 +242,8 @@ static void draw_view(const dx_ctx_t *ctx, dx_rect_t area, dx_rect_t r)
     log_once(line);
 
     dx_subtabs_draw(&map.subs, ctx, area);
-    ctx->gfx->text(area.x + area.w - PAD - dx_text_width(m->title, 1), area.y + 1, m->title,
+    ctx->gfx->text(area.x + area.w - PAD - dx_text_width(m->title, 1),
+                   area.y + DX_GRID_BAND_TEXT_DY, m->title,
                    ctx->theme.dim, DX_COLOR_NONE, 1);
     draw_map(ctx, m, pane, sel, ctx->theme.fg);
     ctx->gfx->line(r.x + PAD, pane.y + pane.h, r.x + r.w - 1 - PAD, pane.y + pane.h,
@@ -291,7 +293,7 @@ static void draw_detail(const dx_ctx_t *ctx, dx_rect_t area, dx_rect_t r)
     log_once(line);
 
     /* The title row in place of the sub-tabs. */
-    ctx->gfx->text(area.x + PAD, area.y + 1, p->name, ctx->theme.fg, DX_COLOR_NONE, 1);
+    ctx->gfx->text(area.x + PAD, area.y + DX_GRID_BAND_TEXT_DY, p->name, ctx->theme.fg, DX_COLOR_NONE, 1);
     ctx->gfx->line(area.x, r.y - 1, area.x + area.w - 1, r.y - 1, ctx->theme.faint);
 
     dx_sb_init(&sb, nth, sizeof(nth));
@@ -331,20 +333,11 @@ static void draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
     map.silent = 0;
 }
 
-static void hint_part(dx_sb_t *sb, const char *s)
-{
-    if (sb->len > 0) {
-        dx_sb_str(sb, "  ");
-    }
-    dx_sb_str(sb, s);
-}
-
-/* What the keys do now, at most 40 characters. */
+/* What the keys do now: see ui/frame.h. */
 static const char *hint(void *st)
 {
     const dx_map_t *m;
     int places;
-    dx_sb_t sb;
 
     (void)st;
     setup();
@@ -353,26 +346,14 @@ static const char *hint(void *st)
         return NULL;
     }
     if (map.detail) {
-        return "BACK/LEFT: back to the map";
+        return "BACK: map";
     }
     places = m->place_count;
-    if (places == 0 && map.count == 1) {
-        return NULL; /* the shell's own hint */
-    }
-    dx_sb_init(&sb, map.hint, sizeof(map.hint));
-    if (places > 1) {
-        hint_part(&sb, "UP/DOWN: place");
-    }
-    if (places > 0) {
-        hint_part(&sb, "SELECT: open");
-    }
-    if (map.count > 1) {
-        hint_part(&sb, map.subs.active == 0 ? "RIGHT: map" : "LEFT: map");
-    }
     if (places == 0) {
-        hint_part(&sb, "DIAL: tab");
+        /* Nothing to pick: paging, or the shell's own hint. */
+        return map.count > 1 ? DX_HINT_PAGE : NULL;
     }
-    return map.hint;
+    return places > 1 ? "UP/DOWN: place  SELECT: open" : "SELECT: open";
 }
 
 const dx_screen_t dx_screen_map = {

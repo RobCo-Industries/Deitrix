@@ -9,6 +9,7 @@
 #include "content.h"
 #include "model/util.h"
 #include "screens/data_view.h"
+#include "ui/frame.h"
 #include "ui/list.h"
 #include "ui/subtabs.h"
 #include "ui/text.h"
@@ -33,8 +34,6 @@ typedef struct data_state {
     dx_text_t text;
     char body[DX_NOTE_FILE_MAX];
     char logged[LOG_SIZE];
-    int latched;   /* 1 while the repeats of latch_key are swallowed */
-    int latch_key; /* the key whose press opened or closed a level */
 } data_state_t;
 
 static data_state_t data;
@@ -51,13 +50,6 @@ void dx_data_message(const dx_ctx_t *ctx, dx_rect_t r, const char *a, const char
     }
 }
 
-/* A repeat that must not act: LEFT is handled so it cannot change the
- * tab; the rest are ignored, which plays no tone for a repeat. */
-static unsigned swallow(const dx_ui_event_t *ev)
-{
-    return ev->type == DX_UI_LEFT ? DX_UI_HANDLED : DX_UI_IGNORED;
-}
-
 void dx_data_log(const char *line)
 {
     if (dx_str_eq(line, data.logged)) {
@@ -70,6 +62,13 @@ void dx_data_log(const char *line)
 void dx_data_log_reset(void)
 {
     data.logged[0] = '\0';
+}
+
+/* A repeat that must not close the note: LEFT is handled so it cannot
+ * change the tab; BACK is ignored, which plays no tone for a repeat. */
+static unsigned swallow(const dx_ui_event_t *ev)
+{
+    return ev->type == DX_UI_LEFT ? DX_UI_HANDLED : DX_UI_IGNORED;
 }
 
 static const dx_notes_t *notes(void)
@@ -132,7 +131,6 @@ static void leave(void *st)
     (void)st;
     data.open = 0;
     data.logged[0] = '\0';
-    data.latched = 0;
     dx_data_tapes_leave();
     dx_data_clock_leave();
 }
@@ -214,11 +212,8 @@ static unsigned routed(const dx_ui_event_t *ev)
     return dx_list_event(&data.notes, ev);
 }
 
-/*
- * A key held after its press opened or closed a level keeps sending
- * repeats. They are swallowed until the next fresh press, so a held
- * LEFT that closed a note does not go on to change the sub-tab.
- */
+/* An event that opened or closed a note or the setter changed the
+ * level: the shell then swallows the repeats of its key (ui/latch.h). */
 static unsigned event(void *st, const dx_ui_event_t *ev)
 {
     int before;
@@ -226,17 +221,10 @@ static unsigned event(void *st, const dx_ui_event_t *ev)
 
     (void)st;
     setup();
-    if (ev->repeat && data.latched && ev->type == data.latch_key) {
-        return swallow(ev);
-    }
-    if (!ev->repeat) {
-        data.latched = 0;
-    }
     before = nested();
     r = routed(ev);
-    if (!ev->repeat && nested() != before) {
-        data.latched = 1;
-        data.latch_key = ev->type;
+    if (nested() != before) {
+        r |= DX_UI_HANDLED | DX_UI_LEVEL;
     }
     return r;
 }
@@ -340,11 +328,10 @@ static const char *hint(void *st)
         break;
     }
     if (data.open) {
-        return data.text.count > data.text.visible ? "UP/DOWN: scroll   BACK/LEFT: list"
-                                                   : "BACK/LEFT: list   DIAL: tab";
+        return data.text.count > data.text.visible ? "UP/DOWN: scroll  BACK: list"
+                                                   : "BACK: list";
     }
-    return data.notes.count > 0 ? "UP/DOWN: move   SELECT: open"
-                                : "RIGHT: TAPES   LEFT or DIAL: tab";
+    return data.notes.count > 0 ? "UP/DOWN: move  SELECT: open" : DX_HINT_PAGE;
 }
 
 const dx_screen_t dx_screen_data = {

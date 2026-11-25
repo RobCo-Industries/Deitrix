@@ -1,7 +1,6 @@
 /*
- * Drawing helpers of the STAT tab: the owner's name and the gauge group.
- * They take plain values, because model/profile.h and ui/gauge.h both
- * name a struct dx_gauge and cannot share a file.
+ * Drawing helpers of the STAT tab: the owner's name and the gauge group,
+ * from plain values.
  */
 #ifndef DX_SCREENS_STAT_DRAW_H
 #define DX_SCREENS_STAT_DRAW_H

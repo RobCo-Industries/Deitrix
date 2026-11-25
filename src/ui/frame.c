@@ -112,6 +112,11 @@ void dx_frame_header(const dx_ctx_t *ctx, const char *const *names, int count, i
     g->line(0, DX_HEADER_RULE, DX_SCREEN_W - 1, DX_HEADER_RULE, t->fg);
 }
 
+void dx_frame_mark(const dx_ctx_t *ctx)
+{
+    ctx->gfx->text(DX_MARK_X, HEADER_Y, "!", ctx->theme.fg, DX_COLOR_NONE, 1);
+}
+
 void dx_frame_footer(const dx_ctx_t *ctx, const char *hint)
 {
     ctx->gfx->line(0, DX_FOOTER_RULE, DX_SCREEN_W - 1, DX_FOOTER_RULE, ctx->theme.fg);

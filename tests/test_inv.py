@@ -189,3 +189,28 @@ def test_inv_hold_counts_up(board, kernel_image, card, need_mtools):
         assert counts == list(range(21, 21 + len(counts))), counts
         assert len(counts) >= MIN_STEPS, f"held {held:.2f} s, {len(counts)} steps"
         no_exception(vm)
+
+
+def test_inv_held_left_closes_the_detail_once(board, kernel_image, card, need_mtools):
+    """A held LEFT in the detail closes it, and its repeats change
+    neither the category nor the tab: the shell's held-key rule."""
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        to_inv(vm)
+        key(vm, "right", "cat=1 row=0")
+        key(vm, "select", "open=bread")
+        before = len(inv_lines(vm))
+        script(vm, "key left 1")
+        held = time.monotonic()
+        time.sleep(1.5)
+        script(vm, "key left 0")
+        assert time.monotonic() - held >= 1.5
+        seen = -1
+        while len(inv_lines(vm)) != seen:
+            seen = len(inv_lines(vm))
+            time.sleep(0.5)
+        # Back at the list logs idle: the frame is on screen.
+        key(vm, "back", "idle")
+        assert inv_lines(vm)[before:] == ["back row=0", "idle"], vm.serial
+        assert tabs(vm) == ["INV"], vm.serial
+        no_exception(vm)

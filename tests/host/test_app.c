@@ -803,3 +803,58 @@ TEST(radio_underrun_redraws_once)
     CHECK_EQ(fake.presents, 0);
     dx_radio_stop();
 }
+
+/* The unsaved mark through the shell: a "!" in fg left of the clock
+ * once a change fails to reach the card for DX_SAVE_MARK_MS, gone once
+ * it does. */
+static const dx_service_t *const saves_only[] = { &dx_service_autosave };
+
+/* Steps the shell until `ms` passed, the clock jumping to each wake. */
+static void run_for(dx_app_t *app, uint32_t ms)
+{
+    uint32_t t0 = fake.ticks;
+
+    while (dx_ticks_since(t0, fake.ticks) < ms) {
+        dx_app_step(app);
+        fake.ticks = dx_ticks_add(fake.ticks, fake.last_timeout == DX_WAIT_FOREVER
+                                                  ? 1000
+                                                  : (fake.last_timeout == 0 ? 1
+                                                                             : fake.last_timeout));
+    }
+}
+
+TEST(unsaved_mark_in_the_header)
+{
+    dx_app_t app;
+    const fake_text_t *t;
+    const dx_ui_event_t back = { DX_UI_BACK, 0, 0 };
+
+    fake_reset();
+    dx_content_load();
+    dx_autosave_attach(dx_content_settings(), dx_content_items());
+    CHECK_INT(dx_app_init(&app, dx_rom_screens, dx_rom_screen_count), 0);
+    CHECK_INT(dx_app_start_services(&app, saves_only, 1), 0);
+    dx_app_step(&app);
+    CHECK(fake_find_text("!") == NULL);
+    fake.save_fail = 1000;
+    dx_settings_set_volume(dx_content_settings(), 10);
+    dx_app_route(&app, &back); /* a key wakes the services */
+    fake_clear_draws();
+    run_for(&app, DX_SAVE_MARK_MS - 100);
+    CHECK(fake_find_text("!") == NULL);
+    fake_clear_draws();
+    run_for(&app, 200);
+    t = fake_find_text("!");
+    CHECK(t != NULL && t->x == DX_MARK_X && t->y == 3 && t->fg == fake.theme.fg);
+    CHECK(strstr(fake.log, "deitrix: unsaved mark on\n") != NULL);
+    /* The card heals: the next change reaches it and the mark goes. */
+    fake.save_fail = 0;
+    dx_settings_set_volume(dx_content_settings(), 20);
+    dx_app_route(&app, &back);
+    fake_clear_draws();
+    run_for(&app, DX_SAVE_QUIET_MS + 100);
+    CHECK(fake.presents > 0);
+    CHECK(fake_find_text("!") == NULL);
+    CHECK(strstr(fake.log, "deitrix: unsaved mark off\n") != NULL);
+    dx_app_stop_services(&app);
+}
