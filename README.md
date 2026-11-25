@@ -4,29 +4,18 @@ Deitrix is the user environment of a wrist computer, the ROM that [Pip-OS](https
 
 ## Status
 
-Deitrix has a UI framework, a data model and five tabs. It boots on Pip-OS in QEMU. Every frame shows:
+Deitrix has a UI framework, a data model, five tabs and one holotape game. It boots on Pip-OS in QEMU. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
 
-- a tab bar with STAT, INV, DATA, MAP and RADIO, the active tab drawn as a filled block;
-- the time as `HH:MM` in UTC at the top right, or `--:--` when Pip-OS has no clock;
-- the active tab's body;
-- a key hint at the bottom.
+Every frame shows a tab bar with STAT, INV, DATA, MAP and RADIO, the time as `HH:MM` in UTC or `--:--`, the active tab's body, and a key hint at the bottom. A `!` left of the clock says changes have not reached the card for 12 s.
 
-STAT is built: the owner and gauges, the attributes, and the device data. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#stat).
+- STAT: the owner and gauges, the attributes, and the device data with the uptime.
+- INV: the items of ITEMS.INI by category, a detail per item, and counts and marks kept in INV.SAV.
+- DATA: the notes, the TAPES list that runs holotapes, and the clock with a time setter.
+- MAP: the local and world maps with their places, and a detail per place.
+- RADIO: the stations of RADIO.INI, what plays now, the volume and the UI sounds, kept in DEITRIX.SAV.
+- Culvert: a pipe-turning puzzle holotape with generated levels, on the card as `PIPBOY/HOLO/CULVERT.HTP`.
 
-INV is built: the items of ITEMS.INI by category, a detail per item, and counts and marks the owner changes, kept in INV.SAV. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#inv).
-
-MAP is built: the local and world maps with their places, and a detail per place. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#map).
-
-RADIO is built: the stations of RADIO.INI, what plays now, the volume and the UI sounds, kept in DEITRIX.SAV. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#radio).
-
-DATA is a placeholder. It shows the tab's name, "Not built yet." and the note count, or why the notes did not load.
-
-At start the ROM loads the content under `/PIPBOY/DATA/` on the card and its two saves. The formats are in [docs/CONTENT.md](docs/CONTENT.md). The dial, LEFT and RIGHT move between tabs and wrap at both ends. BACK and LEFT go back one level in a nested view. SELECT on RADIO cycles the stations: tunes through `play_seq`, PCM tracks streamed in chunks. The radio keeps playing on other tabs. The last tab and station are saved a moment after they change. A test-only gallery ROM shows every widget of the framework. Nothing has been tried on real hardware, and nobody has listened to the radio yet: QEMU only prints an audio trace.
-
-## Planned, not built
-
-- The five tabs with real content, on top of the data model.
-- A holotape game.
+Every tab follows one held-key rule, one footer hint style and one layout grid. [docs/USER_MANUAL.md](docs/USER_MANUAL.md) shows each screen. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the code.
 
 ## Build
 
@@ -36,7 +25,7 @@ cd Deitrix
 make
 ```
 
-`make` writes `build/ROM1.ROM`. The tools are the same as for Pip-OS: see [docs/BUILD.md](docs/BUILD.md).
+`make` writes `build/ROM1.ROM` and the Culvert holotape, `build/holo/CULVERT.HTP`. The tools are the same as for Pip-OS: see [docs/BUILD.md](docs/BUILD.md).
 
 ## Run in QEMU
 
@@ -48,8 +37,10 @@ This builds the Pip-OS kernel and a card with Deitrix, then boots it in QEMU on 
 
 | Key | Does |
 |---|---|
-| Right arrow | Next tab, or stays inside a nested view |
-| Left arrow | Previous tab, or back one level in a nested view |
+| Up and down arrows | UP and DOWN |
+| Right arrow | Next sub-tab or tab, or nothing inside a nested view |
+| Left arrow | Previous sub-tab or tab, or back one level in a nested view |
+| Enter | SELECT |
 | Backspace, or Escape alone | Back: one level up in a nested view. It never changes the tab. |
 | Ctrl-A, then x | Quits QEMU |
 
