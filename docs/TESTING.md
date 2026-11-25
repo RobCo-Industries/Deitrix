@@ -199,9 +199,9 @@ No test runs on a real board. Each hardware run is recorded here by hand: the bo
 | Check | State |
 |---|---|
 | The card from `make bootdir` boots Pip-OS and loads Deitrix | Done on a Zero W 1.1 only, 2026-11-24 |
-| Every file of the sample card loads | Done on a Zero W 1.1 only, 2026-11-24 |
-| Keys move through the tabs and views | Done for serial keys only, on a Zero W 1.1, 2026-11-24 |
-| The settings save reaches the card with the right bytes | Done on a Zero W 1.1 only, 2026-11-24, for DEITRIX.SAV only |
+| Every file of the sample card loads | Partial, on a Zero W 1.1, 2026-11-24: see [What each file showed](#what-each-file-showed) |
+| Keys move through the tabs and views | Partial: serial keys on STAT, INV and RADIO only, on a Zero W 1.1, 2026-11-24. DATA, MAP and the UP key are open. |
+| The settings save reaches the card with the right bytes | Done for DEITRIX.SAV on a Zero W 1.1 only, 2026-11-24. Only the last of five writes was read back. |
 | The settings save loads at the next boot | Open |
 | INV.SAV is written and loads | Open |
 | GPIO buttons | Open |
@@ -319,18 +319,35 @@ The save bytes, checked against `dx_settings_encode` and `header` in `src/model/
 | `04` | Last station | 4, Hearth in the sample `RADIO.INI` |
 | `00 00 00 00` | Reserved | 0 |
 
+#### What each file showed
+
+The boot lines come from `dx_content_load` in `src/content.c`. A `load` line with counts means the loader got that far. It does not mean every byte was used. The key session then touched a few files again.
+
+| File | What the run showed | What stays open |
+|---|---|---|
+| `PROFILE.INI`, `ITEMS.INI`, `MAP.INI`, `RADIO.INI` | Read whole and parsed at boot. The counts match the sample. STAT and INV used the profile and items in the key session. | No map was drawn. Nothing was seen on a screen. |
+| `NOTES/*` | Four files read whole at boot, for their titles only. | No note body was opened. DATA was never visited. |
+| `MORNING.TUN`, `WALK.TUN`, `LULLABY.TUN` | Read whole and parsed at boot. Morning played from memory for about 6 s of its 28.8 s. | Walk and Lullaby never played. Nothing was heard. |
+| `HEARTH.PCM`, `DRIFT.PCM` | Only the size from the folder entry at boot: 256000 bytes each. Hearth then streamed for about 15 s of its 32 s, with no underrun line. | Drift was never opened. The rest of Hearth and its loop were not reached. Nothing was heard. |
+| `DEITRIX.SAV` | Missing at boot, so the defaults applied. Five writes logged `ok`. The last one was read back on a computer. | Loading it at the next boot. |
+| `INV.SAV` | Missing at boot. Never written, as the inventory did not change. | Writing it and loading it. |
+| `HOLO/CULVERT.HTP` | Pip-OS counted one holotape. Deitrix did not open it. | Launching Culvert. |
+| `PIPOS.CFG`, `ROM1.ROM` | Pip-OS read both: `config rc=ok` and `rom rc=ok` with the CRC. | Nothing for this run. |
+
 This run confirms that, on this board:
 
 - The card from `make bootdir` boots Pip-OS, which loads Deitrix 0.1.0 from `ROM1.ROM`.
-- Deitrix loads every file of the sample card and reaches `deitrix: ready`.
-- Serial keys move through STAT, INV and RADIO, open and close an item, pick a station and change the volume.
-- The autosave writes DEITRIX.SAV to the card with the expected bytes and leaves no work file.
+- Deitrix reads the sample card's data files at boot as the table shows and reaches `deitrix: ready`. It reads only the size of the two PCM files.
+- Serial keys LEFT, RIGHT, DOWN, SELECT and BACK move through STAT, INV and RADIO. They open and close an item, pick two stations and change the volume.
+- Deitrix logs five DEITRIX.SAV writes. The file left on the card has the expected bytes, and no work file is left.
 
 This run does not show:
 
-- Any picture: no screen was wired.
+- Any picture: no screen was wired. Nothing was drawn where anyone could see it.
 - Any sound: no speaker was wired. `backend=pwm` and `Playing` show only that the calls did not fail.
 - GPIO buttons or the dial. `gpio=0` shows only that the backend started with nothing wired.
+- The DATA and MAP tabs, any note body, the map, or the UP key.
+- Walk, Lullaby or Drift playing, or Hearth past about 15 s.
 - The clock chip, a holotape launch, Culvert, INV.SAV, a reboot that loads the save, or a power cut during a save.
 - Any other board, or any other commit of Deitrix or Pip-OS. Pip-OS `2d10c2c` has no SPI panel backend and no ABI 1.3.
 

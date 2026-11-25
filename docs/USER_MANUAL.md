@@ -4,7 +4,7 @@ This page is for the person who wears the device. It needs no programming knowle
 
 Deitrix is the program the wrist computer runs after Pip-OS starts. It shows your status, your items, your notes, your maps and a radio on five tabs. It also runs holotapes, such as the game Culvert.
 
-Deitrix has run on one real board: a Pi Zero W 1.1, on 2026-11-24. There it booted, loaded its files, took keys sent over serial and saved its settings on the card. The buttons, the dial, the screen and the speaker are still untested on any device, and nobody has heard the radio. QEMU only logs the sound.
+Deitrix has run on one real board: a Pi Zero W 1.1, on 2026-11-24. There it booted, read its data files, took keys sent over serial on three tabs and saved its settings on the card. The buttons, the dial, the screen and the speaker are still untested on any device, and nobody has heard the radio. QEMU only logs the sound.
 
 The pictures on this page are the test screenshots of one emulated board. The tests compare each screen with them pixel for pixel. They are doubled to 640 by 480, as Pip-OS shows them.
 
@@ -67,7 +67,7 @@ The `!` goes away as soon as every change is on the card. If it stays:
 
 ## Controls
 
-The device has a dial and six buttons: UP, DOWN, LEFT, RIGHT, SELECT and BACK. None of them has been tried on real hardware yet. On one Pi Zero W, the same keys sent over serial worked.
+The device has a dial and six buttons: UP, DOWN, LEFT, RIGHT, SELECT and BACK. None of them has been tried on real hardware yet. On one Pi Zero W, LEFT, RIGHT, DOWN, SELECT and BACK sent over serial worked on STAT, INV and RADIO.
 
 | Control | What it does |
 |---|---|
