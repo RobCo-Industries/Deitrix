@@ -19,6 +19,7 @@ Nothing here ran on hardware.
 
 import re
 import subprocess
+import time
 
 import pytest
 
@@ -92,10 +93,19 @@ def last_list(vm):
     return int(n), files.split()
 
 
-def wait_list(vm, files):
-    """Waits for a listing of exactly these files, * for a slot tape."""
+def wait_list(vm, files, frame=True):
+    """Waits for a listing of exactly these files, * for a slot tape.
+    With frame, also for the TAPES frame line after it, so a key sent
+    next is counted after that frame."""
     body = " ".join([f"n={len(files)}"] + files)
-    vm.wait_for(serial_line(re.escape(f"deitrix: tapes list {body}")), timeout=TIMEOUT)
+    line = serial_line(re.escape(f"deitrix: tapes list {body}"))
+    deadline = time.monotonic() + TIMEOUT
+    while True:
+        found = list(line.finditer(vm.serial))
+        if found and (not frame or TAPES_LINE.search(vm.serial, found[-1].end())):
+            return
+        assert time.monotonic() < deadline, f"no listing {body}\n{vm.serial}"
+        time.sleep(0.05)
 
 
 def wait_notice(vm, text):
@@ -172,7 +182,8 @@ def test_slot_tape_shadows_a_boot_tape(board, holotest_kernel, card, tmp_path, n
         insert(vm, 0)
         wait_bits(vm, 1)
         wait_notice(vm, IN)
-        wait_list(vm, ["LINETEST.HTP*"])
+        # The frame line is the same as before: DATA does not log it again.
+        wait_list(vm, ["LINETEST.HTP*"], frame=False)
         before = count(vm, TAPES_LINE)
         press(vm, "select")
         assert wait_count(vm, TAPES_LINE, before + 1)[-1] == \
@@ -180,7 +191,7 @@ def test_slot_tape_shadows_a_boot_tape(board, holotest_kernel, card, tmp_path, n
         assert "faulttest: fault now" in vm.serial, vm.serial
         holo(vm, "pull")
         wait_bits(vm, 2)
-        wait_list(vm, ["LINETEST.HTP"])
+        wait_list(vm, ["LINETEST.HTP"], frame=False)
         no_exception(vm)
 
 
