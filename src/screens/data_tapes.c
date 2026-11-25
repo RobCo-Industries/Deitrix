@@ -10,7 +10,9 @@
  * service counts each change, and the list reads the holotapes again
  * when the count moved, on the next frame. The selection stays on the
  * same file, or on the same row when the file left. A slot tape shows
- * SLOT before its kind.
+ * SLOT before its kind. A tape is its file name and its source, slot or
+ * boot card: a slot tape that shadows a boot card tape of that name is
+ * another tape, so the state of the selected tape goes.
  */
 #include "model/util.h"
 #include "screens/data_view.h"
@@ -23,6 +25,16 @@
 #define RESULT_H  18 /* the result row and its gap */
 #define LOG_SIZE  128
 
+/* What each field belongs to:
+ * - the screen: ready.
+ * - the list: holos, with each tape's title, kind and icon, read again at
+ *   each listing so none outlives its tape; listed; list.count; gen.
+ * - the user's input: list.sel and list.top, kept on the same file.
+ * - the selected tape: result, status and armed. forget_tape() clears
+ *   them when the selected tape's identity changes, the selection moves
+ *   or the sub-tab is left.
+ * The tape slot service holds nothing of a tape: the slot flag, the
+ * change count and the footer notices. */
 typedef struct tapes_state {
     int ready;
     dx_holo_t holos[DX_HOLO_MAX];
@@ -101,13 +113,22 @@ static void log_list(void)
     dx_plat_log(line);
 }
 
+/* Drops the state of the selected tape. */
+static void forget_tape(void)
+{
+    tapes.result = NULL;
+    tapes.armed = 0;
+    tapes.status[0] = '\0';
+}
+
 /* Reads the listing again. The selection stays on the same file when
  * it is still there, else on the same row, or the last one. When the
- * selected file left, its result line goes with it. */
+ * selected tape is not the same, by file name and source, its state
+ * goes. */
 static void read_list(void)
 {
     char keep[DX_NAME83_SIZE];
-    int i, sel, found = 0;
+    int i, sel, keep_slot = 0, found = 0, same = 0;
 
     setup();
     tapes.gen = dx_tapes_gen();
@@ -115,6 +136,7 @@ static void read_list(void)
     if (tapes.list.count > 0) {
         dx_str_cut(keep, sizeof(keep), tapes.holos[tapes.list.sel].file,
                    dx_str_len(tapes.holos[tapes.list.sel].file));
+        keep_slot = tapes.holos[tapes.list.sel].slot != 0;
     }
     sel = tapes.list.sel;
     tapes.listed = dx_plat_holo_list(tapes.holos, DX_HOLO_MAX);
@@ -123,12 +145,12 @@ static void read_list(void)
         if (dx_str_eq(tapes.holos[i].file, keep)) {
             sel = i;
             found = 1;
+            same = (tapes.holos[i].slot != 0) == keep_slot;
         }
     }
     log_list();
-    if (!found) {
-        tapes.result = NULL;
-        tapes.armed = 0;
+    if (!same) {
+        forget_tape();
     }
     dx_list_select(&tapes.list, sel);
 }
@@ -149,8 +171,7 @@ void dx_data_tapes_enter(void)
 
 void dx_data_tapes_leave(void)
 {
-    tapes.result = NULL;
-    tapes.armed = 0;
+    forget_tape();
 }
 
 static void log_rc(const char *what, const char *file, int32_t rc)
@@ -228,6 +249,9 @@ static unsigned launch(void)
      * was emptied around it, so no PIP_EV_TAPE tells of a pull. */
     dx_tapes_poll(dx_plat_ticks());
     read_list();
+    /* The line tells how this press ended, so it shows even when the
+     * tape left, as "Tape pulled while running.": it goes with the next
+     * change of the selected tape. */
     tapes.result = result_text(rc, kind);
     /* The back buffer holds what the tape drew: the frame redraws all. */
     dx_data_log_reset();
@@ -246,8 +270,7 @@ unsigned dx_data_tapes_event(const dx_ui_event_t *ev)
     }
     r = dx_list_event(&tapes.list, ev);
     if (r != DX_UI_IGNORED) {
-        tapes.result = NULL;
-        tapes.armed = 0;
+        forget_tape();
     }
     return r;
 }

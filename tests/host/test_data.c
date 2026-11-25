@@ -861,6 +861,61 @@ TEST(slot_tape_shadows_a_boot_tape_of_the_same_name)
     CHECK(fake_find_text("SLOT UTIL") == NULL);
 }
 
+/* A tape is its file name and its source: a slot tape that shadows the
+ * selected boot tape, or the boot tape that comes back, is another
+ * tape. The cursor stays on the row; the result line and the second
+ * chance after a failed save do not carry over. */
+static void shadow_list(int slot)
+{
+    fake.holo_count = 0;
+    if (slot) {
+        fake_add_slot_holo("ALPHA.HTP", DX_HOLO_GAME, "Slot alpha");
+    } else {
+        fake_add_holo("ALPHA.HTP", DX_HOLO_GAME, "Boot alpha", NULL);
+    }
+    fake_add_holo("B.HTP", DX_HOLO_GAME, "Bravo", NULL);
+}
+
+static void shadow_case(int from_slot)
+{
+    fake_reset();
+    shadow_list(from_slot);
+    boot_slot(DX_ABI_1_4, DX_HW_TAPE);
+    /* A result line, then a failed save arms the second press. */
+    fake.launch_rc = 7;
+    key(DX_UI_SELECT);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | Tape ended, status 7.");
+    CHECK(dx_items_toggle_marked(dx_content_items(), 0));
+    fake.save_fail = 1000000;
+    key(DX_UI_SELECT);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | Save failed. SELECT again runs it.");
+    CHECK_INT(fake.launch_count, 1);
+    /* The other ALPHA takes the row. */
+    shadow_list(!from_slot);
+    slot_change(from_slot ? DX_HOLO_EV_REMOVED : DX_HOLO_EV_INSERTED);
+    CHECK_STR(last_list(), from_slot ? "deitrix: tapes list n=2 ALPHA.HTP B.HTP"
+                                     : "deitrix: tapes list n=2 ALPHA.HTP* B.HTP");
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | ");
+    draw_body();
+    CHECK(fake_find_text("Tape ended, status 7.") == NULL);
+    CHECK(fake_find_text(from_slot ? "Boot alpha" : "Slot alpha") != NULL);
+    /* No second chance carried over: this press asks again. */
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 1);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | Save failed. SELECT again runs it.");
+    fake.save_fail = 0;
+}
+
+TEST(slot_shadow_drops_the_boot_tape_state)
+{
+    shadow_case(0);
+}
+
+TEST(slot_pull_drops_the_slot_tape_state)
+{
+    shadow_case(1);
+}
+
 TEST(slot_tape_pulled_while_it_runs)
 {
     fake_reset();
