@@ -113,7 +113,7 @@ The footer names the keys that do something in the current state. Every hint fol
 | DATA | NOTES, TAPES without entries | `LEFT/RIGHT: page` |
 | DATA | Note open, longer than the screen | `UP/DOWN: scroll  BACK: list` |
 | DATA | Note open, short | `BACK: list` |
-| DATA | TAPES list | `UP/DOWN: move  SELECT: run tape` |
+| DATA | TAPES list, also with a result line such as "Tape ended, status 0." or "Save failed. SELECT again runs it." | `UP/DOWN: move  SELECT: run tape` |
 | DATA | CLOCK | `SELECT: set time` |
 | DATA | Setter | `UP/DOWN: set  SELECT: ok  BACK: cancel` |
 | MAP | Two or more places | `UP/DOWN: place  SELECT: open` |
