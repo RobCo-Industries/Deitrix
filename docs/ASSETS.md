@@ -15,6 +15,7 @@ Deitrix has booted on one real board, a Pi Zero W 1.1, with no screen and no spe
 | The tunes | `content/PIPBOY/DATA/RADIO/*.TUN` | Written for Deitrix in the `.TUN` format | MIT |
 | The PCM tracks | Generated into `build/pcm/` | `tools/mkpcm.py`, by synthesis | MIT |
 | The UI tones | `src/ui/core.c` | Four tones as numbers in the code | MIT |
+| The tape slot notices and the `SLOT` mark | `src/services/services.h`, `src/screens/data_tapes.c` | Written for Deitrix | MIT |
 | Culvert's icon | `holotapes/culvert/icon.pbm` | Drawn for Culvert as a PBM file | MIT |
 | Culvert's pipe pieces and screens | `holotapes/culvert/draw.c` | Drawn as code with Pip-OS's drawing calls | MIT |
 | Culvert's levels | `holotapes/culvert/logic.c` | Generated from the level number, not stored | MIT |

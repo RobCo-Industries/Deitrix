@@ -14,7 +14,7 @@ The one copy of the model the ROM keeps. `dx_content_load()` reads every content
 
 ### `src/platform/`
 
-The only code that calls Pip-OS. `platform.c` defines `pip_main()` and wraps the system calls Deitrix uses behind `platform.h`: the scheme colour, the clock, the tick counter, `wait_event`, `log`, `tone`, the drawing table, whole-file reads, file handles, `dir_list`, the saves, the audio calls and the system information. It also wraps two libpip functions, `pip_ini_parse` and `pip_crc32`, as `dx_ini_parse` and `dx_crc32`. Nothing outside this folder includes a `<pipos/...>` header.
+The only code that calls Pip-OS. `platform.c` defines `pip_main()` and wraps the system calls Deitrix uses behind `platform.h`: the scheme colour, the clock, the tick counter, `wait_event`, `log`, `tone`, the drawing table, whole-file reads, file handles, `dir_list`, the saves, the audio calls, the system information with `hw_flags`, the holotape calls and the slot's `holo_eject_event`. It also wraps two libpip functions, `pip_ini_parse` and `pip_crc32`, as `dx_ini_parse` and `dx_crc32`. Nothing outside this folder includes a `<pipos/...>` header.
 
 The host tests link `tests/host/fake_platform.c` in its place. It has an in-memory card, a save store, a recorded audio voice that plays against its tick counter, and a settable clock. Its `dx_ini_parse` and `dx_crc32` call RobCo-Core's `ini.c` and `crc32.c`, the code libpip wraps, so the host tests run the same parser as the ROM.
 
@@ -24,7 +24,7 @@ Pure data code, with no drawing and no system calls. `nav.c` moves between tabs 
 
 ### `src/services/`
 
-The background services: the radio, the autosave and the uptime. See [Services](#services).
+The background services: the radio, the autosave, the uptime and the tape slot. See [Services](#services).
 
 ### `src/ui/`
 
@@ -74,7 +74,9 @@ The navigation rule:
 
 A screen that keeps a depth tests `dx_ui_is_back()`. It is true for `DX_UI_BACK` and for LEFT, repeats too. So a device with a Back button and the QEMU console behave the same. On the console, Backspace or a lone Escape is Back, and LEFT works too.
 
-The SDK seals the ROM for ABI 1.3. The loader checks only the major version, so the ROM still runs on a 1.0, 1.1 or 1.2 Pip-OS. A 1.0 or 1.1 Pip-OS never sends button 6, and LEFT is the only way back there.
+The SDK seals the ROM for ABI 1.4, the version its headers implement, since Deitrix calls `holo_eject_event` as 1.4 defines it. The loader checks only the major version, so the ROM still runs on a 1.0 to 1.3 Pip-OS. A 1.0 or 1.1 Pip-OS never sends button 6, and LEFT is the only way back there. Deitrix reads `abi_version` from `sys_info` before it trusts a newer field: `hw_flags` only from 1.3, the slot only from 1.4. On an older Pip-OS it has no slot and behaves as before.
+
+A `PIP_EV_TAPE` event, new in 1.4, is not a key. The shell does not route it: it only wakes the services, and the tape slot service asks Pip-OS what changed.
 
 The app shell routes each event:
 
@@ -208,10 +210,10 @@ Each step of `dx_app_step()`:
 
 1. Reads the clock and the tick counter. Without a clock, the minute is "none".
 2. Calls each service's `tick`, then the screen's `tick`, when their wake times have passed.
-3. Redraws when the tab or the minute changed, or a screen or a service asked for it: clear, header, body inside the clip, footer, then one `present`.
+3. Redraws when the tab or the minute changed, or a screen or a service asked for it: clear, header, body inside the clip, footer, then one `present`. While the tape slot service has a notice, the footer shows it in place of the hint.
 4. Logs on serial after the `present`: `deitrix: ready` after the first frame, `deitrix: tab=<NAME>` after a frame for a new tab.
 5. Reads the clock and the tick counter again, since the tick and the draw take time. Waits in `wait_event` until the earliest of the next whole minute, the screen's wake time and the services' wake times, or with no timeout when there is none. When the minute changed or the wake time passed during the draw, the timeout is 0 and the next step starts at once. The loop compares and subtracts ticks only through `dx_ticks_due` and `dx_ticks_since`, which mask the difference to 31 bits as the Pip-OS ABI asks.
-6. Translates the event and routes it.
+6. Translates the event and routes it. A `PIP_EV_TAPE` event only wakes every service for the next step.
 
 The clock has whole seconds only, so the wait can end up to 1 s before the minute changes. Then the next step sees the same minute, does not redraw, and waits again, at most 1 s. The time is shown in UTC: Pip-OS has no time zone.
 
@@ -305,6 +307,38 @@ The autosave writes DEITRIX.SAV and INV.SAV when their counters change. It write
 
 The unsaved mark tells the owner that changes are not on the card. It is a `!` in the normal colour, just left of the clock. It does not blink. It shows once a change has waited 12 s without reaching the card, `DX_SAVE_MARK_MS`: the longest wait of a healthy save, 10 s, plus 2 s. So a card that works never shows it. It stays while the changes are not saved, also after the autosave gave up. It goes as soon as every change is on the card, after the next change or a holotape's save. The service's tick turns it on and off, asks for a redraw and logs `deitrix: unsaved mark on` or `off`. It then stops its retries, so a broken card is not hit again and again. The changes stay marked as not saved. A new change to that save starts a fresh round of retries. `dx_autosave_flush()` writes at once. It tries every save that is not on the card once, even after a give-up. It returns 0 only when every save is on the card. The service's `stop` calls it. `dx_autosave_unsaved()` returns 1 while a change is not on the card. `dx_autosave_pending()` returns 1 only while the service plans a write, so it is 0 after a give-up. A write in QEMU takes 20 to 120 ms, and the UI waits only that long. No screen shows the saves, so the autosave never asks for a redraw.
 
+### The tape slot
+
+`src/services/tapes.c` follows the holotape slot of ABI 1.4. At start it reads `sys_info`. The slot is on only when `abi_version` is at least 1.4 and `hw_flags` has `PIP_HW_TAPE`. Before 1.3 that field was reserved, so the version check comes first. It logs `deitrix: tape slot on` or `off`. With the slot off the service never calls `holo_eject_event`, shows no notice and no slot mark, and its `tick` returns 0.
+
+With the slot on, each `tick` calls `holo_eject_event`, as the ABI's ROM loop asks. The shell ticks every service after each routed event and after each `PIP_EV_TAPE`. The event is only a hint: Pip-OS empties the queue around a launch, so TAPES also calls `dx_tapes_poll()` after each `holo_launch` returns. A non-zero mask logs `deitrix: tape slot bits=<n>`, counts a generation that TAPES watches, and queues footer notices:
+
+| Bit | Notice |
+|---|---|
+| `REMOVED` | "Tape slot: card removed." |
+| `INSERTED` | "Tape slot: card loaded." |
+| `BAD` | "Tape slot: card unreadable." |
+
+Several bits in one mask lose their order, so a removal queues first, then what the slot holds now. `src/ui/notice.c` holds the queue: up to 4 notices, each shown for 3 s, `DX_NOTICE_MS`. A full queue drops the oldest notice that waits. The same text twice in a row queues once. The service wakes when the notice shown ends and asks for a redraw then. Each change of the notice logs `deitrix: notice <text>`, or `-` when none shows.
+
+The footer draws a notice in the normal colour between two small squares, in place of the dim hint. It is not a dialog: it never takes a key, and the keys work as the hidden hint says.
+
+```mermaid
+sequenceDiagram
+    participant K as Pip-OS
+    participant S as Shell
+    participant T as Tape service
+    participant D as TAPES
+    K->>S: PIP_EV_TAPE
+    S->>T: tick on the next step
+    T->>K: holo_eject_event
+    K-->>T: INSERTED
+    T->>T: generation + 1, notice queued
+    T-->>S: redraw
+    S->>D: hint and draw
+    D->>K: holo_enumerate, since the generation moved
+```
+
 ### The uptime
 
 `src/services/uptime.c` samples `ticks_ms` at least once an hour, `DX_UPTIME_SAMPLE_MS`, and counts its wraps at 2^31. A fall of more than 2^30 between two samples is a wrap. `dx_uptime_s()` gives the whole seconds since the start and samples too. It divides without 64-bit arithmetic, since the ROM has no libgcc.
@@ -377,7 +411,7 @@ SELECT, BACK and LEFT open, close, store or launch only on a fresh press. Their 
 
 NOTES lists the notes the model loaded, in name order, by title. Ten rows fit. UP and DOWN move the selection. SELECT opens the note: its title, a faint rule, then the body in the text widget, 38 columns and 9 lines. UP and DOWN scroll it. A body over 128 wrapped lines ends with `[text cut]`. The body comes from `dx_content_note_body` into a 4 KiB buffer the screen owns. A read error shows "The note could not be read." under the title. BACK or LEFT returns to the list with the same note selected. RIGHT does nothing there. With no notes the list shows "No notes on the card.". When the folder could not be read it shows "The notes were not read." and the reason.
 
-TAPES lists the holotapes from `dx_plat_holo_list`, the seam's `holo_enumerate`. A row shows the title, or the file name when the title is empty, and the kind at the right: GAME, UTIL or DATA. The selected tape's 32x32 icon sits at the top right when it has one. The list is read when the sub-tab opens and after each launch, and the selection stays on the same file. With no tapes it shows "No holotapes on the card.". When the listing fails it shows "The holotapes could not be read.".
+TAPES lists the holotapes from `dx_plat_holo_list`, the seam's `holo_enumerate`. A row shows the title, or the file name when the title is empty, and the kind at the right: GAME, UTIL or DATA. A tape on the slot card shows `SLOT` before its kind, as `SLOT GAME`, from `PIP_HOLO_SLOT` in the entry's `flags`, and only while the tape slot service says the slot is on. Pip-OS lists the slot tapes first. A slot tape shadows a boot card tape of the same file name, so the list shows one row for that name, the slot's. Deitrix shows the listing as Pip-OS gives it and adds no row. The selected tape's 32x32 icon sits at the top right when it has one. The list is read when the sub-tab opens, after each launch, and on the next frame after the slot service counted a change. The selection stays on the same file. When that file left, it stays on the same row, or the last row, and the result line goes. Each listing logs `deitrix: tapes list n=<n> <FILE> ...`, with `*` after a slot tape. With no tapes it shows "No holotapes on the card.". When the listing fails it shows "The holotapes could not be read.".
 
 SELECT runs the selected tape:
 
@@ -385,9 +419,9 @@ SELECT runs the selected tape:
 2. `dx_autosave_flush()` writes any change that is not on the card, so a tape that crashes the device loses nothing. This includes changes the autosave gave up on. When a write fails, the tape does not run and the result line says "Save failed. SELECT again runs it.". The radio keeps playing. The next fresh SELECT runs the tape even if the write fails again. Moving the selection or leaving the sub-tab or the tab drops that line and the second chance. A held SELECT's repeats never count. A card that cannot be written must not block every tape, and the user must know the changes are not safe first.
 3. `dx_radio_stop()` stops the radio. Pip-OS stops the sound when a tape starts, so the service must not think it still plays. After the tape the radio stays off.
 4. `dx_plat_holo_launch(file, "")` runs the tape. The ROM waits inside the call.
-5. The listing is read again and the whole frame redraws, since the back buffer holds what the tape drew.
+5. `dx_tapes_poll()` asks for the slot changes, the listing is read again and the whole frame redraws, since the back buffer holds what the tape drew.
 
-The result line shows under the list until the selection moves or the sub-tab is left: "Tape ended, status N." for an exit status, "Tape was stopped by the system." for a fault, "Not a holotape." for a file that fails validation, "Card error." for a read error, "Tape not found." when the file vanished, and "The tape could not start." for any other error.
+The result line shows under the list until the selection moves or the sub-tab is left: "Tape ended, status N." for an exit status, "Tape was stopped by the system." for a fault, "Not a holotape." for a file that fails validation, "Card error." for a read error, "Tape not found." when the file vanished, "Tape pulled while running." for `-PIP_ENODEV`, when the slot card of the running tape left, and "The tape could not start." for any other error.
 
 CLOCK shows the time as `HH:MM:SS` in the stroke font at unit 6, the date and the weekday under it, and "The clock runs in UTC.". `src/model/data_time.c` computes the weekday and converts Unix seconds to fields and back for 2000 to 2099. Without a clock the page shows `--:--:--` and "No clock. SELECT sets the time.". The tick reads the clock every 250 ms and asks for a redraw only when the second changed. On NOTES and TAPES the tick returns 0.
 
@@ -401,6 +435,7 @@ deitrix: data note SHOP01.TXT top=0 lines=12
 deitrix: data tapes sel=0 top=0 count=2 | Tape ended, status 42.
 deitrix: data launch LINETEST.HTP
 deitrix: data tape rc=42
+deitrix: tapes list n=2 FAULT.HTP* LINETEST.HTP
 deitrix: data clock 09:30:07 2026-11-23 Monday | 
 deitrix: data setter field=1 2026-02-01 07:00 | 
 deitrix: data set_time 1769929200 rc=0
