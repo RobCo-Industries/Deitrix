@@ -190,6 +190,167 @@ The audio trace may show no `op=stop` when a tune gives way to a PCM station. Th
 .venv/bin/pytest tests -k hold_repeats --board raspi2b
 ```
 
+## Real hardware
+
+No test runs on a real board. Each hardware run is recorded here by hand: the board, the commits, the exact serial log and what it shows.
+
+### Hardware checklist
+
+| Check | State |
+|---|---|
+| The card from `make bootdir` boots Pip-OS and loads Deitrix | Done on a Zero W 1.1 only, 2026-11-24 |
+| Every file of the sample card loads | Partial, on a Zero W 1.1, 2026-11-24: see [What each file showed](#what-each-file-showed) |
+| Keys move through the tabs and views | Partial: serial keys on STAT, INV and RADIO only, on a Zero W 1.1, 2026-11-24. DATA, MAP and the UP key are open. |
+| The settings save reaches the card with the right bytes | Done for DEITRIX.SAV on a Zero W 1.1 only, 2026-11-24. Only the last of five writes was read back. |
+| The settings save loads at the next boot | Open |
+| INV.SAV is written and loads | Open |
+| GPIO buttons | Open |
+| The dial | Open |
+| The picture on HDMI or an SPI panel | Open |
+| Sound: key tones, tunes and PCM stations | Open |
+| The clock chip | Open |
+| A holotape starts and ends, Culvert included | Open |
+| A power cut during a save | Open |
+| Any other board | Open |
+
+### Run 1: Pi Zero W 1.1, 2026-11-24
+
+| Item | Value |
+|---|---|
+| Board | Raspberry Pi Zero W rev 1.1, BCM2835 |
+| Revision code | `0x009000c1`, as `board_rev` in the boot log |
+| Deitrix | [`ba21d5a`](https://github.com/RobCo-Industries/Deitrix/commit/ba21d5abb0a7cf8c46aaa2325f8b5cf4e72c31fd) |
+| Pip-OS | [`2d10c2c`](https://github.com/RobCo-Industries/Pip-OS/commit/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3), pinned by that Deitrix commit |
+| RobCo-Core | [`f5bba36`](https://github.com/RobCo-Industries/RobCo-Core/commit/f5bba36132a0b10940898c681dde50b453bfffad), inside that Pip-OS |
+| Firmware | Raspberry Pi firmware tag `1.20260915` |
+| Date | 2026-11-24 |
+| Card | One 16 GB SDHC card, one FAT32 partition with an MBR, formatted on macOS. It held the 22 files of `make bootdir`, copied with `cp -RX`, with no `._*` file left. No `.dtb` file and no `overlays/` folder. |
+| Serial | A CP2102 USB adapter at 3.3 V on header pins 6, 8 and 10, 115200 8N1 |
+| Wired | Nothing else: no screen, no speaker, no buttons, no dial, no clock chip |
+
+The boot log, exact:
+
+```
+@RC stage=pipos ev=boot midr=0x410fb767 soc=bcm2835 base=0x20000000 board_rev=0x009000c1 mem=0x1c000000 entry_mode=svc
+@RC stage=pipos ev=mmu on=1
+@RC stage=pipos ev=heap base=0x0006f8d0 size=3737392
+@RC stage=pipos ev=tick hz=100
+@RC stage=pipos ev=input gpio=0 serial=0 mini=0 script=0 repeat=0
+@RC stage=pipos ev=audio_init rc=0 backend=pwm probe=ok
+@RC stage=pipos ev=clock rtc=absent time=unset
+@RC stage=pipos ev=card rc=ok
+@RC stage=pipos ev=mount part=0 type=0x0b lba=8192 blocks=31107072 marker=1
+@RC stage=pipos ev=config rc=ok path=/PIPBOY/PIPOS.CFG line=0 scheme=green line_delay_ms=150 volume=80 beep=1
+@RC stage=pipos ev=gfx bb=0x00c00000 size=307200 user=0 heap_end=0x00400000
+@RC stage=pipos ev=syscalls served=0000000f00ff07ff0003007f000ffffe
+*************** PIP-OS(R) V7.1.0.8 ***************
+COPYRIGHT 2075 ROBCO IND.
+**************************************************
+LOADER V1.1
+EXEC VERSION 41.10
+64K RAM SYSTEM
+38911 BYTES FREE
+@RC stage=pipos ev=holo count=1
+1 HOLOTAPE FOUND
+@RC stage=pipos ev=load path=/PIPBOY/ROM1.ROM size=71672 crc=0xacfaddef addr=0x00400000 name=DEITRIX
+@RC stage=pipos ev=rom rc=ok name=DEITRIX version=0.1.0 size=71672 crc=0xacfaddef
+LOAD ROM(1): DEITRIX 0.1.0
+**************************************************
+PIP-OS KERNEL INITIALIZED
+PIP-OS READY
+**************************************************
+@RC stage=pipos ev=jump entry=0x00400000
+deitrix: load PROFILE.INI gauges=4 attrs=6 about=3
+deitrix: load ITEMS.INI items=14 categories=4
+deitrix: load NOTES notes=4
+deitrix: load MAP.INI maps=2 lines=16 places=12
+deitrix: load RADIO.INI stations=5
+deitrix: load RADIO/MORNING.TUN notes=49 ms=28800
+deitrix: load RADIO/WALK.TUN notes=56 ms=14530
+deitrix: load RADIO/LULLABY.TUN notes=19 ms=19994
+deitrix: load RADIO/HEARTH.PCM bytes=256000
+deitrix: load RADIO/DRIFT.PCM bytes=256000
+deitrix: load DEITRIX.SAV missing tab=0 volume=80 sound=1 station=0
+deitrix: load INV.SAV missing
+deitrix: ready
+```
+
+Keys went to the PL011 as ANSI sequences, about 1.5 s apart. Each key gave two kernel lines, `@RC stage=pipos ev=key type=key src=serial code=<key> value=1`, then `value=0`. Deitrix answered:
+
+```
+right   -> deitrix: stat shows ATTRS sel=0 top=0
+right   -> deitrix: stat about Deitrix=0.1.0 | Pip-OS=7.1.0 | ABI=1.2 | SoC=BCM2835 | RAM=448 MiB | Uptime=0d 00:01:01 | Time=no clock
+right   -> deitrix: tab=INV
+down    -> deitrix: inv cat=0 row=1          then: deitrix: save DEITRIX.SAV ok
+select  -> deitrix: inv open=rope
+back    -> deitrix: inv back row=1
+left    -> deitrix: stat about ... Uptime=0d 00:01:09 ...   and: deitrix: tab=STAT
+left    -> deitrix: stat shows ATTRS sel=0 top=0     then: deitrix: save DEITRIX.SAV ok
+left    -> deitrix: stat shows STATUS
+left    -> deitrix: tab=RADIO
+select  -> deitrix: radio station=1 / deitrix: radio shows Playing Morning     then: deitrix: save DEITRIX.SAV ok
+down x3 -> deitrix: radio row=1, row=2, row=3
+select  -> deitrix: radio station=4 / deitrix: radio shows Playing Hearth      then: deitrix: save DEITRIX.SAV ok
+down x2 -> deitrix: radio row=4, row=5
+left    -> deitrix: radio volume=70
+left    -> deitrix: radio volume=60          then: deitrix: save DEITRIX.SAV ok
+```
+
+No `deitrix: radio underrun` line and no `ev=exception` line appeared. The capture ran about 15 s after Hearth started.
+
+The card, read on a computer afterwards:
+
+- Pip-OS made `PIPBOY/SAVE/`. It was not among the copied files.
+- `PIPBOY/SAVE/DEITRIX.SAV` holds 20 bytes: `44 58 53 54 01 00 01 00 d0 6b 77 b0 04 3c 01 04 00 00 00 00`.
+- No `~DEITRIX.SAV` or `#DEITRIX.SAV` work file is left. No `INV.SAV`: the inventory did not change.
+- The folder and the file carry the date 1 January 2026, since no clock chip was fitted.
+
+The save bytes, checked against `dx_settings_encode` and `header` in `src/model/saves.c`:
+
+| Bytes | Field | Value |
+|---|---|---|
+| `44 58 53 54` | Magic | `DXST` |
+| `01 00` | Version | 1 |
+| `01 00` | Record count | 1 |
+| `d0 6b 77 b0` | CRC-32 of the 8 payload bytes | `0xb0776bd0`, which matches the payload |
+| `04` | Last tab | 4, RADIO |
+| `3c` | Volume | 60 |
+| `01` | UI sounds | 1, on |
+| `04` | Last station | 4, Hearth in the sample `RADIO.INI` |
+| `00 00 00 00` | Reserved | 0 |
+
+#### What each file showed
+
+The boot lines come from `dx_content_load` in `src/content.c`. A `load` line with counts means the loader got that far. It does not mean every byte was used. The key session then touched a few files again.
+
+| File | What the run showed | What stays open |
+|---|---|---|
+| `PROFILE.INI`, `ITEMS.INI`, `MAP.INI`, `RADIO.INI` | Read whole and parsed at boot. The counts match the sample. STAT and INV used the profile and items in the key session. | No map was drawn. Nothing was seen on a screen. |
+| `NOTES/*` | Four files read whole at boot, for their titles only. | No note body was opened. DATA was never visited. |
+| `MORNING.TUN`, `WALK.TUN`, `LULLABY.TUN` | Read whole and parsed at boot. Morning played from memory for about 6 s of its 28.8 s. | Walk and Lullaby never played. Nothing was heard. |
+| `HEARTH.PCM`, `DRIFT.PCM` | Only the size from the folder entry at boot: 256000 bytes each. Hearth then streamed for about 15 s of its 32 s, with no underrun line. | Drift was never opened. The rest of Hearth and its loop were not reached. Nothing was heard. |
+| `DEITRIX.SAV` | Missing at boot, so the defaults applied. Five writes logged `ok`. The last one was read back on a computer. | Loading it at the next boot. |
+| `INV.SAV` | Missing at boot. Never written, as the inventory did not change. | Writing it and loading it. |
+| `HOLO/CULVERT.HTP` | Pip-OS counted one holotape. Deitrix did not open it. | Launching Culvert. |
+| `PIPOS.CFG`, `ROM1.ROM` | Pip-OS read both: `config rc=ok` and `rom rc=ok` with the CRC. | Nothing for this run. |
+
+This run confirms that, on this board:
+
+- The card from `make bootdir` boots Pip-OS, which loads Deitrix 0.1.0 from `ROM1.ROM`.
+- Deitrix reads the sample card's data files at boot as the table shows and reaches `deitrix: ready`. It reads only the size of the two PCM files.
+- Serial keys LEFT, RIGHT, DOWN, SELECT and BACK move through STAT, INV and RADIO. They open and close an item, pick two stations and change the volume.
+- Deitrix logs five DEITRIX.SAV writes. The file left on the card has the expected bytes, and no work file is left.
+
+This run does not show:
+
+- Any picture: no screen was wired. Nothing was drawn where anyone could see it.
+- Any sound: no speaker was wired. `backend=pwm` and `Playing` show only that the calls did not fail.
+- GPIO buttons or the dial. `gpio=0` shows only that the backend started with nothing wired.
+- The DATA and MAP tabs, any note body, the map, or the UP key.
+- Walk, Lullaby or Drift playing, or Hearth past about 15 s.
+- The clock chip, a holotape launch, Culvert, INV.SAV, a reboot that loads the save, or a power cut during a save.
+- Any other board, or any other commit of Deitrix or Pip-OS. Pip-OS `2d10c2c` has no SPI panel backend and no ABI 1.3.
+
 ## Goldens
 
 After a deliberate change to the screen, write the goldens again on one board, then check every board:

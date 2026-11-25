@@ -2,7 +2,7 @@
 
 This page lists every asset Deitrix uses or ships: where it comes from, how it is made and under which licence.
 
-Deitrix has only run in the QEMU emulator so far. Nothing here has been seen or heard on real hardware.
+Deitrix has booted on one real board, a Pi Zero W 1.1, with no screen and no speaker wired. Nothing here has been seen or heard on real hardware.
 
 ## Summary
 
