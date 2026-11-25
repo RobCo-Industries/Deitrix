@@ -4,7 +4,7 @@ Deitrix is the user environment of a wrist computer, the ROM that [Pip-OS](https
 
 ## Status
 
-Deitrix has a UI framework, a data model, five tabs and one holotape game. It boots on Pip-OS in QEMU. On 2026-11-24 it also booted on a Pi Zero W 1.1, with keys sent over serial and no screen, speaker, buttons or dial wired. The picture, the sound, the buttons, the dial and every other board are still not tried, and nobody has listened to the radio yet: QEMU only prints an audio trace. See [TESTING.md](docs/TESTING.md#real-hardware).
+Deitrix has a UI framework, a data model, five tabs and one holotape game. It boots on Pip-OS in QEMU. On 2026-11-24 it also booted on a Pi Zero W 1.1, with keys sent over serial and no screen, speaker, buttons or dial wired. A second power-on loaded the saved settings and ran Culvert until Quit. The picture, the sound, the buttons, the dial and every other board are still not tried, and nobody has listened to the radio yet: QEMU only prints an audio trace. See [TESTING.md](docs/TESTING.md#real-hardware).
 
 Every frame shows a tab bar with STAT, INV, DATA, MAP and RADIO, the time as `HH:MM` in UTC or `--:--`, the active tab's body, and a key hint at the bottom. A `!` left of the clock says changes have not reached the card for 12 s.
 
