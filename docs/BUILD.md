@@ -2,7 +2,7 @@
 
 This page is for a person with a Mac or a Linux machine who wants to build a Deitrix card. It needs no knowledge of the code.
 
-Deitrix has only run in the QEMU emulator so far. The steps for a real card follow Pip-OS's guide, and nobody has tried them on real hardware yet.
+Deitrix has run on one real board so far: a Pi Zero W 1.1, on 2026-11-24, at commit `ba21d5a`, with serial only. The steps below for a real card produced a card that booted there. [TESTING.md](TESTING.md#real-hardware) records what that run shows and what it does not.
 
 ## Tools
 
@@ -130,7 +130,7 @@ To put a tape on a card by hand, copy its `.HTP` file to the card's `/PIPBOY/HOL
 
 ## Put it on a real card
 
-This follows Pip-OS's [A real card](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/BUILD.md#a-real-card). It has not been tried on hardware.
+This follows Pip-OS's [A real card](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/BUILD.md#a-real-card). These steps, with the Mac commands below, produced a card that booted Deitrix on a Pi Zero W 1.1 on 2026-11-24. No other board and no other host has been tried. See [TESTING.md](TESTING.md#real-hardware).
 
 ```sh
 make bootdir DIR=card
@@ -141,6 +141,19 @@ This writes the files of the card into the folder `card/`: the Raspberry Pi firm
 1. Format the SD card as FAT32.
 2. Copy everything in `card/` to the card.
 3. Put the card in the board and power it on.
+
+On a Mac, these commands made the card that booted. Replace `diskN` with the card's disk and `card` with your folder.
+
+```sh
+diskutil list
+# ERASES THE WHOLE DISK diskN. Check the disk number above first.
+diskutil eraseDisk FAT32 ROBCO MBRFormat /dev/diskN
+cp -RX card/. /Volumes/ROBCO/
+dot_clean -m /Volumes/ROBCO
+diskutil eject /dev/diskN
+```
+
+`cp -RX` copies without the macOS extended attributes. `dot_clean -m` removes the side files named `._*` that macOS can still write on a FAT32 card. No `._*` file must stay in `PIPBOY/HOLO`.
 
 The firmware comes from the network. `FIRMWARE=0` leaves it out, so the command needs no network. You then copy the firmware yourself.
 
