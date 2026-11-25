@@ -600,6 +600,47 @@ TEST(tapes_save_gave_up_asks_for_a_second_press)
     fake.save_fail = 0;
 }
 
+/* The unsaved mark around a launch. The launch flushes first: when the
+ * write works, the mark is off on the return. When it fails, the mark
+ * stays on after the tape, since the changes are still not on the card. */
+TEST(tapes_launch_and_the_unsaved_mark)
+{
+    int i;
+
+    fake_reset();
+    fake_add_holo("BEACON.HTP", DX_HOLO_GAME, "Beacon", NULL);
+    boot_tapes();
+    fake.save_fail = 1000000;
+    CHECK(dx_items_toggle_marked(dx_content_items(), 0));
+    key(DX_UI_UP);
+    for (i = 0; i < 20 && !dx_autosave_marked(); i++) {
+        fake.ticks += 1000;
+        dx_app_step(&app);
+    }
+    CHECK_INT(dx_autosave_marked(), 1);
+    /* A failed flush: the second press runs the tape, the mark stays. */
+    key(DX_UI_SELECT);
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 1);
+    CHECK_INT(dx_autosave_marked(), 1);
+    /* The card heals: the flush before the next launch saves, and the
+     * screen after the tape shows no mark. */
+    fake.save_fail = 0;
+    fake.log[0] = '\0';
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 2);
+    CHECK_INT(dx_autosave_unsaved(), 0);
+    CHECK_INT(dx_autosave_marked(), 0);
+    CHECK(strstr(fake.log, "deitrix: unsaved mark off\n") != NULL);
+    /* A healthy card never shows it around a launch. */
+    fake.log[0] = '\0';
+    CHECK(dx_items_toggle_marked(dx_content_items(), 0));
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 3);
+    CHECK_INT(dx_autosave_marked(), 0);
+    CHECK(strstr(fake.log, "unsaved mark") == NULL);
+}
+
 TEST(tapes_list_changes_after_a_launch)
 {
     fake_reset();
