@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Changed
 
+- The docs record the first hardware run: on a Pi Zero W 1.1, Deitrix booted, took serial keys and wrote DEITRIX.SAV. `docs/BUILD.md` gives the Mac commands that made the card.
 - `tools/check_content.py --help` prints the usage instead of checking a folder named `--help`. Exit codes stay the same.
 - STAT's ABOUT page shows the true uptime past 24.8 days: a new uptime service counts the wraps of `ticks_ms`.
 - The profile's gauge type is `dx_profile_gauge_t`, apart from the gauge widget. The widget has a selected, inverse mode, and RADIO's Volume row uses it.
