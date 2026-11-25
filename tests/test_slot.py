@@ -171,19 +171,24 @@ def test_slot_insert_and_pull(board, holotest_kernel, card, tmp_path, need_mtool
 def test_slot_tape_shadows_a_boot_tape(board, holotest_kernel, card, tmp_path, need_mtools,
                                        tapes):
     """A slot LINETEST.HTP, here the fault tape, hides the boot card's:
-    one row, marked, and SELECT runs the slot one. The pull brings the
-    boot card's back."""
+    one row, marked, and SELECT runs the slot one. The boot tape's result
+    line does not carry over to it. The pull brings the boot card's back."""
     add_tapes(card, tapes, ["linetest"])
     slot_on(card)
     cards = {0: slot_card(tmp_path, 0, {"LINETEST.HTP": tapes["fault"]})}
     with boot(holotest_kernel, board, card, cards) as vm:
         wait_ready(vm)
         to_tapes(vm)
+        before = count(vm, TAPES_LINE)
+        press(vm, "select")
+        assert wait_count(vm, TAPES_LINE, before + 1)[-1][3] != ""
+        before = count(vm, TAPES_LINE)
         insert(vm, 0)
         wait_bits(vm, 1)
         wait_notice(vm, IN)
-        # The frame line is the same as before: DATA does not log it again.
         wait_list(vm, ["LINETEST.HTP*"], frame=False)
+        # The slot tape is another tape: the result line goes.
+        assert wait_count(vm, TAPES_LINE, before + 1)[-1] == ("0", "0", "1", "")
         before = count(vm, TAPES_LINE)
         press(vm, "select")
         assert wait_count(vm, TAPES_LINE, before + 1)[-1] == \
