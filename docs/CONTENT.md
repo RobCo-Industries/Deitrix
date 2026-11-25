@@ -411,4 +411,4 @@ Run the checker on `content/` alone and it reports the two PCM files as missing,
 3. Write notes as `NOTES/<NAME>.TXT`, title on the first line. Use upper-case 8.3 names.
 4. For music, write a `.TUN` file in `RADIO/` and add a station to `RADIO.INI`. `tools/tun2notes.py MY.TUN --wav my.wav` lets you hear it on a computer. For a recording, convert it to raw 8-bit unsigned mono at 8000 Hz, for example `sox in.wav -r 8000 -c 1 -b 8 -e unsigned OUT.PCM`.
 5. Check the folder: put it at `<dir>/PIPBOY/DATA` and run `python3 tools/check_content.py <dir>`. Fix each line it prints.
-6. To start over, delete `/PIPBOY/SAVE/DEITRIX.SAV` and `INV.SAV` from the card on a computer.
+6. To start over, turn the device off and put the card in a computer. In `/PIPBOY/SAVE/`, delete `DEITRIX.SAV`, `INV.SAV` and `CULVERT.SAV`, and every file of the same name that starts with `~` or `#`. Pip-OS can rebuild a save from those work files, so deleting only the `.SAV` file may not reset it.

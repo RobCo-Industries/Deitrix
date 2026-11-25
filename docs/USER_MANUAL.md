@@ -407,7 +407,12 @@ You never save by hand. Deitrix writes a file 2 seconds after the last change, a
 
 When the card cannot be written, Deitrix tries again 5 seconds later, up to 3 times, then waits for the next change. Your changes stay on screen but are not on the card, and the header shows the [unsaved mark](#the-unsaved-mark). They are lost at power-off. On TAPES, starting a tape then shows `Save failed. SELECT again runs it.`.
 
-To start over, delete `DEITRIX.SAV` and `INV.SAV` from the card's `/PIPBOY/SAVE/` folder on a computer. Delete `CULVERT.SAV` from the same folder to start Culvert over. Leave files whose names start with `~` or `#` in place: Pip-OS uses them to finish an interrupted save.
+Pip-OS writes each save through two work files with the same name, one that starts with `~` and one that starts with `#`, such as `~INV.SAV` and `#INV.SAV`. After an interrupted save, it uses them to finish the save or bring back the old one. In normal use, leave these files in place.
+
+To reset a save, turn the device off and put the card in a computer. Copy the `/PIPBOY/SAVE/` folder somewhere first if you may want it back. Then delete the save and its work files. If you delete only the `.SAV` file, Pip-OS can rebuild it from a work file.
+
+- To start over, delete `DEITRIX.SAV`, `INV.SAV`, and any `~DEITRIX.SAV`, `#DEITRIX.SAV`, `~INV.SAV` or `#INV.SAV`.
+- To start Culvert over, delete `CULVERT.SAV`, and any `~CULVERT.SAV` or `#CULVERT.SAV`.
 
 ## The clock
 
