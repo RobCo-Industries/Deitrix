@@ -29,7 +29,7 @@ Deitrix's own files are under the MIT licence in [LICENSE](../LICENSE), copyrigh
 
 Deitrix draws all normal text through Pip-OS's `text` call. It ships no font of its own. The kernel draws an 8 by 16 font from RobCo-Core, the library inside Pip-OS.
 
-RobCo-Core holds two font tables. Its [FONTS.md](https://github.com/RobCo-Industries/RobCo-Core/blob/f5bba36132a0b10940898c681dde50b453bfffad/docs/FONTS.md) describes both:
+RobCo-Core holds two font tables. Its [FONTS.md](https://github.com/RobCo-Industries/RobCo-Core/blob/79cbd82d42c1ae6df371b05f7a3f1165ec86003f/docs/FONTS.md) describes both:
 
 | Font | Table | Source | Licence |
 |---|---|---|---|
