@@ -10,7 +10,9 @@
 #include <stdint.h>
 
 /* Event types, button codes and press values, as in Pip-OS's ABI. */
-enum { DX_EV_NONE = 0, DX_EV_BUTTON = 1, DX_EV_DIAL = 2 };
+/* DX_EV_TAPE is new in ABI 1.4: a holotape slot change, value holds
+ * DX_HOLO_EV_* bits. An older Pip-OS never sends it. */
+enum { DX_EV_NONE = 0, DX_EV_BUTTON = 1, DX_EV_DIAL = 2, DX_EV_TAPE = 3 };
 /* DX_BTN_BACK is new in ABI 1.2: a 1.0 or 1.1 Pip-OS never sends it. */
 enum { DX_BTN_UP, DX_BTN_DOWN, DX_BTN_LEFT, DX_BTN_RIGHT, DX_BTN_SELECT, DX_BTN_DIAL, DX_BTN_BACK };
 enum { DX_PRESS_RELEASE = 0, DX_PRESS_DOWN = 1, DX_PRESS_REPEAT = 2 };
@@ -148,7 +150,17 @@ typedef struct dx_sysinfo {
     uint32_t mem_total;     /* RAM in bytes */
     uint32_t heap_size;     /* the ROM's heap region in bytes */
     uint32_t stack_size;    /* the ROM's stack in bytes */
+    uint32_t hw_flags;      /* DX_HW_*: 0 before ABI 1.3, where Pip-OS has none */
 } dx_sysinfo_t;
+
+/* ABI versions the ROM checks for, (major << 16) | minor. */
+#define DX_ABI_1_3 0x00010003u /* hw_flags in sys_info */
+#define DX_ABI_1_4 0x00010004u /* the holotape slot */
+
+/* hw_flags bits, as PIP_HW_* in Pip-OS's ABI. */
+#define DX_HW_RTC   (1u << 0)
+#define DX_HW_AUDIO (1u << 2)
+#define DX_HW_TAPE  (1u << 3) /* a holotape slot exists, since ABI 1.4 */
 
 /* Fills *out. 0, or -1 with *out zeroed. */
 int dx_plat_sysinfo(dx_sysinfo_t *out);
@@ -162,6 +174,7 @@ int dx_plat_sysinfo(dx_sysinfo_t *out);
 #define DX_EFAULT  (-14)
 #define DX_EINVAL  (-22)
 #define DX_ENOEXEC (-40)
+#define DX_ENODEV  (-41)
 
 /*
  * Sets the clock to unix_seconds. Pip-OS also writes the clock chip
@@ -183,11 +196,13 @@ typedef struct dx_holo {
     char file[DX_NAME83_SIZE];          /* the name holo_launch takes */
     uint8_t kind;                       /* DX_HOLO_*, or another subtype */
     uint8_t has_icon;                   /* 1 when the icon has a set bit */
+    uint8_t slot;                       /* 1 when it sits on the slot card */
     char title[DX_HOLO_TITLE_MAX + 1];  /* empty when the tape has none */
     uint8_t icon[DX_HOLO_ICON_SIZE];
 } dx_holo_t;
 
-/* Lists the holotapes into out, at most max (1 to DX_HOLO_MAX).
+/* Lists the holotapes into out, at most max (1 to DX_HOLO_MAX): the
+ * slot card's first, then the boot card's that no slot tape shadows.
  * Returns the count, or a negative error. */
 int32_t dx_plat_holo_list(dx_holo_t *out, uint32_t max);
 
@@ -195,10 +210,20 @@ int32_t dx_plat_holo_list(dx_holo_t *out, uint32_t max);
  * Runs the holotape `file` with the argument string args. Returns its
  * exit status, 0 to 255, or a negative error: DX_EFAULT when it
  * faulted or was killed, DX_ENOEXEC when it failed validation, DX_EIO
- * on a read error, DX_ENOENT when it is not there. The ROM's drawing
+ * on a read error, DX_ENOENT when it is not there, DX_ENODEV when its
+ * slot card was pulled while it ran. The ROM's drawing
  * state comes back, but the back buffer holds what the tape drew.
  */
 int32_t dx_plat_holo_launch(const char *file, const char *args);
+
+/* holo_eject_event's bits, since ABI 1.4. */
+#define DX_HOLO_EV_INSERTED (1u << 0) /* a card came in and is mounted */
+#define DX_HOLO_EV_REMOVED  (1u << 1) /* the card left */
+#define DX_HOLO_EV_BAD      (1u << 2) /* the card in the slot cannot be used */
+
+/* The DX_HOLO_EV_* bits of the slot changes since the last call, which
+ * clears them. 0 for none. Call it only when hw_flags has DX_HW_TAPE. */
+uint32_t dx_plat_holo_events(void);
 
 /* ---- Library code: libpip on the target, RobCo-Core on the host ----------- */
 

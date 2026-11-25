@@ -10,6 +10,13 @@
 #define FALLBACK_FG 0x33e066u
 
 _Static_assert(DX_EV_BUTTON == PIP_EV_BUTTON && DX_EV_DIAL == PIP_EV_DIAL, "event types");
+_Static_assert(DX_EV_TAPE == PIP_EV_TAPE, "event types");
+_Static_assert(DX_HW_RTC == PIP_HW_RTC && DX_HW_AUDIO == PIP_HW_AUDIO && DX_HW_TAPE == PIP_HW_TAPE,
+               "hw_flags");
+_Static_assert(DX_HOLO_EV_INSERTED == PIP_HOLO_EV_INSERTED &&
+                   DX_HOLO_EV_REMOVED == PIP_HOLO_EV_REMOVED && DX_HOLO_EV_BAD == PIP_HOLO_EV_BAD,
+               "slot bits");
+_Static_assert(DX_ENODEV == -PIP_ENODEV, "errors");
 _Static_assert(DX_BTN_LEFT == PIP_BTN_LEFT && DX_BTN_RIGHT == PIP_BTN_RIGHT, "buttons");
 _Static_assert(DX_BTN_SELECT == PIP_BTN_SELECT && DX_BTN_DIAL == PIP_BTN_DIAL, "buttons");
 _Static_assert(DX_BTN_BACK == PIP_BTN_BACK, "buttons");
@@ -218,6 +225,7 @@ int dx_plat_sysinfo(dx_sysinfo_t *out)
     out->mem_total = 0;
     out->heap_size = 0;
     out->stack_size = 0;
+    out->hw_flags = 0;
     if (pip_sys_info(&si) != 0 || pip_mem_info(&mi) != 0) {
         return -1;
     }
@@ -228,6 +236,8 @@ int dx_plat_sysinfo(dx_sysinfo_t *out)
     out->mem_total = si.mem_size;
     out->heap_size = mi.heap_size;
     out->stack_size = mi.stack_size;
+    /* Before ABI 1.3 the field was reserved: 0 says nothing there. */
+    out->hw_flags = si.abi_version >= DX_ABI_1_3 ? si.hw_flags : 0;
     return 0;
 }
 
@@ -266,6 +276,8 @@ int32_t dx_plat_holo_list(dx_holo_t *out, uint32_t max)
         }
         h->file[DX_NAME83_SIZE - 1] = '\0';
         h->kind = info[i].subtype;
+        /* 0 before ABI 1.4, where the field was reserved. */
+        h->slot = (info[i].flags & PIP_HOLO_SLOT) != 0;
         for (j = 0; j < DX_HOLO_TITLE_MAX; j++) {
             h->title[j] = info[i].title[j];
         }
@@ -282,6 +294,15 @@ int32_t dx_plat_holo_list(dx_holo_t *out, uint32_t max)
 int32_t dx_plat_holo_launch(const char *file, const char *args)
 {
     return pip_holo_launch(file, args);
+}
+
+uint32_t dx_plat_holo_events(void)
+{
+    int32_t bits = pip_holo_eject_event();
+
+    /* Bits 3 to 31 are 0; a later minor may add some: ignore them. */
+    return bits > 0 ? (uint32_t)bits & (DX_HOLO_EV_INSERTED | DX_HOLO_EV_REMOVED | DX_HOLO_EV_BAD)
+                    : 0;
 }
 
 /* ---- libpip ------------------------------------------------------------------- */

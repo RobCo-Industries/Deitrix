@@ -5,6 +5,12 @@
  * then the radio stops. A failed write asks for a second press. After
  * a launch, one result line shows under the list until the selection
  * moves or the sub-tab is left.
+ *
+ * With a tape slot, ABI 1.4, the list follows the slot: the tape
+ * service counts each change, and the list reads the holotapes again
+ * when the count moved, on the next frame. The selection stays on the
+ * same file, or on the same row when the file left. A slot tape shows
+ * SLOT before its kind.
  */
 #include "model/util.h"
 #include "screens/data_view.h"
@@ -25,21 +31,22 @@ typedef struct tapes_state {
     const char *result; /* the result line, or NULL */
     int armed;          /* a failed save was shown: the next SELECT runs */
     char status[32];    /* "Tape ended, status <n>." */
+    uint32_t gen;       /* dx_tapes_gen() at the last listing */
 } tapes_state_t;
 
 static tapes_state_t tapes;
 
-static const char *kind_mark(int kind)
+static const char *kind_mark(int kind, int slot)
 {
     switch (kind) {
     case DX_HOLO_GAME:
-        return "GAME";
+        return slot ? "SLOT GAME" : "GAME";
     case DX_HOLO_UTILITY:
-        return "UTIL";
+        return slot ? "SLOT UTIL" : "UTIL";
     case DX_HOLO_DATA:
-        return "DATA";
+        return slot ? "SLOT DATA" : "DATA";
     default:
-        return "?";
+        return slot ? "SLOT ?" : "?";
     }
 }
 
@@ -52,7 +59,8 @@ static void tape_row(void *user, int i, dx_row_t *out)
 {
     (void)user;
     out->label = label(&tapes.holos[i]);
-    out->value = kind_mark(tapes.holos[i].kind);
+    /* Without a slot in hw_flags, nothing says "slot". */
+    out->value = kind_mark(tapes.holos[i].kind, tapes.holos[i].slot && dx_tapes_slot());
     out->flags = 0;
 }
 
@@ -71,14 +79,38 @@ void dx_data_tapes_reset(void)
     dx_mem_set(&tapes, 0, sizeof(tapes));
 }
 
+/* One line per listing: "deitrix: tapes list n=<n> <FILE> <FILE>*",
+ * with * after a tape shown as a slot tape. */
+static void log_list(void)
+{
+    char line[LOG_SIZE * 4];
+    dx_sb_t sb;
+    int i;
+
+    dx_sb_init(&sb, line, sizeof(line));
+    dx_sb_str(&sb, "deitrix: tapes list n=");
+    dx_sb_int(&sb, tapes.listed);
+    for (i = 0; i < tapes.list.count; i++) {
+        dx_sb_char(&sb, ' ');
+        dx_sb_str(&sb, tapes.holos[i].file);
+        if (tapes.holos[i].slot && dx_tapes_slot()) {
+            dx_sb_char(&sb, '*');
+        }
+    }
+    dx_sb_char(&sb, '\n');
+    dx_plat_log(line);
+}
+
 /* Reads the listing again. The selection stays on the same file when
- * it is still there. */
+ * it is still there, else on the same row, or the last one. When the
+ * selected file left, its result line goes with it. */
 static void read_list(void)
 {
     char keep[DX_NAME83_SIZE];
-    int i, sel;
+    int i, sel, found = 0;
 
     setup();
+    tapes.gen = dx_tapes_gen();
     keep[0] = '\0';
     if (tapes.list.count > 0) {
         dx_str_cut(keep, sizeof(keep), tapes.holos[tapes.list.sel].file,
@@ -87,12 +119,27 @@ static void read_list(void)
     sel = tapes.list.sel;
     tapes.listed = dx_plat_holo_list(tapes.holos, DX_HOLO_MAX);
     tapes.list.count = tapes.listed > 0 ? tapes.listed : 0;
-    for (i = 0; i < tapes.list.count; i++) {
+    for (i = 0; i < tapes.list.count && !found; i++) {
         if (dx_str_eq(tapes.holos[i].file, keep)) {
             sel = i;
+            found = 1;
         }
     }
+    log_list();
+    if (!found) {
+        tapes.result = NULL;
+        tapes.armed = 0;
+    }
     dx_list_select(&tapes.list, sel);
+}
+
+/* Reads the listing again when the slot changed since the last one. */
+static void sync(void)
+{
+    setup();
+    if (tapes.gen != dx_tapes_gen()) {
+        read_list();
+    }
 }
 
 void dx_data_tapes_enter(void)
@@ -144,6 +191,8 @@ static const char *result_text(int32_t rc, int kind)
         return "Card error.";
     case DX_ENOENT:
         return "Tape not found.";
+    case DX_ENODEV:
+        return "Tape pulled while running.";
     default:
         return "The tape could not start.";
     }
@@ -175,8 +224,11 @@ static unsigned launch(void)
     log_rc("launch ", file, 0);
     rc = dx_plat_holo_launch(file, "");
     log_rc("tape rc=", NULL, rc);
-    tapes.result = result_text(rc, kind);
+    /* The ABI asks for the slot changes after each launch: the queue
+     * was emptied around it, so no PIP_EV_TAPE tells of a pull. */
+    dx_tapes_poll(dx_plat_ticks());
     read_list();
+    tapes.result = result_text(rc, kind);
     /* The back buffer holds what the tape drew: the frame redraws all. */
     dx_data_log_reset();
     return DX_UI_HANDLED | DX_UI_DIRTY;
@@ -186,7 +238,7 @@ unsigned dx_data_tapes_event(const dx_ui_event_t *ev)
 {
     unsigned r;
 
-    setup();
+    sync();
     if (ev->type == DX_UI_SELECT) {
         /* One launch per press. A SELECT still held when a tape returns
          * sends only repeats: Pip-OS empties the queue at the tape's end. */
@@ -206,7 +258,7 @@ void dx_data_tapes_draw(const dx_ctx_t *ctx, dx_rect_t r)
     char line[LOG_SIZE];
     dx_sb_t sb;
 
-    setup();
+    sync();
     dx_sb_init(&sb, line, sizeof(line));
     dx_sb_str(&sb, "deitrix: data tapes sel=");
     dx_sb_int(&sb, tapes.list.sel);
@@ -245,6 +297,6 @@ void dx_data_tapes_draw(const dx_ctx_t *ctx, dx_rect_t r)
 
 const char *dx_data_tapes_hint(void)
 {
-    setup();
+    sync();
     return tapes.list.count > 0 ? "UP/DOWN: move  SELECT: run tape" : DX_HINT_PAGE;
 }

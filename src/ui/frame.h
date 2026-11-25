@@ -59,6 +59,10 @@ void dx_frame_mark(const dx_ctx_t *ctx);
 /* Draws the rule and the hint, centred. */
 void dx_frame_footer(const dx_ctx_t *ctx, const char *hint);
 
+/* Draws the rule and a notice in place of the hint: centred, in fg
+ * between two small marks, so it reads apart from a dim hint. */
+void dx_frame_notice(const dx_ctx_t *ctx, const char *text);
+
 /* Draws text centred on the screen width at y. */
 void dx_text_centered(const dx_ctx_t *ctx, int y, const char *text, uint32_t color, int scale);
 

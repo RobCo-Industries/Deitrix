@@ -1,6 +1,7 @@
 /*
  * The background services of the app shell: the radio, which keeps
- * playing whatever tab is shown, the autosave and the uptime.
+ * playing whatever tab is shown, the autosave, the uptime and the tape
+ * slot.
  */
 #ifndef DX_SERVICES_SERVICES_H
 #define DX_SERVICES_SERVICES_H
@@ -11,6 +12,7 @@
 #include "model/items.h"
 #include "model/radio.h"
 #include "model/saves.h"
+#include "ui/notice.h"
 
 /* ---- Radio ------------------------------------------------------------- */
 
@@ -93,5 +95,32 @@ uint32_t dx_uptime_s(uint32_t now_ms, uint32_t *ms_in_s);
 
 /* Starts the count again at now_ms with no wrap, for the host tests. */
 void dx_uptime_reset(uint32_t now_ms);
+
+/* ---- Tape slot ---------------------------------------------------------- */
+
+/* The footer notices of the slot changes. */
+#define DX_TAPES_IN  "Tape slot: card loaded."
+#define DX_TAPES_OUT "Tape slot: card removed."
+#define DX_TAPES_BAD "Tape slot: card unreadable."
+
+extern const dx_service_t dx_service_tapes;
+
+/* 1 when the kernel reports a slot: ABI 1.4 or later and DX_HW_TAPE.
+ * With 0 nothing about a slot shows anywhere. */
+int dx_tapes_slot(void);
+
+/* Counts the slot changes seen: the TAPES list reads the holotapes
+ * again when it moved. */
+uint32_t dx_tapes_gen(void);
+
+/* Asks Pip-OS for the slot changes now, as after a launch, and moves
+ * the notices on. Returns the DX_HOLO_EV_* bits, 0 without a slot. */
+uint32_t dx_tapes_poll(uint32_t now_ms);
+
+/* The notice the footer shows, or NULL. */
+const char *dx_tapes_notice(void);
+
+/* Back to the state before init, for the host tests. */
+void dx_tapes_reset(void);
 
 #endif
