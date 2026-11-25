@@ -15,7 +15,13 @@ Deitrix has only run in the QEMU emulator so far. Nothing here has been seen or 
 | The tunes | `content/PIPBOY/DATA/RADIO/*.TUN` | Written for Deitrix in the `.TUN` format | MIT |
 | The PCM tracks | Generated into `build/pcm/` | `tools/mkpcm.py`, by synthesis | MIT |
 | The UI tones | `src/ui/core.c` | Four tones as numbers in the code | MIT |
-| Culvert's icon and sounds | `holotapes/culvert/` | Drawn and written for Culvert | MIT |
+| Culvert's icon | `holotapes/culvert/icon.pbm` | Drawn for Culvert as a PBM file | MIT |
+| Culvert's pipe pieces and screens | `holotapes/culvert/draw.c` | Drawn as code with Pip-OS's drawing calls | MIT |
+| Culvert's levels | `holotapes/culvert/logic.c` | Generated from the level number, not stored | MIT |
+| Culvert's sounds | `holotapes/culvert/main.c` | Notes as numbers in the code | MIT |
+| Culvert's text | `holotapes/culvert/draw.c` | Written for Culvert | MIT |
+| The test tapes' icon | `tests/tapes/linetest/icon.pbm` | Drawn for the tests as a PBM file. Never on the default card. | MIT |
+| The manual's pictures | `tests/golden/*.png` | Screenshots of the QEMU tests | MIT |
 
 Deitrix's own files are under the MIT licence in [LICENSE](../LICENSE), copyright 2026 RobCo Industries. The README states that all artwork, sounds, music, maps and text in this repository are original and that nothing is copied from the Fallout games. Only the text font is not original to this project: it comes from Pip-OS.
 
@@ -76,9 +82,26 @@ The key tones are not files. `src/ui/core.c` holds four tones as a frequency and
 
 ## Culvert
 
-The Culvert holotape lives in `holotapes/culvert/`. Its icon, `icon.pbm`, is a 32 by 32 PBM drawing of a pipe elbow. Deitrix shows it on DATA, TAPES. The SDK seals it into `CULVERT.HTP`. Its sounds are notes in `main.c`: a tick per turn, two rising notes when water reaches new tiles, and a short tune for a solved level. Its levels are not stored: the level number sets each puzzle. See [CULVERT.md](CULVERT.md).
+The Culvert holotape lives in `holotapes/culvert/`. Every asset in it was made for Culvert and is under the MIT licence of [LICENSE](../LICENSE). Its Makefile hands them to the SDK, which seals them into `CULVERT.HTP`.
 
-The QEMU tests use two small test tapes in `tests/tapes/`. The line test tape has its own `icon.pbm`. They never go on the default card.
+| Asset | File | What it is |
+|---|---|---|
+| Icon | `icon.pbm` | A 32 by 32 PBM drawing of a pipe elbow. Deitrix shows it on DATA, TAPES. |
+| Pipe pieces | `draw.c` | The end cap, straight, elbow, tee, cross and source ring, drawn with rectangles at run time. No image file. |
+| Title strip | `draw.c` | Seven pipe tiles on the title screen, drawn from the same code |
+| Levels | `logic.c` | A random tree grown from a seed set by the level number. No level is stored. |
+| Turn tick | `main.c` | One tone, 900 Hz for 12 ms |
+| Connect notes | `main.c` | Two rising notes, 1320 Hz then 1760 Hz |
+| Solved tune | `main.c` | Six notes and a rest, from 784 Hz up to 1568 Hz |
+| Text | `draw.c` | The title, the menu entries, the hints and the status row |
+
+[CULVERT.md](CULVERT.md) explains the game.
+
+The QEMU tests use two small test tapes in `tests/tapes/`, `linetest` and `fault`. The line test tape has its own `icon.pbm`, a cassette. They never go on the default card.
+
+## The manual's pictures
+
+[USER_MANUAL.md](USER_MANUAL.md) shows the test goldens in `tests/golden/` where they are. They are not copies. They are the screens of one emulated board with the sample card. The tests in `tests/` compare each screen with its golden pixel for pixel, on every QEMU board they run on, so one file serves all four boards. A change that alters a screen updates its golden, so the manual's pictures follow. They show the emulator, not a real panel.
 
 ## Adding an asset
 
