@@ -200,16 +200,16 @@ No test runs on a real board. Each hardware run is recorded here by hand: the bo
 |---|---|
 | The card from `make bootdir` boots Pip-OS and loads Deitrix | Done on a Zero W 1.1 only, 2026-11-24 |
 | Every file of the sample card loads | Partial, on a Zero W 1.1, 2026-11-24: see [What each file showed](#what-each-file-showed) |
-| Keys move through the tabs and views | Partial: serial keys on STAT, INV and RADIO only, on a Zero W 1.1, 2026-11-24. DATA, MAP and the UP key are open. |
+| Keys move through the tabs and views | Partial, on a Zero W 1.1, 2026-11-24: serial LEFT reached all five tabs. LEFT, RIGHT, DOWN, SELECT and BACK worked in STAT, INV, RADIO, DATA's TAPES and Culvert. The UP key, a note body and the MAP views are open. |
 | The settings save reaches the card with the right bytes | Done for DEITRIX.SAV on a Zero W 1.1 only, 2026-11-24. Only the last of five writes was read back. |
-| The settings save loads at the next boot | Open |
+| The settings save loads at the next boot | Done for DEITRIX.SAV on a Zero W 1.1 only, 2026-11-24, in run 2 |
 | INV.SAV is written and loads | Open |
 | GPIO buttons | Open |
 | The dial | Open |
 | The picture on HDMI or an SPI panel | Open |
 | Sound: key tones, tunes and PCM stations | Open |
 | The clock chip | Open |
-| A holotape starts and ends, Culvert included | Open |
+| A holotape starts and ends, Culvert included | Partial, on a Zero W 1.1, 2026-11-24: Culvert started, took keys, quit with status 0 and Deitrix resumed. A solved level, CULVERT.SAV and a holotape fault are open. |
 | A power cut during a save | Open |
 | Any other board | Open |
 
@@ -321,17 +321,17 @@ The save bytes, checked against `dx_settings_encode` and `header` in `src/model/
 
 #### What each file showed
 
-The boot lines come from `dx_content_load` in `src/content.c`. A `load` line with counts means the loader got that far. It does not mean every byte was used. The key session then touched a few files again.
+The boot lines come from `dx_content_load` in `src/content.c`. A `load` line with counts means the loader got that far. It does not mean every byte was used. The key sessions then touched a few files again.
 
 | File | What the run showed | What stays open |
 |---|---|---|
-| `PROFILE.INI`, `ITEMS.INI`, `MAP.INI`, `RADIO.INI` | Read whole and parsed at boot. The counts match the sample. STAT and INV used the profile and items in the key session. | No map was drawn. Nothing was seen on a screen. |
-| `NOTES/*` | Four files read whole at boot, for their titles only. | No note body was opened. DATA was never visited. |
-| `MORNING.TUN`, `WALK.TUN`, `LULLABY.TUN` | Read whole and parsed at boot. Morning played from memory for about 6 s of its 28.8 s. | Walk and Lullaby never played. Nothing was heard. |
-| `HEARTH.PCM`, `DRIFT.PCM` | Only the size from the folder entry at boot: 256000 bytes each. Hearth then streamed for about 15 s of its 32 s, with no underrun line. | Drift was never opened. The rest of Hearth and its loop were not reached. Nothing was heard. |
-| `DEITRIX.SAV` | Missing at boot, so the defaults applied. Five writes logged `ok`. The last one was read back on a computer. | Loading it at the next boot. |
-| `INV.SAV` | Missing at boot. Never written, as the inventory did not change. | Writing it and loading it. |
-| `HOLO/CULVERT.HTP` | Pip-OS counted one holotape. Deitrix did not open it. | Launching Culvert. |
+| `PROFILE.INI`, `ITEMS.INI`, `MAP.INI`, `RADIO.INI` | Read whole and parsed at boot, in both runs. The counts match the sample. STAT and INV used the profile and items in run 1. | Run 2 opened MAP, but the log shows no map drawn. Nothing was seen on a screen. |
+| `NOTES/*` | Four files read whole at boot, for their titles only. Run 2 opened DATA, which listed four notes. | No note body was opened. |
+| `MORNING.TUN`, `WALK.TUN`, `LULLABY.TUN` | Read whole and parsed at boot. Morning played from memory for about 6 s of its 28.8 s in run 1. | Walk and Lullaby never played. Nothing was heard. |
+| `HEARTH.PCM`, `DRIFT.PCM` | Only the size from the folder entry at boot: 256000 bytes each. Hearth then streamed for about 15 s of its 32 s in run 1, with no underrun line. | Drift was never opened. The rest of Hearth and its loop were not reached. Nothing was heard. |
+| `DEITRIX.SAV` | Missing at the first boot. Five writes logged `ok` in run 1, and the last was read back on a computer. Run 2 loaded it with `ok` and started on the saved tab, then logged one more write. | Reading the run 2 write back. |
+| `INV.SAV` | Missing at both boots. Never written, as the inventory did not change. | Writing it and loading it. |
+| `HOLO/CULVERT.HTP` | Pip-OS counted one holotape. In run 2, Deitrix launched it, it played level 1, quit with status 0 and Deitrix resumed. | A solved level, `CULVERT.SAV`, a holotape fault. Nothing was seen or heard. |
 | `PIPOS.CFG`, `ROM1.ROM` | Pip-OS read both: `config rc=ok` and `rom rc=ok` with the CRC. | Nothing for this run. |
 
 This run confirms that, on this board:
@@ -350,6 +350,96 @@ This run does not show:
 - Walk, Lullaby or Drift playing, or Hearth past about 15 s.
 - The clock chip, a holotape launch, Culvert, INV.SAV, a reboot that loads the save, or a power cut during a save.
 - Any other board, or any other commit of Deitrix or Pip-OS. Pip-OS `2d10c2c` has no SPI panel backend and no ABI 1.3.
+
+### Run 2: the same Pi Zero W 1.1, 2026-11-24
+
+Run 2 used the same board, card, files, commits, firmware and serial wiring as run 1. Nothing else was wired. Between the runs, a computer read `PIPBOY/SAVE/DEITRIX.SAV` from the card. Nothing on the card was changed. Run 2 was the second power-on of that card.
+
+The boot log matched run 1 up to `deitrix: load RADIO/DRIFT.PCM bytes=256000`. Then it read:
+
+```
+deitrix: load DEITRIX.SAV ok tab=4 volume=60 sound=1 station=4
+deitrix: load INV.SAV missing
+deitrix: ready
+```
+
+`ok` comes from `dx_settings_decode` in `src/model/saves.c`, called by `dx_content_load_saves` in `src/content.c`. It means the file had the `DXST` magic, version 1, one record of the right size and a CRC that matched. The four values on the line are the ones applied. They match the bytes read back after run 1. `dx_content_load_saves` then hands the volume and the UI sound setting to the platform.
+
+Keys went over serial as in run 1. Each key gave the same two `ev=key` lines. Five LEFT presses from the start tab gave:
+
+```
+deitrix: tab=MAP
+deitrix: data notes sel=0 top=0 count=4
+deitrix: tab=DATA
+deitrix: tab=INV
+deitrix: tab=STAT
+deitrix: tab=RADIO
+```
+
+The first LEFT gave MAP, the tab left of RADIO, so Deitrix started on the saved tab 4. The fifth LEFT wrapped from STAT back to RADIO. The MAP tab logged only `tab=MAP`. The map screen logs nothing on the first frame after the tab opens, so the log neither shows nor rules out a drawn map.
+
+Then LEFT, LEFT, RIGHT and SELECT:
+
+```
+left    -> deitrix: tab=MAP
+left    -> deitrix: data notes sel=0 top=0 count=4 / deitrix: tab=DATA
+right   -> deitrix: data tapes sel=0 top=0 count=1 |      then: deitrix: save DEITRIX.SAV ok
+select  -> deitrix: data launch CULVERT.HTP
+           @RC stage=pipos ev=holo_start name=CULVERT.HTP
+           culvert: load rc=-2
+           culvert: title
+```
+
+`ev=holo_start` is the kernel entering a holotape, per Pip-OS `docs/BOOT.md`. `culvert: load rc=-2` prints the return of `pip_read_save("CULVERT", ...)` in `holotapes/culvert/main.c`. -2 is `-PIP_ENOENT` in `pipos/abi.h`: no Culvert save exists yet. The game then starts with no solved levels.
+
+In the game:
+
+```
+select  -> culvert: level n=1 w=5 h=4 seed=0x128f528f
+right   -> culvert: cursor x=3 y=2
+select  -> culvert: turn x=3 y=2 connected=7
+down    -> culvert: cursor x=3 y=3
+select  -> culvert: turn x=3 y=3 connected=7
+select  -> culvert: turn x=3 y=3 connected=7
+left    -> culvert: cursor x=2 y=3
+select  -> culvert: turn x=2 y=3 connected=6
+back    -> culvert: pause
+down    -> culvert: menu item=1
+down    -> culvert: menu item=2
+select  -> culvert stats: grid draws=8 ms=70
+           culvert: exit rc=0
+           @RC stage=pipos ev=holo_exit status=0
+           deitrix: data tape rc=0
+           deitrix: data tapes sel=0 top=0 count=1 | Tape ended, status 0.
+left    -> deitrix: data notes sel=0 top=0 count=4
+```
+
+What these lines mean, from the code:
+
+- `connected=` is the number of tiles the water reaches after the turn, from `cv_flood` in `holotapes/culvert/logic.c`. Level 1 has 20 tiles, so the level was not solved.
+- Item 2 of the pause menu is Quit.
+- `grid draws` counts the frames in `apply` in `holotapes/culvert/main.c` that redrew the whole screen or the whole grid, outside the title and the exit. Here that is the level start, four turns, the pause and two menu moves. Cursor moves are not counted.
+- `ms` is the sum of `pip_ticks_ms` around `cv_draw` for those frames. `ticks_ms` moves in steps of 10 ms, so each frame reads as 0, 10 or more. The frames were drawn to memory, with no screen wired. The number is one sample on one board, not a benchmark.
+- `ev=holo_exit status=0` is the kernel's line when a holotape calls `exit` or returns, per Pip-OS `docs/BOOT.md`. Culvert returned 0 from `pip_main`.
+
+No `ev=exception`, `ev=panic`, `rom_kill` or `holo_kill` line appeared.
+
+This run confirms that, on this board:
+
+- The DEITRIX.SAV written in run 1 loads at the next boot, and Deitrix starts on the saved tab.
+- Serial LEFT reaches all five tabs and wraps. RIGHT opens the TAPES sub-tab.
+- Deitrix launches `CULVERT.HTP`. Pip-OS logs `holo_start`, the game reads no save, takes keys, starts level 1, moves the cursor, turns tiles, pauses and quits.
+- The holotape ended by itself with status 0. Pip-OS logged `holo_exit`, Deitrix got the status back, showed it in TAPES and kept taking keys.
+
+This run does not show:
+
+- Any picture or sound. Nothing was wired.
+- A drawn map, any note body, or the UP key.
+- A solved level, a `CULVERT.SAV` write or load, or the title's Continue entry.
+- A holotape fault or a kill. None was provoked, so the sandbox's kill path is not tested here.
+- INV.SAV: still missing, as the inventory did not change.
+- The card after this run. It was not read on a computer.
+- GPIO buttons, the dial, the clock chip, a power cut during a save, or any other board or commit.
 
 ## Goldens
 
