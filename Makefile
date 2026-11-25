@@ -5,6 +5,8 @@
 #   make test                 test-host, then the QEMU tests on every board
 #   make test BOARD=raspi0    the QEMU tests on one board
 #   make test-target          the QEMU tests only
+#   make holotest-kernel      build/holotest/pipos.img: Pip-OS with its test
+#                             backend in the holotape slot, for the QEMU tests
 #   make holotapes            build/holo/CULVERT.HTP, the Culvert holotape
 #   make gallery              build/gallery/: the widget gallery ROM and its
 #                             card, for the QEMU tests only
@@ -149,9 +151,18 @@ CARD_VARS   := ROM=$(abspath $(PIP_OUT)) TAPE="$(TAPES)" CARD_DIR=$(abspath $(CA
 KERNEL      := $(PIPOS_BUILD)/pipos.img
 CARD        := $(PIPOS_BUILD)/sd.img
 
-.PHONY: kernel sdimage run bootdir
+.PHONY: kernel holotest-kernel sdimage run bootdir
 kernel:
 	$(PIPOS_MAKE) kernel
+
+# A test kernel with Pip-OS's RAM card backend in the holotape slot, for
+# tests/test_slot.py. Pip-OS's own tests build it the same way: its
+# Makefile adds a command-line EXTRA_CFLAGS to its own. It is never
+# shipped: the slot here is a test backend, not the real driver.
+HOLOTEST_BUILD := $(abspath $(BUILD))/holotest
+holotest-kernel:
+	$(MAKE) --no-print-directory -C $(PIP_OS) BUILD=$(HOLOTEST_BUILD) PYTHON=$(PYTHON) \
+	    EXTRA_CFLAGS=-DPIPOS_HOLO_TEST kernel
 
 sdimage: all card-tree
 	$(PIPOS_MAKE) sdimage $(CARD_VARS)
@@ -226,5 +237,5 @@ $(VENV)/.installed: $(ROBCO_CORE)/tests/requirements.txt
 test: test-host
 	$(MAKE) --no-print-directory test-target
 
-test-target: sdimage kernel gallery $(CV_SOLVE) venv
+test-target: sdimage kernel holotest-kernel gallery $(CV_SOLVE) venv
 	$(VENV)/bin/pytest tests -v --board $(BOARD) --build-dir $(BUILD)

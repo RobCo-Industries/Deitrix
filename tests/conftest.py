@@ -47,6 +47,13 @@ def kernel_image(request):
     return _built(request, "pipos", "pipos.img")
 
 
+@pytest.fixture(scope="session")
+def holotest_kernel(request):
+    """Pip-OS with its RAM card backend in the holotape slot, from make
+    holotest-kernel. Only tests/test_slot.py boots it."""
+    return _built(request, "holotest", "pipos.img")
+
+
 @pytest.fixture
 def card(request, tmp_path):
     """A copy of the card make sdimage wrote, so a test cannot change it."""
