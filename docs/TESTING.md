@@ -95,7 +95,7 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 
 ## QEMU tests
 
-`tests/test_deitrix.py`, `tests/test_model.py`, `tests/test_stat.py`, `tests/test_inv.py`, `tests/test_data.py`, `tests/test_map.py`, `tests/test_radio_tab.py` and `tests/test_culvert.py` boot the card from `make sdimage` with the Pip-OS kernel. `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
+`tests/test_deitrix.py`, `tests/test_model.py`, `tests/test_stat.py`, `tests/test_inv.py`, `tests/test_data.py`, `tests/test_map.py`, `tests/test_radio_tab.py` and `tests/test_culvert.py` boot the card from `make sdimage` with the Pip-OS kernel. `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/5f891e75ac0894beec1d4e9d8cb37c00ec0fbf3e/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
 
 - `booted(..., wait="jump")` boots the card. Deitrix never exits, so the kernel prints `ev=jump` but never `ev=ready`. Each test then waits for `deitrix: ready` on serial.
 - `script()` sends one script-channel command and checks it answered `ok`. `press()` presses and releases a button.
@@ -192,7 +192,7 @@ The audio trace may show no `op=stop` when a tune gives way to a PCM station. Th
 
 ## Real hardware
 
-No test runs on a real board. Each hardware run is recorded here by hand: the board, the commits, the exact serial log and what it shows.
+No test runs on a real board. Each hardware run is recorded here by hand: the board, the commits, the exact serial log and what it shows. The runs below used Pip-OS `2d10c2c`. Nothing has run on hardware with the current pin, Pip-OS `5f891e7`.
 
 ### Hardware checklist
 
@@ -220,8 +220,8 @@ No test runs on a real board. Each hardware run is recorded here by hand: the bo
 | Board | Raspberry Pi Zero W rev 1.1, BCM2835 |
 | Revision code | `0x009000c1`, as `board_rev` in the boot log |
 | Deitrix | [`ba21d5a`](https://github.com/RobCo-Industries/Deitrix/commit/ba21d5abb0a7cf8c46aaa2325f8b5cf4e72c31fd) |
-| Pip-OS | [`2d10c2c`](https://github.com/RobCo-Industries/Pip-OS/commit/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3), pinned by that Deitrix commit |
-| RobCo-Core | [`f5bba36`](https://github.com/RobCo-Industries/RobCo-Core/commit/f5bba36132a0b10940898c681dde50b453bfffad), inside that Pip-OS |
+| Pip-OS | `2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3`, pinned by that Deitrix commit |
+| RobCo-Core | `f5bba36132a0b10940898c681dde50b453bfffad`, inside that Pip-OS |
 | Firmware | Raspberry Pi firmware tag `1.20260915` |
 | Date | 2026-11-24 |
 | Card | One 16 GB SDHC card, one FAT32 partition with an MBR, formatted on macOS. It held the 22 files of `make bootdir`, copied with `cp -RX`, with no `._*` file left. No `.dtb` file and no `overlays/` folder. |

@@ -74,7 +74,7 @@ The navigation rule:
 
 A screen that keeps a depth tests `dx_ui_is_back()`. It is true for `DX_UI_BACK` and for LEFT, repeats too. So a device with a Back button and the QEMU console behave the same. On the console, Backspace or a lone Escape is Back, and LEFT works too.
 
-The SDK seals the ROM for ABI 1.2. The loader checks only the major version, so the ROM still runs on a 1.0 or 1.1 Pip-OS. That Pip-OS never sends button 6, and LEFT is the only way back.
+The SDK seals the ROM for ABI 1.3. The loader checks only the major version, so the ROM still runs on a 1.0, 1.1 or 1.2 Pip-OS. A 1.0 or 1.1 Pip-OS never sends button 6, and LEFT is the only way back there.
 
 The app shell routes each event:
 
@@ -332,7 +332,7 @@ The tab logs one line when a frame shows another view, just before the present. 
 ```
 deitrix: stat shows ATTRS sel=3 top=0
 deitrix: stat shows STATUS
-deitrix: stat about Deitrix=0.1.0 | Pip-OS=7.1.0 | ABI=1.2 | SoC=BCM2836 | RAM=960 MiB | Uptime=0d 00:00:12 | Time=no clock
+deitrix: stat about Deitrix=0.1.0 | Pip-OS=7.1.0 | ABI=1.3 | SoC=BCM2836 | RAM=960 MiB | Uptime=0d 00:00:12 | Time=no clock
 ```
 
 ABOUT logs its line when the page shows and when the uptime's minute changes, not on every frame. A test that needs a newer value leaves the page and comes back. The profile's gauge data is `dx_profile_gauge_t` in `model/profile.h`, apart from the widget's `dx_gauge_t`. `src/screens/stat_draw.c` draws the name and the gauges.

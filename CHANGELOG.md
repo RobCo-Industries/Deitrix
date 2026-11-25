@@ -19,6 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 - The footer hints follow one style: the same key names, two spaces between groups, movement first, at most 38 characters. No screen hint names the tab change.
 - One held-key rule for every tab, in the shell: after a press opens or closes a view or changes the tab, the repeats of that key do nothing until the next press. A held LEFT in INV's detail no longer changes the category and the tab.
 - Pip-OS moves to `2d10c2c`, with RobCo-Core `f5bba36` inside it. The kernel mounts the card with the shared boot volume rule.
+- Pip-OS moves to `5f891e7`, with RobCo-Core `79cbd82` inside it. The SDK seals the ROM for ABI 1.3. Pip-OS skips the macOS `._*` side files on the card, so `docs/BUILD.md` no longer asks for `dot_clean`.
 
 ### Added
 
