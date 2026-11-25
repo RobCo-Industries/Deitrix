@@ -2,22 +2,24 @@
 
 This page is for the person who wears the device. It needs no programming knowledge.
 
-Deitrix is the program the wrist computer runs after Pip-OS starts. It shows your status, your items, your notes, your maps and a radio on five tabs.
+Deitrix is the program the wrist computer runs after Pip-OS starts. It shows your status, your items, your notes, your maps and a radio on five tabs. It also runs holotapes, such as the game Culvert.
 
-Deitrix has only run in the QEMU emulator so far. Nobody has tried it on a real device yet, and nobody has heard its radio: QEMU only logs the sound.
+Deitrix has only run in the QEMU emulator so far. Nobody has tried it on a real device: the buttons, the dial, the panel and the speaker are untested, and nobody has heard the radio. QEMU only logs the sound.
+
+The pictures on this page are the test screenshots of one emulated board. The tests compare each screen with them pixel for pixel. They are doubled to 640 by 480, as Pip-OS shows them.
 
 ## Contents
 
 - [What you need](#what-you-need)
-- [Controls](#controls)
+- [Turning it on](#turning-it-on)
 - [The screen](#the-screen)
+- [Controls](#controls)
 - [STAT](#stat)
 - [INV](#inv)
 - [DATA](#data)
+- [Playing Culvert](#playing-culvert)
 - [MAP](#map)
 - [RADIO](#radio)
-- [Holotapes](#holotapes)
-- [Culvert](#culvert)
 - [Saving](#saving)
 - [The clock](#the-clock)
 - [Your own content](#your-own-content)
@@ -28,50 +30,83 @@ Deitrix has only run in the QEMU emulator so far. Nobody has tried it on a real 
 - A device that runs Pip-OS. Pip-OS's [user manual](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/USER_MANUAL.md) lists the boards and the parts.
 - An SD card built for Deitrix. [BUILD.md](BUILD.md) explains how to build one.
 
-At power-on Pip-OS prints its boot lines, then loads Deitrix from `/PIPBOY/ROM1.ROM` on the card. The line `LOAD ROM(1): DEITRIX 0.1.0` says Deitrix passed its checks. Deitrix then reads its content and opens the tab you used last.
+## Turning it on
 
-## Controls
+Pip-OS starts first and prints its boot lines. Among them, `1 HOLOTAPE FOUND` counts the holotapes on the card, and `LOAD ROM(1): DEITRIX 0.1.0` says Deitrix passed Pip-OS's checks. Pip-OS's manual explains [every boot line](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/USER_MANUAL.md#what-you-see-at-boot).
 
-| Control | What it does |
-|---|---|
-| Dial turn | Changes the tab, on any view. One step is one tab. |
-| LEFT, RIGHT | Move between the sub-tabs of a tab. Past the first or last sub-tab, they change the tab. Inside a nested view, LEFT goes back. |
-| UP, DOWN | Move the selection, scroll a text or change a value |
-| SELECT, or a push on the dial | Opens, starts, marks or confirms |
-| BACK | Goes back one level from a nested view. BACK never changes the tab. |
-
-"Back" means one level up: from a detail to its list, or from a note to the list of notes. LEFT does the same in a nested view, so a device without a BACK button still works.
-
-The tabs wrap: the tab after RADIO is STAT, and the tab before STAT is RADIO.
-
-Hold a button to repeat it. The first repeat comes 500 ms after the press, then one every 100 ms. Repeats move lists and change counts. They never open, close, start or store anything: those need a fresh press.
-
-A key that does nothing on the current view plays a short low tone. Other keys play short, higher tones. The tones stay silent while the radio plays, and when UI sounds are off on the RADIO tab.
-
-In QEMU, type the keys in the terminal that runs `make run`. The arrow keys are UP, DOWN, LEFT and RIGHT. Enter is SELECT. Backspace, or Escape alone, is BACK. The terminal has no dial key.
+Deitrix then reads its content and its saves from the card and opens the tab you used last. The first time, that is STAT. The radio does not start by itself.
 
 ## The screen
 
 The screen is 320 by 240 pixels. Pip-OS doubles it on a 640 by 480 display.
 
-![The STAT tab at start](../tests/golden/stat.png)
+![The STAT tab, STATUS sub-tab, on the sample card](../tests/golden/stat.png)
 
-- **The tab bar** is the top row: STAT, INV, DATA, MAP and RADIO. The active tab is a filled block.
-- **The clock** is at the top right, as `HH:MM` in UTC. It shows `--:--` when the device has no time. See [The clock](#the-clock).
-- **The body** is the middle of the screen. Most tabs have a row of sub-tabs at its top. The active sub-tab is bright and underlined.
-- **The footer** is the bottom row. It names the keys that do something on the current view, for example `UP/DOWN: item  SELECT: open`. When a view has nothing special to say, it shows `DIAL or LEFT/RIGHT: change tab`.
+| Part | Where | What it shows |
+|---|---|---|
+| Tab bar | Top row | STAT, INV, DATA, MAP and RADIO. The active tab is a filled block. |
+| Unsaved mark | Top row, left of the clock | A `!` while your changes have not reached the card. See [The unsaved mark](#the-unsaved-mark). |
+| Clock | Top right | The time as `HH:MM` in UTC, or `--:--` when the device has no time. See [The clock](#the-clock). |
+| Sub-tabs | Under the tab bar | The pages of the tab. The active one is bright and underlined. RADIO has none. |
+| Body | Middle | The page. A status row at the bottom of the body shows a summary or a result on some pages. |
+| Footer | Bottom row | The keys that do something on this view, such as `UP/DOWN: move  SELECT: open`. |
+
+The footer names keys as `UP/DOWN`, `LEFT/RIGHT`, `SELECT`, `BACK` and `DIAL`. It never names the tab change, since the dial always changes the tab. A view with no key of its own shows `DIAL: change tab`. A view whose only keys move between sub-tabs shows `LEFT/RIGHT: page`.
+
+### The unsaved mark
+
+![The header with the clock at 09:47](../tests/golden/clock_0947.png)
+
+The picture above shows the clock area. When a change has waited 12 seconds without reaching the card, a `!` appears just left of the clock. It does not blink. A card that works never shows it, because a save takes at most 10 seconds.
+
+The `!` goes away as soon as every change is on the card. If it stays:
+
+1. Check that the card is in place, not full and not locked.
+2. Make any change, or start a holotape. Both make Deitrix try to write again.
+3. Do not power off while it shows. Changes not on the card are lost at power-off.
+
+## Controls
+
+The device has a dial and six buttons: UP, DOWN, LEFT, RIGHT, SELECT and BACK. None of them has been tried on real hardware yet.
+
+| Control | What it does |
+|---|---|
+| Dial turn | Changes the tab, on any view. One step is one tab. The tabs wrap: after RADIO comes STAT. |
+| Dial push | The same as SELECT |
+| UP, DOWN | Move the selection, scroll a text or change a value |
+| LEFT, RIGHT | Move between the sub-tabs. Past the first or the last sub-tab, they change the tab. Inside a nested view, LEFT goes back. |
+| SELECT | Opens, starts, marks or confirms |
+| BACK | Goes back one level from a nested view. BACK never changes the tab. |
+
+A nested view is a page you open from a list: an item's detail, an open note, a place's detail, the clock setter. LEFT goes back from it like BACK, so a device without a BACK button still works. RIGHT does nothing there.
+
+### Holding a key
+
+Hold a button to repeat it. The first repeat comes 500 ms after the press, then one every 100 ms. Repeats move lists, scroll text and change values, such as a count or the volume.
+
+When a press opens a view, closes one or changes the tab, holding that key does nothing more. Let go and press again to act once more. So a held LEFT that closes an item's detail stays on the list, and a held SELECT that runs a tape runs it once.
+
+### Key tones
+
+A key that does something plays a short tone. A key that does nothing on the view plays a short low tone. Repeats never play the low tone. The tones stay silent while the radio plays, and when UI sounds are off on RADIO.
+
+### In QEMU
+
+Type the keys in the terminal that runs `make run`. The arrow keys are UP, DOWN, LEFT and RIGHT. Enter is SELECT. Backspace, or Escape alone, is BACK. The terminal has no dial key, so LEFT and RIGHT change the tab.
 
 ## STAT
 
-STAT shows the owner of the device. It has three sub-tabs: STATUS, ATTRS and ABOUT. STAT never changes anything.
+STAT shows the owner of the device and the device itself. It has three sub-tabs: STATUS, ATTRS and ABOUT. Nothing on STAT changes your data.
 
-**STATUS** shows the owner's name in large letters and the owner's line under it. Under a rule it shows up to 6 gauges, each with a bar and its value, such as `82/100`. UP, DOWN and SELECT do nothing. The footer says `RIGHT: ATTRS   LEFT or DIAL: tab`.
+**STATUS** shows the owner's name in large letters and the owner's line under it. Under a rule it shows up to 6 gauges, each with a bar and its value, such as `82/100`. See the picture in [The screen](#the-screen).
 
-**ATTRS** lists up to 12 attributes, with the name at the left and the value at the right. UP and DOWN move through them. Ten rows fit on the screen, so a longer list scrolls. The footer says `UP/DOWN: move   LEFT/RIGHT: page`.
+**ATTRS** lists up to 12 attributes, the name at the left and the value at the right. Ten rows fit, so a longer list scrolls.
 
 ![The ATTRS sub-tab](../tests/golden/stat_attrs.png)
 
-**ABOUT** shows the device:
+**ABOUT** shows the device, refreshed each second:
+
+![The top of the ABOUT sub-tab](../tests/golden/stat_about_top.png)
 
 | Row | Meaning |
 |---|---|
@@ -80,26 +115,31 @@ STAT shows the owner of the device. It has three sub-tabs: STATUS, ATTRS and ABO
 | ABI | The version of the interface between Pip-OS and Deitrix |
 | SoC | The chip of the board, such as `BCM2836` |
 | RAM | The memory the board gives the processor, in MiB |
-| Uptime | Time since power-on, as `0d 00:00:12`. It restarts at `0d 00:00:00` after 24 days 20:31:23. |
+| Uptime | Time since power-on, as days then hours, minutes and seconds, such as `0d 00:00:12` |
 | Time | The date and time in UTC, or `no clock` |
 
-Under these rows ABOUT shows up to 3 lines of text from the profile. The page refreshes every second. A value Pip-OS does not give shows `unknown`.
+Under these rows ABOUT shows up to 3 lines of text from the profile. A value Pip-OS does not give shows `unknown`.
 
-Messages on STAT:
+| Sub-tab | Key | What it does |
+|---|---|---|
+| ATTRS, with 2 or more attributes | UP, DOWN | Move through the list |
+| Any | LEFT, RIGHT | Change the sub-tab. Left of STATUS or right of ABOUT, change the tab. |
+
+Other keys play the low tone.
 
 | Message | Meaning |
 |---|---|
 | `No profile on the card.` | `PROFILE.INI` is not on the card. ABOUT still works. |
-| `The profile was not read.` | `PROFILE.INI` is on the card but is broken. The line under it gives the reason, such as `PROFILE.INI line 12`. |
-| `No attributes in the profile.` | The profile has no attributes. |
+| `The profile was not read.` | `PROFILE.INI` is broken. The line under it gives the reason, such as `PROFILE.INI line 12`. |
+| `No attributes in the profile.` | The profile has no attributes |
 
 ## INV
 
-INV lists what you carry. Each category of items has a sub-tab, such as TOOLS, FOOD, GARDN and MISC on the sample card.
+INV lists what you carry. Each category has a sub-tab, such as TOOLS, FOOD, GARDN and MISC on the sample card.
 
 ![The INV list](../tests/golden/inv.png)
 
-**The list** shows the items of the active category. Each row shows the name and, at the right, the count and its unit, such as `20 m`. A count of 0 is dim. A marked item has a small square before its name. The row under the list gives the number of entries and their total weight, such as `4 entries, 760 g`.
+**The list** shows the items of the category. Each row shows the name and, at the right, the count and its unit, such as `20 m`. A count of 0 is dim. A marked item has a small square before its name. The row at the bottom gives the number of entries and their total weight, such as `4 entries, 760 g`.
 
 | Key | What it does |
 |---|---|
@@ -116,41 +156,37 @@ INV lists what you carry. Each category of items has a sub-tab, such as TOOLS, F
 | UP, DOWN | Add or take one from the count, from 0 to 999. Hold to count fast. |
 | SELECT | Marks or unmarks the item |
 | BACK, LEFT | Back to the list, on the same row |
-| RIGHT | Nothing |
 
-Counts and marks are saved on the card. See [Saving](#saving). Leaving the tab closes the detail. INV remembers the category and the row.
-
-Messages on INV:
+Counts and marks are saved on the card. See [Saving](#saving). Leaving the tab closes the detail. INV remembers the category and the row until power-off.
 
 | Message | Meaning |
 |---|---|
 | `No items on the card.` | `ITEMS.INI` is missing or holds no category. A second line gives the reason when the file is broken, such as `ITEMS.INI line 12`. |
-| `Nothing here.` | This category has no items. |
+| `Nothing here.` | This category has no items |
 
 ## DATA
 
-DATA has three sub-tabs: NOTES, TAPES and CLOCK. Leaving the tab closes an open note and the clock setter. DATA remembers the sub-tab and the selections.
+DATA has three sub-tabs: NOTES, TAPES and CLOCK. Leaving the tab closes an open note and the clock setter, and clears the result lines. DATA remembers the sub-tab and the selections.
 
 ### NOTES
 
-NOTES lists the notes on the card by title, in file name order. Ten rows fit on the screen.
+NOTES lists the notes on the card by title, in file name order. Ten rows fit.
+
+![The NOTES list](../tests/golden/data_notes.png)
 
 | Key | What it does |
 |---|---|
 | UP, DOWN | Move the selection |
 | SELECT | Opens the note |
 
-An open note shows its title, a rule, then its text.
+An open note shows its title, a rule, then its text. A very long note ends with `[text cut]`.
+
+![An open note](../tests/golden/data_note.png)
 
 | Key | What it does |
 |---|---|
-| UP, DOWN | Scroll the text one line |
+| UP, DOWN | Scroll the text one line, when it is longer than the screen |
 | BACK, LEFT | Back to the list, on the same note |
-| RIGHT | Nothing |
-
-A very long note ends with `[text cut]`.
-
-Messages on NOTES:
 
 | Message | Meaning |
 |---|---|
@@ -160,14 +196,50 @@ Messages on NOTES:
 
 ### TAPES
 
-TAPES lists the holotapes on the card. Each row shows the tape's title and its kind at the right: `GAME`, `UTIL` or `DATA`. The selected tape's icon shows at the top right when it has one.
+A holotape is a program on the card, in `/PIPBOY/HOLO/`, with the extension `.HTP`. TAPES lists them. Each row shows the tape's title and its kind at the right: `GAME`, `UTIL` or `DATA`. The selected tape's icon shows at the top right when it has one. The default card holds one tape, Culvert.
+
+![The TAPES list with Culvert](../tests/golden/culvert_tapes.png)
 
 | Key | What it does |
 |---|---|
 | UP, DOWN | Move the selection |
-| SELECT | Runs the tape. See [Holotapes](#holotapes). |
+| SELECT | Runs the tape |
 
-Messages on TAPES:
+A tape takes the whole screen while it runs. When it ends, Deitrix comes back on TAPES.
+
+When you press SELECT, Deitrix does this:
+
+```mermaid
+flowchart TD
+    A[SELECT on a tape] --> B{Data tape?}
+    B -- yes --> C["Data tapes cannot be started."]
+    B -- no --> D[Write every change not on the card yet]
+    D -- write failed --> E["Save failed. SELECT again runs it."]
+    E -- SELECT again --> F
+    D -- written --> F[Stop the radio]
+    F --> G[Run the tape]
+    G --> H[Back on TAPES with a result line]
+```
+
+Deitrix writes your changes first, so a tape that crashes the device loses nothing. The radio stays off after the tape.
+
+When the write fails, the tape does not start, and the radio keeps playing. The line under the list says `Save failed. SELECT again runs it.`. Press SELECT again to run the tape anyway: your recent changes are then not on the card. Moving the selection or leaving TAPES cancels this second chance.
+
+After a tape, one line under the list says how it ended:
+
+![TAPES after a tape ended with status 42](../tests/golden/data_tapes_status.png)
+
+| Line | Meaning |
+|---|---|
+| `Tape ended, status N.` | The tape ended by itself. N is the number it returned, and the tape decides what it means. Culvert always returns 0. |
+| `Tape was stopped by the system.` | The tape crashed and Pip-OS stopped it |
+| `Data tapes cannot be started.` | The tape holds data only |
+| `Not a holotape.` | The file failed Pip-OS's checks |
+| `Card error.` | The card failed while Pip-OS read the tape |
+| `Tape not found.` | The file is no longer on the card |
+| `The tape could not start.` | Any other error |
+
+The line goes away when you move the selection or leave TAPES.
 
 | Message | Meaning |
 |---|---|
@@ -176,15 +248,19 @@ Messages on TAPES:
 
 ### CLOCK
 
-CLOCK shows the time as `HH:MM:SS` in large digits. Under it are the date, the weekday, and `The clock runs in UTC.`. The page refreshes every second.
+CLOCK shows the time as `HH:MM:SS` in large digits, then the date, the weekday and `The clock runs in UTC.`. It refreshes each second.
 
 Without a time it shows `--:--:--` and `No clock. SELECT sets the time.`.
 
-SELECT opens the setter. It shows `Set the time, in UTC` and the fields year, month, day, hour and minute in one row. The active field is drawn inverse, with its name under it.
+![CLOCK without a time](../tests/golden/data_clock_none.png)
+
+SELECT opens the setter. It shows `Set the time, in UTC` and the fields year, month, day, hour and minute in one row. The active field is inverse, with its name under it.
+
+![The clock setter](../tests/golden/data_setter.png)
 
 | Key | What it does |
 |---|---|
-| UP, DOWN | Change the active field. Each field wraps at its ends. |
+| UP, DOWN | Change the active field. Each field wraps at its ends. Hold to change fast. |
 | RIGHT | Next field |
 | LEFT | Previous field. On the year, LEFT cancels. |
 | SELECT | Stores the time, with 0 seconds |
@@ -192,13 +268,76 @@ SELECT opens the setter. It shows `Set the time, in UTC` and the fields year, mo
 
 The year runs from 2000 to 2099. The setter starts from the current time, or from 2026-01-01 00:00 when there is none.
 
-Messages on CLOCK:
-
 | Message | Meaning |
 |---|---|
 | `Time set.` | The time is stored. The line under it says `Lost at power-off without a clock chip.` |
-| `The clock chip did not take the time.` | Pip-OS has the new time, but the clock chip did not store it. The setter stays open. |
+| `The clock chip did not take the time.` | The clock runs with the new time, but the clock chip did not store it. The setter stays open. |
 | `The time was not set.` | Pip-OS refused the time. The setter stays open. |
+
+## Playing Culvert
+
+Culvert is a pipe-turning puzzle on the holotape `CULVERT.HTP`. Start it from DATA, TAPES. [CULVERT.md](CULVERT.md) has the full rules.
+
+### The goal
+
+The grid holds square tiles, each with a pipe piece: an end cap, a straight, an elbow, a tee or a cross. The tile with the ring is the source. Water flows from it through pipes that meet. Pipes with water are bright, the others dim.
+
+You solve a level when every tile has water and no pipe opens into a wall or into a side with no pipe.
+
+![A level in play](../tests/golden/culvert_mid.png)
+
+### The title screen
+
+![The Culvert title screen](../tests/golden/culvert_title.png)
+
+The title offers `New game` and `Quit`. Once you have solved a level, it also offers `Continue (level N)` at the top, where N is the first level you have not solved.
+
+| Key | What it does |
+|---|---|
+| UP, DOWN, or the dial | Move the bar. It stops at the first and the last entry. |
+| SELECT, or a dial push | Chooses |
+| BACK | Quits to Deitrix |
+
+### Playing
+
+The status row at the bottom shows the level, the moves and the time as `m:ss`.
+
+| Key | What it does |
+|---|---|
+| UP, DOWN, LEFT, RIGHT | Move the cursor. It stops at the edges. Hold to repeat. |
+| SELECT, or a dial push | Turns the tile a quarter turn clockwise. Holding it turns once. |
+| Dial turn | Turns the tile one quarter per step, in the dial's direction |
+| BACK | Opens the pause menu |
+
+Each quarter turn counts as one move. Four quarters bring a tile back, so a fast spin of the dial turns only the steps left over after whole turns. A spin of 5 steps turns one quarter.
+
+Culvert needs BACK to pause or quit. On the device that is the BACK button. In QEMU it is Backspace.
+
+### Levels
+
+The level number alone sets the puzzle, so a level is the same on every device. The grid starts at 5 by 4 tiles and grows every three levels, up to 10 by 7 from level 25 on. There is no last level.
+
+When you solve a level, the pipes flash and a short tune plays. Then the screen says `Level N done in M moves`. SELECT or a dial push starts the next level. BACK opens the pause menu.
+
+### The pause menu
+
+![The pause menu](../tests/golden/culvert_pause.png)
+
+The time stops while the menu is open.
+
+| Entry | What it does |
+|---|---|
+| Resume | Back to the level. BACK does the same. |
+| Restart level | The same level from the start, with no moves and the time at 0:00 |
+| Quit | Leaves the game. Deitrix shows TAPES with `Tape ended, status 0.` |
+
+### How Culvert saves
+
+Culvert writes its save, `CULVERT` in `/PIPBOY/SAVE/`, each time you solve a level. It keeps the highest level you reached and, for each grid size, your fewest moves. A level you quit before solving is not saved. A missing or damaged save starts fresh, with no message.
+
+### Sound
+
+A turn plays a short tick. A turn that brings water to new tiles plays two rising notes. A solved level plays a short tune. You can play without sound.
 
 ## MAP
 
@@ -210,7 +349,7 @@ The map shows its lines in dim and each place as a small square. The selected pl
 
 | Key | What it does |
 |---|---|
-| UP, DOWN | Select the previous or next place. The order wraps. |
+| UP, DOWN | Select the previous or next place, when the map has two or more. The order wraps. |
 | LEFT, RIGHT | Change the map. Past the first or the last, they change the tab. |
 | SELECT | Opens the place |
 
@@ -218,9 +357,7 @@ The place's detail shows its name, then Kind, Position, Map and Place, such as `
 
 ![A place's detail](../tests/golden/map_detail.png)
 
-BACK or LEFT returns to the map with the same place selected. RIGHT does nothing.
-
-Messages on MAP:
+BACK or LEFT returns to the map with the same place selected.
 
 | Message | Meaning |
 |---|---|
@@ -229,63 +366,33 @@ Messages on MAP:
 
 ## RADIO
 
-RADIO plays music. It lists the stations, says what plays, and holds two settings.
+RADIO plays music. It lists the stations, says what plays and holds two settings. It has no sub-tabs.
 
-![The RADIO tab while a station plays](../tests/golden/radio_playing.png)
+![RADIO while a station plays](../tests/golden/radio_playing.png)
 
-- **The stations.** One row per station. The one that plays shows `ON AIR`. A dim station has a missing or broken file.
-- **Now playing.** `Playing` and the station's name, then `tune` or `recording`. When nothing plays it says `Radio off.`.
-- **The settings.** `Volume` with a bar and the level from 0 to 100. `UI sounds` with `On` or `Off`.
+| Part | What it shows |
+|---|---|
+| Stations | One row per station. The one that plays shows `ON AIR`. A dim station has a missing or broken file. |
+| Now playing | `Playing` and the station's name, then `tune` or `recording`. When nothing plays, `Radio off.`. |
+| Settings | `Volume` with a bar and the level from 0 to 100, and `UI sounds` with `On` or `Off` |
 
-UP and DOWN move one cursor through the stations, then Volume, then UI sounds.
+UP and DOWN move one cursor through the stations, then Volume, then UI sounds. The selected row is inverse, the Volume bar too.
+
+![RADIO with Volume selected](../tests/golden/radio_volume.png)
 
 | Row | Key | What it does |
 |---|---|---|
 | A station | SELECT | Starts it. On the station that plays, stops it. |
 | A station | LEFT, RIGHT | Change the tab |
-| Volume | LEFT, RIGHT | Volume down or up to the next step of 10. Hold to repeat. |
+| Volume | LEFT, RIGHT | Volume down or up to the next step of 10. Hold to repeat. At 0 or 100 the low tone plays. |
 | UI sounds | SELECT, LEFT, RIGHT | Turns the key tones on or off |
 
-The radio keeps playing on the other tabs. It does not start by itself at power-on: the cursor starts on the last station you played. Running a holotape stops it.
-
-Messages on RADIO:
+The radio keeps playing on the other tabs. At power-on it does not start: the cursor waits on the last station you played. Running a holotape stops it. The volume and UI sounds are saved on the card.
 
 | Message | Meaning |
 |---|---|
 | `No stations on the card.` | `RADIO.INI` is missing or broken. The line under it gives the reason, such as `RADIO.INI missing`. The settings still work. |
-| `Station has nothing to play.` | The station could not start or stopped on an error. The line under it gives the reason, such as `LULLABY.TUN missing`, or `<file> did not play`. |
-
-## Holotapes
-
-A holotape is a program on the card, in `/PIPBOY/HOLO/`, with the extension `.HTP`. It is a game, a utility or data. Deitrix runs games and utilities from DATA, TAPES. A tape takes the whole screen while it runs. When it ends, Deitrix comes back on TAPES.
-
-To run a tape, select it in TAPES and press SELECT. Deitrix then:
-
-1. Writes every change that is not on the card yet. A tape that crashes the device loses nothing.
-2. Stops the radio. It stays off after the tape.
-3. Runs the tape.
-
-When the write fails, the tape does not start. The line under the list says `Save failed. SELECT again runs it.`. The radio keeps playing. Press SELECT again to run the tape anyway: your recent changes are then not on the card. Moving the selection or leaving TAPES cancels the second chance.
-
-After a tape, one line under the list says how it ended:
-
-| Line | Meaning |
-|---|---|
-| `Tape ended, status N.` | The tape ended by itself. N is the number it returned. Its meaning depends on the tape. |
-| `Tape was stopped by the system.` | The tape crashed and Pip-OS stopped it |
-| `Data tapes cannot be started.` | The tape holds data only |
-| `Not a holotape.` | The file failed Pip-OS's checks |
-| `Card error.` | The card failed while Pip-OS read the tape |
-| `Tape not found.` | The file is no longer on the card |
-| `The tape could not start.` | Any other error |
-
-The line goes away when you move the selection or leave TAPES.
-
-## Culvert
-
-Culvert is a pipe-turning puzzle. It comes on the card as the holotape `CULVERT.HTP`. Run it from DATA, TAPES. You turn pipe tiles until water from the source reaches every tile. The title screen offers `New game` and `Quit`, and `Continue (level N)` once you have solved a level. BACK opens the pause menu. Quit returns to Deitrix with `Tape ended, status 0.`.
-
-[CULVERT.md](CULVERT.md) has the rules, the keys and what the game saves.
+| `Station has nothing to play.` | The station could not start or stopped on an error. The line under it gives the reason, such as `LULLABY.TUN missing`. |
 
 ## Saving
 
@@ -298,18 +405,18 @@ Deitrix saves two files in `/PIPBOY/SAVE/` on the card:
 
 You never save by hand. Deitrix writes a file 2 seconds after the last change, and at most 10 seconds after the first one. It writes only when a value changed. Before a holotape runs, it writes at once.
 
-When the card cannot be written, Deitrix tries again 5 seconds later, up to 3 times. Then it stops trying until the next change. Your changes stay on screen but are not on the card, and they are lost at power-off. No message shows this, except `Save failed. SELECT again runs it.` on TAPES.
+When the card cannot be written, Deitrix tries again 5 seconds later, up to 3 times, then waits for the next change. Your changes stay on screen but are not on the card, and the header shows the [unsaved mark](#the-unsaved-mark). They are lost at power-off. On TAPES, starting a tape then shows `Save failed. SELECT again runs it.`.
 
-To start over, delete `DEITRIX.SAV` and `INV.SAV` from the card's `/PIPBOY/SAVE/` folder on a computer. Leave files whose names start with `~` or `#` in place: Pip-OS uses them to finish an interrupted save.
+To start over, delete `DEITRIX.SAV` and `INV.SAV` from the card's `/PIPBOY/SAVE/` folder on a computer. Delete `CULVERT` to start Culvert over. Leave files whose names start with `~` or `#` in place: Pip-OS uses them to finish an interrupted save.
 
 ## The clock
 
 The clock runs in UTC. Pip-OS has no time zones.
 
-- **With a clock chip** that holds a valid time, Pip-OS starts the clock from it at power-on. A time you set on DATA, CLOCK is written to the chip too, so it survives power-off.
-- **Without a clock chip**, the device has no time at power-on. The header shows `--:--` and CLOCK shows `--:--:--`. Set the time on DATA, CLOCK. It runs until power-off and is lost then.
+- **With a clock chip** that holds a valid time, Pip-OS starts the clock from it at power-on. A time you set on DATA, CLOCK goes to the chip too, so it survives power-off.
+- **Without a clock chip**, the device has no time at power-on. The header shows `--:--` and CLOCK shows `--:--:--`. Set the time on DATA, CLOCK. It runs until power-off.
 
-The clock chip holds years 2000 to 2099. The setter allows the same years.
+The clock chip holds years 2000 to 2099, and the setter allows the same years. The tests use an emulated clock chip. No real chip has been tried with Deitrix yet.
 
 ## Your own content
 
@@ -323,8 +430,6 @@ Everything Deitrix shows comes from text files in `/PIPBOY/DATA/` on the card. E
 | `MAP.INI` | MAP |
 | `RADIO.INI`, `RADIO/*.TUN`, `RADIO/*.PCM` | RADIO |
 
-A short path:
-
 1. Start from the sample files in `content/PIPBOY/DATA/` of the repository.
 2. Edit them in a text editor. Keep `version = 1` at the top of each INI file. Keep each item's id when you change the item, so your saved counts stay.
 3. Write a note as `NOTES/<NAME>.TXT`, with the title on the first line. Use upper-case 8.3 names for every file.
@@ -336,7 +441,9 @@ A short path:
 
 | Symptom | Cause | What to do |
 |---|---|---|
-| `ROM(1) NOT LOADED: ...` at boot | Pip-OS could not load Deitrix | See the table in Pip-OS's [user manual](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/USER_MANUAL.md#what-you-see-at-boot) |
+| `ROM(1) NOT LOADED: ...` at boot | Pip-OS could not load Deitrix | See Pip-OS's [boot table](https://github.com/RobCo-Industries/Pip-OS/blob/2d10c2c207e17dc8df4e9e8f3c50d60a3dff0bf3/docs/USER_MANUAL.md#what-you-see-at-boot) |
+| `!` left of the clock stays | Changes cannot reach the card | Check that the card is in place, not full and not locked. Make a change to try again. Do not power off. |
+| Changes are lost after power-off | The card could not be written, or power went off within 10 seconds of a change | Check the card. Wait until no `!` shows and 10 seconds have passed. |
 | `--:--` in the header | The device has no time | Set it on DATA, CLOCK. Fit a clock chip to keep it. |
 | The time is lost after power-off | No clock chip | Fit a clock chip, then set the time again |
 | `The clock chip did not take the time.` | The chip did not store the time | The time runs until power-off. Check the chip. |
@@ -346,14 +453,16 @@ A short path:
 | Counts are back to the file's values | `INV.SAV` was deleted or damaged, or the item's id changed | Keep item ids the same when you edit `ITEMS.INI` |
 | `No notes on the card.` | No `.TXT` files in `/PIPBOY/DATA/NOTES/` | Add notes there with 8.3 names |
 | `The notes were not read.` or `The note could not be read.` | The folder or the file could not be read | Read the reason on the second line. Check the card on a computer. |
-| `No holotapes on the card.` | No `.HTP` file in `/PIPBOY/HOLO/` | Put the tapes there with 8.3 names |
-| `Save failed. SELECT again runs it.` | The card cannot be written | Check that the card is in place and not full or locked. SELECT again runs the tape without the save. |
+| `No holotapes on the card.` | No `.HTP` file in `/PIPBOY/HOLO/` | Put the tapes there with 8.3 names. `make bootdir` puts Culvert there. |
+| `Save failed. SELECT again runs it.` | The card cannot be written | Check the card. SELECT again runs the tape without the save. |
 | `Tape was stopped by the system.` | The tape crashed | Report it to the tape's author |
 | `Not a holotape.` | The file is damaged or not a holotape | Copy the tape again |
+| `Data tapes cannot be started.` | The tape holds data only | Nothing to do: it is not a program |
+| Culvert starts at level 1 again | Its save `CULVERT` was missing or damaged | Nothing to fix. The next solved level writes a new save. |
 | `No map on the card.` | `MAP.INI` is missing, broken or holds no valid map | Read the line under it. Run `tools/check_content.py`. |
 | `No stations on the card.` | `RADIO.INI` is missing or broken | Read the line under it. Run `tools/check_content.py`. |
 | A dim station, or `Station has nothing to play.` | The station's file is missing or broken | Put the file named on the second line in `/PIPBOY/DATA/RADIO/` |
 | No key tones | The radio plays, or UI sounds are off | Stop the radio, or turn UI sounds on, on RADIO |
 | No sound at all | The volume is at 0 | Raise it on RADIO |
-| BACK does nothing | You are on a top-level view: BACK never changes the tab | Use the dial, LEFT or RIGHT |
-| Changes are lost after power-off | The card could not be written | Check the card. Wait a few seconds after a change before power-off. |
+| BACK does nothing | You are on a top-level view, and BACK never changes the tab | Use the dial, LEFT or RIGHT |
+| A held key stops acting | It opened or closed a view, or changed the tab | Let go and press again |
