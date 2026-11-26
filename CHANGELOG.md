@@ -25,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Added
 
+- `holotapes/culvert/robco.toml`, Culvert's manifest for RobCo Studio. Culvert's Makefile states `ABI := 1.4`, the ABI its tape already carried, so both files state the same ABI. The sources keep the Makefile's order, and the tape keeps the same bytes.
 - The holotape slot of ABI 1.4. A tape slot service reads `hw_flags` and, with a slot, asks `holo_eject_event` after each `PIP_EV_TAPE` event, each key and each launch. TAPES reads the list again after a change and keeps the selection on its tape, or on its row when the tape left. A slot tape shows `SLOT GAME` or `SLOT UTIL`. The footer shows a notice for 3 s when a card goes in, comes out or cannot be read, on any tab, and the keys keep working. A tape whose card is pulled while it runs comes back with "Tape pulled while running.". With no slot, or on a Pip-OS before 1.4, nothing changes.
 - `make holotest-kernel` builds Pip-OS's slot test kernel through its Makefile, and `tests/test_slot.py` drives its RAM card backend in QEMU. Host tests in `test_notice.c` and `test_data.c`. Nothing here ran on a board.
 - Culvert, a pipe-turning puzzle holotape with generated levels, built by `make holotapes` and shipped on the card as `CULVERT.HTP`. DATA's TAPES list starts it.

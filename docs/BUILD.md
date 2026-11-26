@@ -124,6 +124,8 @@ make holotapes
 
 This builds `build/holo/CULVERT.HTP`. `make` builds it too, with the ROM.
 
+Culvert's folder also holds `robco.toml`, the same project for RobCo Studio, as RobCo-Core's [STUDIO_PROJECT.md](https://github.com/RobCo-Industries/RobCo-Core/blob/712db81c9c804d4a8ede1f866ea764c0c6299844/docs/spec/STUDIO_PROJECT.md#a-project-that-also-builds-with-a-makefile) asks. Its keys equal the Makefile's `NAME`, `TITLE`, `VERSION`, `ICON`, `SUBTYPE`, `ABI` and `SRCS`, with the sources in the Makefile's order. Change both files in one commit. Studio's manifest reader accepts the file. No Studio build of Culvert has run yet, so nobody has compared its tape with the Makefile's.
+
 Deitrix's Makefile lists the tapes in `TAPES` and passes them to Pip-OS as `TAPE=build/holo/CULVERT.HTP`. Pip-OS copies every file of that list to `PIPBOY/HOLO/` under its own name. So `make sdimage`, `make run` and `make bootdir` all put Culvert on the card, and Pip-OS's example tape is not there. To add a tape, give it a folder under `holotapes/`, then add its build and its `.HTP` file to the `holotapes` goal and to `TAPES`. Pip-OS's [BUILD.md](https://github.com/RobCo-Industries/Pip-OS/blob/93a07d266be43feab3e96e186d40c8b536f54bae/docs/BUILD.md) gives the rules for `TAPE`: names end in `.HTP`, and two names may not differ only in case.
 
 To put a tape on a card by hand, copy its `.HTP` file to the card's `/PIPBOY/HOLO/` folder.
