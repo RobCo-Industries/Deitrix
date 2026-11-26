@@ -156,6 +156,12 @@ typedef struct fake_platform {
     int launch_stops_at;
     int launch_writes_at;
     uint32_t launch_draw_ms; /* added to ticks by a launch: the tape's run */
+    /* The slot: the DX_HOLO_EV_* bits dx_plat_holo_events returns and
+     * clears, the bits a launch adds as if the slot changed while the
+     * tape ran, and the calls. */
+    uint32_t holo_events;
+    uint32_t launch_events;
+    int holo_event_calls;
 } fake_platform_t;
 
 extern fake_platform_t fake;
@@ -222,5 +228,7 @@ int fake_audio_busy(void);
 int fake_audio_ops(int op);
 /* Adds a holotape to the listing; title may be "", icon NULL. */
 void fake_add_holo(const char *file, int kind, const char *title, const uint8_t *icon);
+/* The same, for a tape on the slot card. */
+void fake_add_slot_holo(const char *file, int kind, const char *title);
 
 #endif

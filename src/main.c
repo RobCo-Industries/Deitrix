@@ -183,7 +183,13 @@ static void draw(dx_app_t *app, int32_t minute)
         s->draw(s->st, &app->ctx, body);
         g->clip(0, 0, 0, 0);
     }
-    dx_frame_footer(&app->ctx, hint != NULL ? hint : DX_FRAME_HINT);
+    if (dx_tapes_notice() != NULL) {
+        /* A notice takes the hint's place for a while: the keys still
+         * work as the hint says. */
+        dx_frame_notice(&app->ctx, dx_tapes_notice());
+    } else {
+        dx_frame_footer(&app->ctx, hint != NULL ? hint : DX_FRAME_HINT);
+    }
     g->present();
     app->drawn_tab = app->tab;
     app->drawn_min = minute;
@@ -318,13 +324,20 @@ void dx_app_step(dx_app_t *app)
     }
     /* The tick and the draw took time: the wait starts from the clocks
      * read again, so a slow frame does not push the next wake back. */
-    if (dx_plat_wait(&ev, wait_time(app)) && dx_ui_translate(&ev, &uev)) {
+    if (!dx_plat_wait(&ev, wait_time(app))) {
+        return;
+    }
+    if (ev.type == DX_EV_TAPE) {
+        /* A hint that the slot changed: the services ask for the truth
+         * on the next step. */
+        wake_services(app);
+    } else if (dx_ui_translate(&ev, &uev)) {
         dx_app_route(app, &uev);
     }
 }
 
 static const dx_service_t *const rom_services[] = { &dx_service_radio, &dx_service_autosave,
-                                                    &dx_service_uptime };
+                                                    &dx_service_uptime, &dx_service_tapes };
 
 static void remember_tab(int tab)
 {

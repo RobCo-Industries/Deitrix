@@ -766,6 +766,21 @@ void fake_add_holo(const char *file, int kind, const char *title, const uint8_t 
     }
 }
 
+void fake_add_slot_holo(const char *file, int kind, const char *title)
+{
+    fake_add_holo(file, kind, title, NULL);
+    fake.holos[fake.holo_count - 1].slot = 1;
+}
+
+uint32_t dx_plat_holo_events(void)
+{
+    uint32_t bits = fake.holo_events;
+
+    fake.holo_event_calls++;
+    fake.holo_events = 0;
+    return bits;
+}
+
 int32_t dx_plat_holo_list(dx_holo_t *out, uint32_t max)
 {
     int n = fake.holo_count < (int)max ? fake.holo_count : (int)max;
@@ -793,6 +808,7 @@ int32_t dx_plat_holo_launch(const char *file, const char *args)
     fake.au_on = 0;
     fake.au_wait = 0;
     fake.ticks += fake.launch_draw_ms;
+    fake.holo_events |= fake.launch_events;
     return fake.launch_rc;
 }
 

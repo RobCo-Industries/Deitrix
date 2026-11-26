@@ -27,12 +27,12 @@ The pictures on this page are the test screenshots of one emulated board. The te
 
 ## What you need
 
-- A device that runs Pip-OS. Pip-OS's [user manual](https://github.com/RobCo-Industries/Pip-OS/blob/5f891e75ac0894beec1d4e9d8cb37c00ec0fbf3e/docs/USER_MANUAL.md) lists the boards and the parts.
+- A device that runs Pip-OS. Pip-OS's [user manual](https://github.com/RobCo-Industries/Pip-OS/blob/ca2e054d8641fcd8aa446ce4b18b9cfe67fe5699/docs/USER_MANUAL.md) lists the boards and the parts.
 - An SD card built for Deitrix. [BUILD.md](BUILD.md) explains how to build one.
 
 ## Turning it on
 
-Pip-OS starts first and prints its boot lines. Among them, `1 HOLOTAPE FOUND` counts the holotapes on the card, and `LOAD ROM(1): DEITRIX 0.1.0` says Deitrix passed Pip-OS's checks. Pip-OS's manual explains [every boot line](https://github.com/RobCo-Industries/Pip-OS/blob/5f891e75ac0894beec1d4e9d8cb37c00ec0fbf3e/docs/USER_MANUAL.md#what-you-see-at-boot).
+Pip-OS starts first and prints its boot lines. Among them, `1 HOLOTAPE FOUND` counts the holotapes on the card, and `LOAD ROM(1): DEITRIX 0.1.0` says Deitrix passed Pip-OS's checks. Pip-OS's manual explains [every boot line](https://github.com/RobCo-Industries/Pip-OS/blob/ca2e054d8641fcd8aa446ce4b18b9cfe67fe5699/docs/USER_MANUAL.md#what-you-see-at-boot).
 
 Deitrix then reads its content and its saves from the card and opens the tab you used last. The first time, that is STAT. The radio does not start by itself.
 
@@ -49,7 +49,7 @@ The screen is 320 by 240 pixels. Pip-OS doubles it on a 640 by 480 display.
 | Clock | Top right | The time as `HH:MM` in UTC, or `--:--` when the device has no time. See [The clock](#the-clock). |
 | Sub-tabs | Under the tab bar | The pages of the tab. The active one is bright and underlined. RADIO has none. |
 | Body | Middle | The page. A status row at the bottom of the body shows a summary or a result on some pages. |
-| Footer | Bottom row | The keys that do something on this view, such as `UP/DOWN: move  SELECT: open`. |
+| Footer | Bottom row | The keys that do something on this view, such as `UP/DOWN: move  SELECT: open`. For 3 seconds after a tape slot change, a notice instead. See [The tape slot](#the-tape-slot). |
 
 The footer names keys as `UP/DOWN`, `LEFT/RIGHT`, `SELECT`, `BACK` and `DIAL`. It never names the tab change, since the dial always changes the tab. A view with no key of its own shows `DIAL: change tab`. A view whose only keys move between sub-tabs shows `LEFT/RIGHT: page`.
 
@@ -237,6 +237,7 @@ After a tape, one line under the list says how it ended:
 | `Not a holotape.` | The file failed Pip-OS's checks |
 | `Card error.` | The card failed while Pip-OS read the tape |
 | `Tape not found.` | The file is no longer on the card |
+| `Tape pulled while running.` | You pulled the slot card while its tape ran. Pip-OS stopped the tape. |
 | `The tape could not start.` | Any other error |
 
 The line goes away when you move the selection or leave TAPES.
@@ -245,6 +246,32 @@ The line goes away when you move the selection or leave TAPES.
 |---|---|
 | `No holotapes on the card.` | `/PIPBOY/HOLO/` holds no holotape |
 | `The holotapes could not be read.` | Pip-OS could not list the tapes |
+
+#### The tape slot
+
+Some Pip-Boys have a holotape slot: a second card that goes in and out while Deitrix runs. Pip-OS turns it on with `[holotape] slot = on` in `PIPOS.CFG`. Deitrix uses it only when Pip-OS reports a slot. With no slot, or on a Pip-OS older than ABI 1.4, nothing on the screen mentions one.
+
+Put tapes in the root folder of the slot card, as `NAME.HTP`. Slot tapes come first in TAPES, and their kind reads `SLOT GAME` or `SLOT UTIL`. When a slot tape has the same file name as a tape on the boot card, TAPES shows only the slot tape. Pull the card and the boot card's tape comes back.
+
+![TAPES with a slot tape first](../tests/golden/data_tapes_slot.png)
+
+The list follows the slot while you look at it. You stay on TAPES, and the selection stays on the same tape. When the selected tape leaves, the selection stays on the same row.
+
+Each change shows a notice in the footer for 3 seconds, on any tab. The keys keep working while it shows.
+
+![TAPES with the notice of a card that went in](../tests/golden/data_tapes_slot_notice.png)
+
+| Notice | Meaning |
+|---|---|
+| `Tape slot: card loaded.` | A card went in and its tapes are listed |
+| `Tape slot: card removed.` | The card came out |
+| `Tape slot: card unreadable.` | The card cannot be used. Its tapes are not listed until you pull it. |
+
+A card can take a moment to load. Until the notice shows, its tapes are not in the list.
+
+If you pull the card while one of its tapes runs, Pip-OS stops the tape. Deitrix comes back on TAPES with `Tape pulled while running.`, and the tape is gone from the list.
+
+Nobody has tried a slot on real hardware yet. The tests use a slot that Pip-OS fakes in memory.
 
 ### CLOCK
 
@@ -446,7 +473,7 @@ Everything Deitrix shows comes from text files in `/PIPBOY/DATA/` on the card. E
 
 | Symptom | Cause | What to do |
 |---|---|---|
-| `ROM(1) NOT LOADED: ...` at boot | Pip-OS could not load Deitrix | See Pip-OS's [boot table](https://github.com/RobCo-Industries/Pip-OS/blob/5f891e75ac0894beec1d4e9d8cb37c00ec0fbf3e/docs/USER_MANUAL.md#what-you-see-at-boot) |
+| `ROM(1) NOT LOADED: ...` at boot | Pip-OS could not load Deitrix | See Pip-OS's [boot table](https://github.com/RobCo-Industries/Pip-OS/blob/ca2e054d8641fcd8aa446ce4b18b9cfe67fe5699/docs/USER_MANUAL.md#what-you-see-at-boot) |
 | `!` left of the clock stays | Changes cannot reach the card | Check that the card is in place, not full and not locked. Make a change to try again. Do not power off. |
 | Changes are lost after power-off | The card could not be written, or power went off within 10 seconds of a change | Check the card. Wait until no `!` shows and 10 seconds have passed. |
 | `--:--` in the header | The device has no time | Set it on DATA, CLOCK. Fit a clock chip to keep it. |

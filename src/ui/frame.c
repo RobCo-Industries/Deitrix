@@ -123,6 +123,19 @@ void dx_frame_footer(const dx_ctx_t *ctx, const char *hint)
     dx_text_centered(ctx, DX_FOOTER_Y, hint, ctx->theme.dim, 1);
 }
 
+void dx_frame_notice(const dx_ctx_t *ctx, const char *text)
+{
+    int w = dx_text_width(text, 1);
+    int x = (DX_SCREEN_W - w) / 2;
+    int my = DX_FOOTER_Y + DX_FONT_H / 2 - 2;
+
+    ctx->gfx->line(0, DX_FOOTER_RULE, DX_SCREEN_W - 1, DX_FOOTER_RULE, ctx->theme.fg);
+    ctx->gfx->text(x, DX_FOOTER_Y, text, ctx->theme.fg, DX_COLOR_NONE, 1);
+    /* Two small filled squares, one each side of the text. */
+    ctx->gfx->rect(x - 10, my, 4, 4, ctx->theme.fg, 1);
+    ctx->gfx->rect(x + w + 6, my, 4, 4, ctx->theme.fg, 1);
+}
+
 void dx_text_centered(const dx_ctx_t *ctx, int y, const char *text, uint32_t color, int scale)
 {
     ctx->gfx->text((DX_SCREEN_W - dx_text_width(text, scale)) / 2, y, text, color,

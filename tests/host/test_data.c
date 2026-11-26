@@ -712,6 +712,283 @@ TEST(tapes_scroll_32)
     CHECK(body_inside());
 }
 
+/* ---- TAPES with a slot, ABI 1.4 -------------------------------------------- */
+
+static const dx_service_t *const slot_services[] = { &dx_service_radio, &dx_service_autosave,
+                                                     &dx_service_tapes };
+
+/* The sample card, a kernel with or without a slot, then DATA on TAPES. */
+static void boot_slot(uint32_t abi, uint32_t hw)
+{
+    fake.sysinfo.abi_version = abi;
+    fake.sysinfo.hw_flags = hw;
+    CHECK(fake_load_tree("content", "") > 0);
+    boot();
+    dx_radio_attach(dx_content_radio());
+    dx_autosave_attach(dx_content_settings(), dx_content_items());
+    CHECK_INT(dx_app_start_services(&app, slot_services, 3), 0);
+    key(DX_UI_RIGHT);
+}
+
+/* The kernel queues PIP_EV_TAPE: one step takes it, the next ticks the
+ * services and draws. */
+static void slot_change(uint32_t bits)
+{
+    fake.holo_events = bits;
+    fake_push(DX_EV_TAPE, 0, (int32_t)bits);
+    fake_clear_draws();
+    dx_app_step(&app);
+    dx_app_step(&app);
+}
+
+/* The last "deitrix: tapes list" line, without its newline. */
+static const char *last_list(void)
+{
+    static char line[256];
+    const char *p = fake.log, *last = NULL, *end;
+
+    while ((p = strstr(p, "deitrix: tapes list ")) != NULL) {
+        last = p++;
+    }
+    if (last == NULL) {
+        return "";
+    }
+    end = strchr(last, '\n');
+    tfmt(line, sizeof(line), "%.*s", (int)(end != NULL ? end - last : (long)strlen(last)), last);
+    return line;
+}
+
+TEST(slot_insert_and_pull_while_tapes_shows)
+{
+    const fake_text_t *t;
+
+    fake_reset();
+    fake_add_holo("A.HTP", DX_HOLO_GAME, "Alpha", NULL);
+    fake_add_holo("B.HTP", DX_HOLO_UTILITY, "Bravo", NULL);
+    boot_slot(DX_ABI_1_4, DX_HW_TAPE);
+    key(DX_UI_DOWN);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=1 top=0 count=2 | ");
+    /* A card with S goes in: S comes first, B stays selected. */
+    fake.holo_count = 0;
+    fake_add_slot_holo("S.HTP", DX_HOLO_GAME, "Slot game");
+    fake_add_holo("A.HTP", DX_HOLO_GAME, "Alpha", NULL);
+    fake_add_holo("B.HTP", DX_HOLO_UTILITY, "Bravo", NULL);
+    slot_change(DX_HOLO_EV_INSERTED);
+    CHECK_STR(last_list(), "deitrix: tapes list n=3 S.HTP* A.HTP B.HTP");
+    CHECK_STR(last_log(), "deitrix: data tapes sel=2 top=0 count=3 | ");
+    CHECK_INT(app.tab, DATA_TAB);
+    /* The notice takes the footer, in fg; the hint is gone meanwhile. */
+    t = fake_find_text(DX_TAPES_IN);
+    CHECK(t != NULL && t->fg == fake.theme.fg && t->y == 220);
+    CHECK(fake_find_text("UP/DOWN: move  SELECT: run tape") == NULL);
+    draw_body();
+    CHECK(fake_find_text("SLOT GAME") != NULL);
+    CHECK(fake_find_text("UTIL") != NULL);
+    CHECK(body_inside());
+    /* It does not take a key: UP moves the selection to A. */
+    key(DX_UI_UP);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=1 top=0 count=3 | ");
+    CHECK(fake_find_text(DX_TAPES_IN) != NULL);
+    /* It goes after DX_NOTICE_MS and the hint comes back. */
+    fake.ticks += DX_NOTICE_MS;
+    fake_clear_draws();
+    dx_app_step(&app);
+    CHECK(fake_find_text(DX_TAPES_IN) == NULL);
+    CHECK(fake_find_text("UP/DOWN: move  SELECT: run tape") != NULL);
+    /* S selected, then pulled: the row stays, now on A. */
+    key(DX_UI_UP);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=3 | ");
+    fake.launch_rc = 7;
+    key(DX_UI_SELECT);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=3 | Tape ended, status 7.");
+    fake.holo_count = 0;
+    fake_add_holo("A.HTP", DX_HOLO_GAME, "Alpha", NULL);
+    fake_add_holo("B.HTP", DX_HOLO_UTILITY, "Bravo", NULL);
+    slot_change(DX_HOLO_EV_REMOVED);
+    CHECK_STR(last_list(), "deitrix: tapes list n=2 A.HTP B.HTP");
+    /* S left: its result line goes with it. */
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | ");
+    CHECK(fake_find_text(DX_TAPES_OUT) != NULL);
+    draw_body();
+    CHECK(fake_find_text("SLOT GAME") == NULL);
+}
+
+TEST(slot_last_row_pulled_moves_up)
+{
+    fake_reset();
+    fake_add_holo("A.HTP", DX_HOLO_GAME, "Alpha", NULL);
+    fake_add_slot_holo("S.HTP", DX_HOLO_GAME, "Slot");
+    boot_slot(DX_ABI_1_4, DX_HW_TAPE);
+    key(DX_UI_DOWN);
+    fake.holo_count = 1;
+    slot_change(DX_HOLO_EV_REMOVED);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=1 | ");
+    fake.holo_count = 0;
+    slot_change(DX_HOLO_EV_REMOVED);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=0 | ");
+    CHECK(fake_find_text("LEFT/RIGHT: page") == NULL); /* the notice shows */
+    fake.ticks += DX_NOTICE_MS;
+    fake_clear_draws();
+    dx_app_step(&app);
+    CHECK(fake_find_text("LEFT/RIGHT: page") != NULL);
+}
+
+TEST(slot_tape_shadows_a_boot_tape_of_the_same_name)
+{
+    fake_reset();
+    fake_add_holo("ALPHA.HTP", DX_HOLO_GAME, "Boot alpha", NULL);
+    fake_add_holo("B.HTP", DX_HOLO_GAME, "Bravo", NULL);
+    boot_slot(DX_ABI_1_4, DX_HW_TAPE);
+    /* Pip-OS lists the slot's ALPHA alone: one row, marked. */
+    fake.holo_count = 0;
+    fake_add_slot_holo("ALPHA.HTP", DX_HOLO_UTILITY, "Slot alpha");
+    fake_add_holo("B.HTP", DX_HOLO_GAME, "Bravo", NULL);
+    slot_change(DX_HOLO_EV_INSERTED);
+    CHECK_STR(last_list(), "deitrix: tapes list n=2 ALPHA.HTP* B.HTP");
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | ");
+    draw_body();
+    CHECK(fake_find_text("Slot alpha") != NULL);
+    CHECK(fake_find_text("Boot alpha") == NULL);
+    CHECK(fake_find_text("SLOT UTIL") != NULL);
+    /* The pull brings the boot tape back, still selected. */
+    fake.holo_count = 0;
+    fake_add_holo("ALPHA.HTP", DX_HOLO_GAME, "Boot alpha", NULL);
+    fake_add_holo("B.HTP", DX_HOLO_GAME, "Bravo", NULL);
+    slot_change(DX_HOLO_EV_REMOVED);
+    CHECK_STR(last_list(), "deitrix: tapes list n=2 ALPHA.HTP B.HTP");
+    draw_body();
+    CHECK(fake_find_text("Boot alpha") != NULL);
+    CHECK(fake_find_text("SLOT UTIL") == NULL);
+}
+
+/* A tape is its file name and its source: a slot tape that shadows the
+ * selected boot tape, or the boot tape that comes back, is another
+ * tape. The cursor stays on the row; the result line and the second
+ * chance after a failed save do not carry over. */
+static void shadow_list(int slot)
+{
+    fake.holo_count = 0;
+    if (slot) {
+        fake_add_slot_holo("ALPHA.HTP", DX_HOLO_GAME, "Slot alpha");
+    } else {
+        fake_add_holo("ALPHA.HTP", DX_HOLO_GAME, "Boot alpha", NULL);
+    }
+    fake_add_holo("B.HTP", DX_HOLO_GAME, "Bravo", NULL);
+}
+
+static void shadow_case(int from_slot)
+{
+    fake_reset();
+    shadow_list(from_slot);
+    boot_slot(DX_ABI_1_4, DX_HW_TAPE);
+    /* A result line, then a failed save arms the second press. */
+    fake.launch_rc = 7;
+    key(DX_UI_SELECT);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | Tape ended, status 7.");
+    CHECK(dx_items_toggle_marked(dx_content_items(), 0));
+    fake.save_fail = 1000000;
+    key(DX_UI_SELECT);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | Save failed. SELECT again runs it.");
+    CHECK_INT(fake.launch_count, 1);
+    /* The other ALPHA takes the row. */
+    shadow_list(!from_slot);
+    slot_change(from_slot ? DX_HOLO_EV_REMOVED : DX_HOLO_EV_INSERTED);
+    CHECK_STR(last_list(), from_slot ? "deitrix: tapes list n=2 ALPHA.HTP B.HTP"
+                                     : "deitrix: tapes list n=2 ALPHA.HTP* B.HTP");
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | ");
+    draw_body();
+    CHECK(fake_find_text("Tape ended, status 7.") == NULL);
+    CHECK(fake_find_text(from_slot ? "Boot alpha" : "Slot alpha") != NULL);
+    /* No second chance carried over: this press asks again. */
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 1);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | Save failed. SELECT again runs it.");
+    fake.save_fail = 0;
+}
+
+TEST(slot_shadow_drops_the_boot_tape_state)
+{
+    shadow_case(0);
+}
+
+TEST(slot_pull_drops_the_slot_tape_state)
+{
+    shadow_case(1);
+}
+
+TEST(slot_tape_pulled_while_it_runs)
+{
+    fake_reset();
+    fake_add_slot_holo("S.HTP", DX_HOLO_GAME, "Slot");
+    fake_add_holo("A.HTP", DX_HOLO_GAME, "Alpha", NULL);
+    boot_slot(DX_ABI_1_4, DX_HW_TAPE);
+    /* The card leaves while S runs: no PIP_EV_TAPE reaches the ROM. */
+    fake.holo_count = 0;
+    fake_add_holo("A.HTP", DX_HOLO_GAME, "Alpha", NULL);
+    fake.launch_rc = DX_ENODEV;
+    fake.launch_events = DX_HOLO_EV_REMOVED;
+    fake.log[0] = '\0';
+    key(DX_UI_SELECT);
+    CHECK_STR(fake.launch_file, "S.HTP");
+    CHECK(strstr(fake.log, "deitrix: data tape rc=-41\ndeitrix: tape slot bits=2\n") != NULL);
+    CHECK_STR(last_list(), "deitrix: tapes list n=1 A.HTP");
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=1 | Tape pulled while running.");
+    CHECK(fake_find_text(DX_TAPES_OUT) != NULL);
+    CHECK_INT(app.tab, DATA_TAB);
+    /* A tape that ends another way keeps its line. */
+    fake.launch_events = 0;
+    fake.launch_rc = DX_EFAULT;
+    key(DX_UI_SELECT);
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=1 | Tape was stopped by the system.");
+}
+
+TEST(slot_bad_card_and_change_on_another_tab)
+{
+    fake_reset();
+    fake_add_holo("A.HTP", DX_HOLO_GAME, "Alpha", NULL);
+    boot_slot(DX_ABI_1_4, DX_HW_TAPE);
+    /* To MAP: the notice shows there too, the tab stays. */
+    key(DX_UI_DIAL);
+    CHECK_INT(app.tab, DATA_TAB + 1);
+    slot_change(DX_HOLO_EV_BAD);
+    CHECK(fake_find_text(DX_TAPES_BAD) != NULL);
+    CHECK_INT(app.tab, DATA_TAB + 1);
+    /* A card goes in while MAP shows: DATA lists it on return. */
+    fake_add_slot_holo("S.HTP", DX_HOLO_GAME, "Slot");
+    slot_change(DX_HOLO_EV_REMOVED | DX_HOLO_EV_INSERTED);
+    dx_app_set_tab(&app, DATA_TAB);
+    dx_app_step(&app);
+    CHECK_STR(last_list(), "deitrix: tapes list n=2 A.HTP S.HTP*");
+    CHECK_STR(last_log(), "deitrix: data tapes sel=0 top=0 count=2 | ");
+}
+
+TEST(no_slot_shows_nothing_of_a_slot)
+{
+    /* A 1.4 kernel without the slot, and a 1.3 kernel, even with a
+     * stray flag in the entry and the hardware bit. */
+    static const uint32_t cases[][2] = { { DX_ABI_1_4, DX_HW_AUDIO }, { DX_ABI_1_3, DX_HW_TAPE } };
+    size_t i;
+
+    for (i = 0; i < 2; i++) {
+        fake_reset();
+        fake_add_slot_holo("S.HTP", DX_HOLO_GAME, "Slot");
+        fake_add_holo("A.HTP", DX_HOLO_UTILITY, "Alpha", NULL);
+        boot_slot(cases[i][0], cases[i][1]);
+        CHECK_STR(last_list(), "deitrix: tapes list n=2 S.HTP A.HTP");
+        slot_change(DX_HOLO_EV_INSERTED);
+        /* No call, no frame, no notice. */
+        CHECK_INT(fake.holo_event_calls, 0);
+        CHECK_INT(fake.presents, 0);
+        key(DX_UI_DOWN);
+        CHECK(fake_find_text(DX_TAPES_IN) == NULL);
+        CHECK(fake_find_text("UP/DOWN: move  SELECT: run tape") != NULL);
+        draw_body();
+        CHECK(fake_find_text("GAME") != NULL);
+        CHECK(fake_find_text("SLOT GAME") == NULL);
+        CHECK(strstr(fake.log, "tape slot off") != NULL);
+    }
+}
+
 /* ---- CLOCK -------------------------------------------------------------- */
 
 #define T_2026_11_23_093007 1795426207u /* a Monday */

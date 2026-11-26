@@ -10,7 +10,7 @@ Every frame shows a tab bar with STAT, INV, DATA, MAP and RADIO, the time as `HH
 
 - STAT: the owner and gauges, the attributes, and the device data with the uptime.
 - INV: the items of ITEMS.INI by category, a detail per item, and counts and marks kept in INV.SAV.
-- DATA: the notes, the TAPES list that runs holotapes, and the clock with a time setter.
+- DATA: the notes, the TAPES list that runs holotapes, and the clock with a time setter. With Pip-OS ABI 1.4 and a holotape slot, TAPES follows the slot card as it goes in and out, and the footer says what changed. The slot is tested in QEMU with Pip-OS's RAM card backend only: no board has a slot yet.
 - MAP: the local and world maps with their places, and a detail per place.
 - RADIO: the stations of RADIO.INI, what plays now, the volume and the UI sounds, kept in DEITRIX.SAV.
 - Culvert: a pipe-turning puzzle holotape with generated levels, on the card as `PIPBOY/HOLO/CULVERT.HTP`.

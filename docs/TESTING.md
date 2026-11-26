@@ -10,7 +10,7 @@
 | Content check | `make check-content`, part of `test-host` | `build/card/` follows [CONTENT.md](CONTENT.md) |
 | Tool tests | `make tools-test`, part of `test-host` | `tools/check_content.py`, `tools/tun2notes.py` and `tools/mkpcm.py` |
 | Card check | `make sdimage-test`, part of `test-host` | The card holds the ROM, the kernel, `PIPOS.CFG` and every file of `build/card/` with the same bytes; `build/card/` holds every file of `content/` and both PCM tracks |
-| QEMU tests | `make test-target` | The ROM and the widget gallery on Pip-OS on `raspi0`, `raspi1ap`, `raspi2b` and `raspi3b` |
+| QEMU tests | `make test-target` | The ROM and the widget gallery on Pip-OS on `raspi0`, `raspi1ap`, `raspi2b` and `raspi3b`; the holotape slot on Pip-OS's test kernel |
 
 `make test` runs `test-host`, then `test-target`. `BOARD=raspi0` limits the QEMU tests to one board.
 
@@ -56,12 +56,13 @@ For other GCC-only warnings, CI is the check. If a GCC is installed, run `make C
 | `test_inv_fmt.c` | INV's text helpers: weights in grams and kilograms, counts, the item of each row, the summary row, at the limits |
 | `test_inv.c` | The INV tab: no ITEMS.INI, a broken file, no category, the first view's draw list, the categories and an empty one, list moves and ends, the detail, the count at 0 and 999, the mark and the summary, routing through the shell and `leave`, the longest names and most items inside the body; a held SELECT opens once and a held LEFT or BACK closes once through the shell |
 | `test_data_time.c` | The DATA clock's date helpers: leap years, known dates and their weekdays, every day from 2000 to 2099 against a reference, each setter field's wrap, the day clamp, the texts |
-| `test_data.c` | The DATA tab: no notes and a folder error, a note opened and closed, 32 notes with the scroll and the kept selection, a cut and an unreadable note, the note's draw list; no tapes and a list error, the kinds, titles and icon, the launch order and every result line, the list after a launch, the radio off with no failure on RADIO afterwards, a failed save that asks for a second press, the same after the autosave gave up, a refused data tape, 32 tapes, the unsaved mark before and after a launch; the clock page and its tick, no clock, the setter's start, every key in every field, its wraps and clamps, a store that works, fails or is refused; every hint fits the footer |
+| `test_data.c` | The DATA tab: no notes and a folder error, a note opened and closed, 32 notes with the scroll and the kept selection, a cut and an unreadable note, the note's draw list; no tapes and a list error, the kinds, titles and icon, the launch order and every result line, the list after a launch, the radio off with no failure on RADIO afterwards, a failed save that asks for a second press, the same after the autosave gave up, a refused data tape, 32 tapes, the unsaved mark before and after a launch; the clock page and its tick, no clock, the setter's start, every key in every field, its wraps and clamps, a store that works, fails or is refused; every hint fits the footer. With a slot: a card in and out while TAPES shows, the selection kept on its file or its row, the notice in the footer that takes no key and goes after 3 s, a slot tape that shadows a boot card tape, the result line and second press dropped when the slot tape takes or gives back the row, a slot tape pulled while it runs with its result line, a bad card and a change while MAP shows, and no call, frame, notice or `SLOT` mark on a 1.4 kernel without the slot or on a 1.3 kernel |
 | `test_map_view.c` | MAP's pure helpers: the pane fit for the sample maps and at the extremes, a pane too small, a line in pixels, the place cycling, the marker squares, the position text |
 | `test_map_screen.c` | The MAP tab through the app shell: the first view, the markers, the place cycle both ways, the detail and back, the sub-tabs and the tabs beside them, the dial from the detail, one map with one place, no places, places without lines, no file, a rejected file, a file without maps, every draw inside the body, the hints, no tick; a held SELECT opens once and a held LEFT or BACK closes once |
 | `test_radio_tab.c` | The RADIO tab: the first view's draw list, start, stop and a switch with the audio calls, the station's kind under what plays, the block through a track's wrap and end, a station with nothing to play, the volume to both limits, a held SELECT that starts and stops once, the UI sounds with held keys, LEFT and RIGHT on a station and on a setting, the cursor at the last station, no file, a broken file, every draw inside the body; a held LEFT changes the tab once on a station and steps the volume on each repeat |
 | `test_culvert_logic.c` | Culvert's pure logic: every rotation; levels 1 to 200 are spanning trees with no opening into a wall, not solved when scrambled, the same twice and different from the level before; the solved test after any single quarter turn; leaks; the flood fill against a slow reference; the timer across the tick wrap; the save record pinned as hex, every single-byte change, every wrong length, an old version |
 | `test_culvert_game.c` | Culvert's state machine: the title menu and quit, title to play, the cursor at the edges, a held SELECT turns once, the dial push as SELECT in every state and held, the dial both ways, a two-step and a three-step dial event that stop at the solve, a fast spin applied modulo 4, a multi-step turn that solves nothing, the turn sounds, a scripted solve and the next level, Continue from a save, a corrupt save, pause, resume, restart and quit, pause after a solve, the clock across the tick wrap |
+| `test_notice.c` | The footer notice queue: empty, the order and the 3 s of each, the tick wrap, a full queue, the same text twice. The tape slot service: no slot, a 1.3 or 1.2 kernel and a failed `sys_info` make no call; each bit's notice and its end; several bits with the removal first; the poll after a launch |
 | `test_content.c` | The sample card's load log, line for line; a card without data; read errors; the saves at start; every broken tree of the checker's table, with the log lines it changes, in `test_content_expect.inc` |
 
 `tests/host/test_pbm2c.py` tests the PBM converter: parsing, bit packing, the generated table, bad input and the files in `assets/`. `make test-host` runs it.
@@ -95,7 +96,7 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 
 ## QEMU tests
 
-`tests/test_deitrix.py`, `tests/test_model.py`, `tests/test_stat.py`, `tests/test_inv.py`, `tests/test_data.py`, `tests/test_map.py`, `tests/test_radio_tab.py` and `tests/test_culvert.py` boot the card from `make sdimage` with the Pip-OS kernel. `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/5f891e75ac0894beec1d4e9d8cb37c00ec0fbf3e/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
+`tests/test_deitrix.py`, `tests/test_model.py`, `tests/test_stat.py`, `tests/test_inv.py`, `tests/test_data.py`, `tests/test_map.py`, `tests/test_radio_tab.py` and `tests/test_culvert.py` boot the card from `make sdimage` with the Pip-OS kernel. `tests/test_slot.py` boots the same card on Pip-OS's slot test kernel, see [The holotape slot](#the-holotape-slot). `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/ca2e054d8641fcd8aa446ce4b18b9cfe67fe5699/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
 
 - `booted(..., wait="jump")` boots the card. Deitrix never exits, so the kernel prints `ev=jump` but never `ev=ready`. Each test then waits for `deitrix: ready` on serial.
 - `script()` sends one script-channel command and checks it answered `ok`. `press()` presses and releases a button.
@@ -169,6 +170,34 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 
 `tests/test_culvert.py` boots Deitrix with the default card, which holds CULVERT.HTP. Each test goes to DATA, then TAPES, and starts the tape with SELECT. `make test-target` builds `build/host/culvert_solve` from `logic.c`: it prints the turns that solve a level, and the test plays them. The tape logs each step after its frame is on screen, so a test waits for the line, then takes the screenshot. The goldens leave out the time at the right of the status row. DATA's own tests delete the default card's tapes first, so their lists hold only the test tapes.
 
+### The holotape slot
+
+QEMU has no SD card on SPI0, so the real slot driver cannot run there. `make holotest-kernel` builds Pip-OS with `-DPIPOS_HOLO_TEST` into `build/holotest/pipos.img`, through Pip-OS's own Makefile, as Pip-OS's `tests/test_slot.py` does: that Makefile adds a command-line `EXTRA_CFLAGS` to its flags. Nothing in `external/` changes. That kernel serves slot cards from guest RAM. Each test writes `[holotape] slot = on` into the card's `PIPOS.CFG`, makes FAT card images with the test tapes in their root, loads card `n` at `0x02000000 + n * 0x00800000` with QEMU's `-device loader`, and drives the slot with the `holo` script command: `insert`, `pull`, `delay` and `pending`. The slot is that test backend, not the real driver, and the kernel is never shipped.
+
+| Test | Checks |
+|---|---|
+| `test_slot_insert_and_pull` | A card goes in while TAPES shows: bits 1, the list gains the slot tape first with `*`, LINETEST stays selected on row 2, the notice shows, `golden/data_tapes_slot_notice.png`; UP works meanwhile; after the notice, `golden/data_tapes_slot.png`. The selected slot tape is pulled: bits 2, the row stays, now LINETEST, the removal notice. On MAP a card goes in: the notice shows and the tab stays; back on TAPES the slot tape is listed |
+| `test_slot_tape_shadows_a_boot_tape` | A slot LINETEST.HTP, built from FAULT, hides the boot card's: one row, marked, and the boot tape's result line goes; SELECT runs the slot one, which faults; the pull brings back the boot card's |
+| `test_slot_bad_card` | A card without a FAT volume: bits 4, "Tape slot: card unreadable.", the list unchanged; the pull: bits 2 and the removal notice |
+| `test_slot_tape_pulled_while_it_runs` | LINETEST runs from the slot; the card is pulled and a key wakes the tape, so Pip-OS ends it: `ev=holo_kill reason=eject`, rc -41, "Tape pulled while running.", the list without it, the removal notice; FAULT then runs with its own line |
+| `test_slot_slow_attach` | With `holo delay 3000` the attach takes 3 s: during it, DOWN and UP answer at once, the list shows no slot tape and no notice shows; then bits 1 and the tape is listed. The test fails when the attach ended before the keys, since then it did not meet its case |
+| `test_slot_off_shows_nothing` | With `slot = off` the test kernel reports no slot: `deitrix: tape slot off`, no bits line, no notice and no `*` after a `holo insert` |
+| `test_shipped_kernel_has_no_slot` | The kernel of the card, with Pip-OS's sample `PIPOS.CFG`: `deitrix: tape slot off` |
+
+Deliberate breaks tried once each, and the tests that failed:
+
+| Break | Failed |
+|---|---|
+| No service wake on `PIP_EV_TAPE` | `test_slot_insert_and_pull` on `raspi0`; four slot tests in `test_data.c` |
+| No ABI 1.4 check before the slot flag | The 1.3 cases in `test_data.c` and `test_notice.c` |
+| The result line set before the new listing | `slot_tape_pulled_while_it_runs` and `tapes_list_changes_after_a_launch` in `test_data.c` |
+| A result line kept when its file left | `slot_insert_and_pull_while_tapes_shows` in `test_data.c` |
+| No new listing on a new generation | Three slot tests in `test_data.c` |
+| The `SLOT` mark without the slot check | `no_slot_shows_nothing_of_a_slot` in `test_data.c` |
+| `dx_tapes_poll()` that drops the bits it read | `slot_tape_pulled_while_it_runs` in `test_data.c`, `tapes_poll_after_a_launch` in `test_notice.c` |
+| A full queue that drops the notice shown | `notice_full_queue_drops_the_oldest_waiting` in `test_notice.c` |
+| A selection that does not follow its file | `slot_insert_and_pull_while_tapes_shows` in `test_data.c` |
+
 The first two tests boot without an RTC, so the header shows `--:--` and the goldens do not depend on the time. The goldens are 640x480 QEMU screenshots, or crops of them, and must match on every board pixel for pixel.
 
 The gallery logs each list and text move before its redraw. To be sure a frame is on screen, the tests send one more key that changes nothing and wait for its line: the shell draws before it takes the next event.
@@ -192,7 +221,7 @@ The audio trace may show no `op=stop` when a tune gives way to a PCM station. Th
 
 ## Real hardware
 
-No test runs on a real board. Each hardware run is recorded here by hand: the board, the commits, the exact serial log and what it shows. The runs below used Pip-OS `2d10c2c`. Nothing has run on hardware with the current pin, Pip-OS `5f891e7`.
+No test runs on a real board. Each hardware run is recorded here by hand: the board, the commits, the exact serial log and what it shows. The runs below used Pip-OS `2d10c2c`. Nothing has run on hardware with the current pin, Pip-OS `ca2e054`, and no board has a holotape slot yet.
 
 ### Hardware checklist
 
@@ -211,6 +240,7 @@ No test runs on a real board. Each hardware run is recorded here by hand: the bo
 | The clock chip | Open |
 | A holotape starts and ends, Culvert included | Partial, on a Zero W 1.1, 2026-11-24: Culvert started, took keys, quit with status 0 and Deitrix resumed. A solved level, CULVERT.SAV and a holotape fault are open. |
 | A power cut during a save | Open |
+| The holotape slot: insert, pull, a bad card, a pull while a tape runs | Open. No board has a slot; the QEMU tests use Pip-OS's RAM card backend. |
 | Any other board | Open |
 
 ### Run 1: Pi Zero W 1.1, 2026-11-24

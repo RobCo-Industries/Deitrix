@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Changed
 
+- Pip-OS moves to `ca2e054`, with RobCo-Core `cab5f69` inside it. The SDK seals the ROM for ABI 1.4. STAT's ABOUT page shows `ABI 1.4`. The CI workflow pins RobCo-Core `cab5f69` with the same image tag. The docs link the new commits.
 - The docs record the first hardware run: on a Pi Zero W 1.1, Deitrix booted, took serial keys and wrote DEITRIX.SAV. `docs/BUILD.md` gives the Mac commands that made the card.
 - The docs record a second hardware run on the same card: DEITRIX.SAV loaded at boot, serial keys reached all five tabs, and Culvert started, took keys and quit with status 0.
 - `tools/check_content.py --help` prints the usage instead of checking a folder named `--help`. Exit codes stay the same.
@@ -23,6 +24,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Added
 
+- The holotape slot of ABI 1.4. A tape slot service reads `hw_flags` and, with a slot, asks `holo_eject_event` after each `PIP_EV_TAPE` event, each key and each launch. TAPES reads the list again after a change and keeps the selection on its tape, or on its row when the tape left. A slot tape shows `SLOT GAME` or `SLOT UTIL`. The footer shows a notice for 3 s when a card goes in, comes out or cannot be read, on any tab, and the keys keep working. A tape whose card is pulled while it runs comes back with "Tape pulled while running.". With no slot, or on a Pip-OS before 1.4, nothing changes.
+- `make holotest-kernel` builds Pip-OS's slot test kernel through its Makefile, and `tests/test_slot.py` drives its RAM card backend in QEMU. Host tests in `test_notice.c` and `test_data.c`. Nothing here ran on a board.
 - Culvert, a pipe-turning puzzle holotape with generated levels, built by `make holotapes` and shipped on the card as `CULVERT.HTP`. DATA's TAPES list starts it.
 - The STAT tab: the owner and gauges, the attributes, and the device data with the uptime, refreshed each second.
 - The INV tab: one sub-tab per category, a list of its items with a summary row, and a detail view where UP and DOWN change the count and SELECT marks the item.
