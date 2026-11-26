@@ -96,7 +96,7 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 
 ## QEMU tests
 
-`tests/test_deitrix.py`, `tests/test_model.py`, `tests/test_stat.py`, `tests/test_inv.py`, `tests/test_data.py`, `tests/test_map.py`, `tests/test_radio_tab.py` and `tests/test_culvert.py` boot the card from `make sdimage` with the Pip-OS kernel. `tests/test_slot.py` boots the same card on Pip-OS's slot test kernel, see [The holotape slot](#the-holotape-slot). `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/ca2e054d8641fcd8aa446ce4b18b9cfe67fe5699/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
+`tests/test_deitrix.py`, `tests/test_model.py`, `tests/test_stat.py`, `tests/test_inv.py`, `tests/test_data.py`, `tests/test_map.py`, `tests/test_radio_tab.py` and `tests/test_culvert.py` boot the card from `make sdimage` with the Pip-OS kernel. `tests/test_slot.py` boots the same card on Pip-OS's slot test kernel, see [The holotape slot](#the-holotape-slot). `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/93a07d266be43feab3e96e186d40c8b536f54bae/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
 
 - `booted(..., wait="jump")` boots the card. Deitrix never exits, so the kernel prints `ev=jump` but never `ev=ready`. Each test then waits for `deitrix: ready` on serial.
 - `script()` sends one script-channel command and checks it answered `ok`. `press()` presses and releases a button.
@@ -221,7 +221,7 @@ The audio trace may show no `op=stop` when a tune gives way to a PCM station. Th
 
 ## Real hardware
 
-No test runs on a real board. Each hardware run is recorded here by hand: the board, the commits, the exact serial log and what it shows. The runs below used Pip-OS `2d10c2c`. Nothing has run on hardware with the current pin, Pip-OS `ca2e054`, and no board has a holotape slot yet.
+No test runs on a real board. Each hardware run is recorded here by hand: the board, the commits, the exact serial log and what it shows. The runs below used Pip-OS `2d10c2c`. Nothing has run on hardware with the current pin, Pip-OS `93a07d2`, and no board has a holotape slot yet.
 
 ### Hardware checklist
 
