@@ -13,6 +13,9 @@
 #   make check-pins           CI pins and doc links match the submodules
 #   make weep-table           write src/services/weep_table.c and .h again
 #   make weep-table-check     fail when the committed weep table is stale
+#   make sfx-table            write src/services/sfx_table.c and .h again
+#                             from assets/sfx/sfx_models.json; every build
+#                             checks first that they are not stale
 #   make boot-sound           boot a card with the system sound on in QEMU and
 #                             write build/boot_sound.wav, the whole boot and
 #                             the weep, what the audio pin would play
@@ -94,6 +97,29 @@ weep-table:
 weep-table-check:
 	$(PYTHON) -I tools/mkweep.py --check
 
+# ---- The sound effect tables ----------------------------------------------
+
+# src/services/sfx_table.c and .h come from assets/sfx/sfx_models.json
+# through RobCo-Core's tools/sfx_table.py and are committed. `make
+# sfx-table` writes them again. The stamp runs the tool's fast --check,
+# and the table's object depends on it, so make, make sdimage and make
+# run all stop on a stale table.
+SFX_TOOL   := $(ROBCO_CORE)/tools/sfx_table.py
+SFX_MODEL  := assets/sfx/sfx_models.json
+SFX_OUT    := src/services/sfx_table.c src/services/sfx_table.h
+SFX_ARGS   := $(SFX_MODEL) --c src/services/sfx_table.c --h src/services/sfx_table.h --prefix dx_sfx_
+SFX_STAMP  := $(BUILD)/gen/sfx_table.ok
+.PHONY: sfx-table
+sfx-table:
+	$(PYTHON) -I $(SFX_TOOL) $(SFX_ARGS)
+
+$(SFX_STAMP): $(SFX_MODEL) $(SFX_OUT) $(SFX_TOOL)
+	$(PYTHON) -I $(SFX_TOOL) $(SFX_ARGS) --check
+	@mkdir -p $(dir $@)
+	@touch $@
+
+$(call pip_obj,src/services/sfx_table.c): $(SFX_STAMP)
+
 $(ICONS_C): tools/pbm2c.py $(ICONS)
 	$(PYTHON) tools/pbm2c.py $@ $(ICONS)
 
@@ -117,6 +143,7 @@ HOST_DEFINES  := DX_VERSION=$(VERSION)
 include $(ROBCO_CORE)/mk/host.mk
 
 $(HOST_TESTS): | weep-table-check
+$(HOST_TESTS): $(SFX_STAMP)
 
 # host.mk only sees the headers at the top of src/.
 $(HOST_TESTS): $(wildcard src/*/*.h) $(wildcard $(CV_DIR)/*.h) tests/host/fake_platform.h tests/host/tfmt.h $(EXPECT_H) $(wildcard tests/host/*.inc)
