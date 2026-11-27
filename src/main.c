@@ -338,8 +338,11 @@ void dx_app_step(dx_app_t *app)
     }
 }
 
-static const dx_service_t *const rom_services[] = { &dx_service_radio, &dx_service_autosave,
-                                                    &dx_service_uptime, &dx_service_tapes };
+/* The hum ticks after the radio, so it sees the radio's state of the
+ * same step. */
+static const dx_service_t *const rom_services[] = { &dx_service_radio, &dx_service_hum,
+                                                    &dx_service_autosave, &dx_service_uptime,
+                                                    &dx_service_tapes };
 
 static void remember_tab(int tab)
 {

@@ -722,6 +722,7 @@ static void audio_log(int op, uint32_t n, uint32_t first)
         a->n = n;
         a->first = first;
         a->at = fake.ticks;
+        a->rate = fake.rate;
     }
 }
 
@@ -888,18 +889,30 @@ int32_t dx_plat_sample_queue(const uint8_t *data, uint32_t length)
     if (!fake.au_on) {
         audio_log(FAKE_AU_QUEUE, length, data[0]);
         fake.au_starts++;
+        fake.au_rate = fake.rate;
         take_bytes(data, length);
-        audio_start(length / 8);
+        audio_start(length * 1000u / fake.rate);
         return 0;
     }
     if (fake.au_wait != 0) {
         audio_log(FAKE_AU_BUSY, length, data[0]);
         return DX_EBUSY;
     }
-    audio_log(FAKE_AU_QUEUE, length, data[0]);
-    fake.au_nexts++;
-    take_bytes(data, length);
-    fake.au_wait = length / 8 > 0 ? length / 8 : 1;
+    {
+        int before = fake.audio_count;
+        /* The rate of the play it joins. A tone or a sequence has none:
+         * 8000, as before the rate existed. */
+        uint32_t rate = fake.au_rate != 0 ? fake.au_rate : DX_RATE_LO;
+        uint32_t ms = length * 1000u / rate;
+
+        audio_log(FAKE_AU_QUEUE, length, data[0]);
+        if (fake.audio_count > before) {
+            fake.audio[before].rate = rate;
+        }
+        fake.au_nexts++;
+        take_bytes(data, length);
+        fake.au_wait = ms > 0 ? ms : 1;
+    }
     return 0;
 }
 

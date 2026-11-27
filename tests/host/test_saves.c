@@ -113,6 +113,22 @@ TEST(settings_round_trip_full)
     CHECK_EQ(b.ui_sound, DX_UI_SOUND_FULL);
 }
 
+TEST(settings_round_trip_full_hum)
+{
+    dx_settings_t a, b;
+    uint8_t buf[DX_SETTINGS_SIZE];
+
+    /* "Full + hum" keeps the record's size and comes back as 3. */
+    dx_settings_defaults(&a, 50);
+    CHECK_EQ(dx_settings_set_ui_sound(&a, DX_UI_SOUND_FULL_HUM), 1);
+    CHECK_EQ(dx_settings_set_ui_sound(&a, 4), 0);
+    dx_settings_encode(&a, buf);
+    CHECK_EQ(sizeof(buf), 20);
+    CHECK_EQ(buf[14], 3);
+    CHECK_EQ(dx_settings_decode(&b, buf, sizeof(buf), 50), DX_SAVE_OK);
+    CHECK_EQ(b.ui_sound, DX_UI_SOUND_FULL_HUM);
+}
+
 TEST(inv_round_trip)
 {
     static uint8_t buf[DX_INV_SAVE_MAX];
@@ -194,7 +210,7 @@ TEST(settings_fields_out_of_range)
     a.volume = 7;
     dx_settings_encode(&a, buf);
     buf[12] = 5;   /* tab */
-    buf[14] = 3;   /* ui_sound */
+    buf[14] = 4;   /* ui_sound */
     buf[15] = 7;   /* station */
     buf[16] = 9;   /* reserved: ignored */
     crc = dx_crc32(buf + 12, 8);
@@ -317,7 +333,7 @@ TEST(setters)
     CHECK_EQ(dx_settings_set_volume(&s, 101), 0);
     CHECK_EQ(dx_settings_set_volume(&s, -1), 0);
     CHECK_EQ(dx_settings_set_volume(&s, 0), 1);
-    CHECK_EQ(dx_settings_set_ui_sound(&s, 3), 0);
+    CHECK_EQ(dx_settings_set_ui_sound(&s, 4), 0);
     CHECK_EQ(dx_settings_set_ui_sound(&s, 0), 1);
     CHECK_EQ(dx_settings_set_station(&s, 7), 0);
     CHECK_EQ(dx_settings_set_station(&s, 6), 1);

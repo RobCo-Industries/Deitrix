@@ -52,7 +52,9 @@ typedef struct fake_audio {
     int op;
     uint32_t n;
     uint32_t first;
-    uint32_t at; /* fake.ticks at the call */
+    uint32_t at;   /* fake.ticks at the call */
+    uint32_t rate; /* the rate the bytes play at: the rate in force, or
+                    * the rate of the play a queued sample joins */
 } fake_audio_t;
 
 typedef struct fake_text {

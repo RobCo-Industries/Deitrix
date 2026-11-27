@@ -19,8 +19,8 @@
 #   make boot-sound           boot a card with the system sound on in QEMU and
 #                             write build/boot_sound.wav, the whole boot and
 #                             the weep, what the audio pin would play
-#   make sfx-preview          drive a session with "UI sounds" on Full in
-#                             QEMU and write build/sfx_preview.wav
+#   make sfx-preview          drive a session with "UI sounds" on Full + hum
+#                             in QEMU and write build/sfx_preview.wav
 #   make sdimage              build/pipos/sd.img: the Pip-OS kernel, its sample
 #                             PIPOS.CFG, ROM1.ROM and the card tree
 #   make card-tree            build/card/: content/ plus the generated radio
@@ -109,7 +109,8 @@ weep-table-check:
 SFX_TOOL   := $(ROBCO_CORE)/tools/sfx_table.py
 SFX_MODEL  := assets/sfx/sfx_models.json
 SFX_OUT    := src/services/sfx_table.c src/services/sfx_table.h
-SFX_ARGS   := $(SFX_MODEL) --c src/services/sfx_table.c --h src/services/sfx_table.h --prefix dx_sfx_
+SFX_BED    := hum
+SFX_ARGS   := $(SFX_MODEL) --c src/services/sfx_table.c --h src/services/sfx_table.h --prefix dx_sfx_ --bed $(SFX_BED)
 SFX_STAMP  := $(BUILD)/gen/sfx_table.ok
 .PHONY: sfx-table
 sfx-table:
@@ -267,11 +268,11 @@ boot-sound: sdimage venv
 # ---- Session sound preview -------------------------------------------
 
 # `make sfx-preview` boots the same card with the system sound on and a
-# saved "UI sounds" of Full, and drives the session of
+# saved "UI sounds" of Full + hum, and drives the session of
 # tests/test_sfx_preview_log.py: the boot, the five modes, a station on
 # and off, five rows down, a sub-tab, SELECT, BACK and a tape launched
-# and left. It renders the log with the kernel's buffers, the weep and
-# Deitrix's tables. It fails on a missing log, on any warning of the
+# and left. It renders the log with the kernel's buffers, the weep,
+# Deitrix's tables and each head and rest over the hum. It fails on a missing log, on any warning of the
 # tool and on a silent file. See docs/TESTING.md.
 SFX_PREVIEW_DIR := $(BUILD)/sfx_preview
 .PHONY: sfx-preview
@@ -286,7 +287,7 @@ sfx-preview: sdimage venv
 		exit 1; }
 	$(PYTHON) -I $(PIP_OS)/tools/sound_table.py --dump $(SFX_PREVIEW_DIR)/pcm
 	$(PYTHON) -I tools/mkweep.py --dump $(SFX_PREVIEW_DIR)/weep
-	$(PYTHON) -I $(SFX_TOOL) $(SFX_MODEL) --dump $(SFX_PREVIEW_DIR)/sfx
+	$(PYTHON) -I $(SFX_TOOL) $(SFX_MODEL) --dump $(SFX_PREVIEW_DIR)/sfx --bed $(SFX_BED)
 	$(PYTHON) -I $(ROBCO_CORE)/tools/audio_preview.py $(SFX_PREVIEW_DIR)/serial.log $(BUILD)/sfx_preview.wav \
 		--pcm $(SFX_PREVIEW_DIR)/pcm --pcm $(SFX_PREVIEW_DIR)/weep --pcm $(SFX_PREVIEW_DIR)/sfx \
 		2> $(SFX_PREVIEW_DIR)/warnings.txt || { cat $(SFX_PREVIEW_DIR)/warnings.txt >&2; exit 1; }

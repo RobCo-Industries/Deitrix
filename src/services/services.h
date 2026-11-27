@@ -12,6 +12,7 @@
 #include "model/items.h"
 #include "model/radio.h"
 #include "model/saves.h"
+#include "services/sfx_table.h"
 #include "ui/notice.h"
 
 /* ---- Radio ------------------------------------------------------------- */
@@ -179,6 +180,83 @@ int dx_sfx_wait_more(int played, int busy, uint32_t waited_ms, unsigned rounds);
  * comes in the wait is dropped: Pip-OS empties the queue at a tape's
  * start anyway. */
 void dx_sfx_drain(int played);
+
+/* ---- The hum ------------------------------------------------------------ */
+
+/*
+ * The hum is a quiet loop under the other UI sounds, on "Full + hum".
+ * It plays as two parts that take turns in the kernel's queue. A sound
+ * over the hum is a head, the sound mixed with the hum's first bytes,
+ * with the rest of the hum's first part queued behind it. The heads are
+ * mixed once, into RAM, when the service starts.
+ */
+
+/* The service tops the queue up this often. */
+#define DX_HUM_POLL_MS 250u
+/* A full panel frame blocks the ROM this long. The rest behind the
+ * longest head must outlast it plus one top-up period. */
+#define DX_HUM_FRAME_MS 128u
+
+/* The bytes of every head, one after the other. */
+#define DX_SFX_HEADS_SIZE                                                                       \
+    (DX_SFX_SCROLL_HEAD_LEN + DX_SFX_SELECT_HEAD_LEN + DX_SFX_MODE_HEAD_LEN +                   \
+     DX_SFX_TAB_HEAD_LEN + DX_SFX_HIGHLIGHT_HEAD_LEN + DX_SFX_TUNER_HEAD_LEN +                  \
+     DX_SFX_TAPE_START_HEAD_LEN + DX_SFX_TAPE_STOP_HEAD_LEN)
+
+/* out[i] = clamp(shot[i] + bed[i] - 128, 0, 255) for i below n. */
+void dx_sfx_mix(uint8_t *out, const uint8_t *shot, const uint8_t *bed, uint32_t n);
+
+/* The head of table `id` and its length, mixed at the service's start,
+ * or NULL for a bad id. */
+const uint8_t *dx_sfx_head(int id, uint32_t *len);
+
+/* The state of the hum, apart from the kernel. */
+typedef struct dx_hum {
+    int running; /* the hum plays, or waits in the queue */
+    int next;    /* the part to queue next: 0 or 1 */
+} dx_hum_t;
+
+/* What a top-up asks for. START: part one now. QUEUE: part `next`
+ * behind what plays. STOP: stop the sound. */
+enum { DX_HUM_NONE, DX_HUM_START, DX_HUM_QUEUE, DX_HUM_STOP };
+
+/*
+ * One top-up. `on`: the setting is "Full + hum" and tables may play.
+ * `radio`: the radio is not off. `busy`: the audio status. Off or with
+ * the radio, the hum stops: STOP only when the hum ran and the radio
+ * does not hold the voice. A hum that runs starts again when nothing
+ * plays, else queues its next part. A hum that does not run waits for
+ * the other sound to end, then starts.
+ */
+int dx_hum_step(dx_hum_t *h, int on, int radio, int busy);
+
+/* 1 when "Full + hum" is set and tables may play. */
+int dx_hum_on(void);
+
+/* 1 while the hum runs, so a table plays as its head. */
+int dx_hum_running(void);
+
+/* Another sound took the voice: the hum waits for its end. The tones,
+ * the weep, the plain tables, a station and a tape call it. */
+void dx_hum_halt(void);
+
+/*
+ * The setting left "Full + hum". The hum stops at once and waits for
+ * the setting to come back. STOP only when the hum ran and a sound
+ * plays: what plays then is the hum, or a head with the hum's rest
+ * queued behind it, since every other sound halts the hum first. A
+ * head is part hum, so the stop cuts it too.
+ */
+int dx_hum_leave(dx_hum_t *h, int busy);
+
+/* dx_hum_leave on the service's state, and the stop it asks for. The
+ * setting calls it in the same pass as the change. */
+void dx_hum_setting_left(void);
+
+extern const dx_service_t dx_service_hum;
+
+/* The hum's state, for the host tests. */
+dx_hum_t *dx_hum_state(void);
 
 /* ---- Tape slot ---------------------------------------------------------- */
 

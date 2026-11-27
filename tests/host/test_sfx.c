@@ -367,13 +367,18 @@ TEST(ui_sound_full_without_the_bit_plays_tones)
 
 TEST(ui_sound_row_values)
 {
-    /* With the bit: Off, On, Full and round. */
+    /* With the bit: Off, On, Full, Full + hum and round. */
     CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_OFF, 1), DX_UI_SOUND_ON);
     CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_ON, 1), DX_UI_SOUND_FULL);
-    CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_FULL, 1), DX_UI_SOUND_OFF);
+    CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_FULL, 1), DX_UI_SOUND_FULL_HUM);
+    CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_FULL_HUM, 1), DX_UI_SOUND_OFF);
     CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_OFF, 1), "Off");
     CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_ON, 1), "On");
     CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_FULL, 1), "Full");
+    CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_FULL_HUM, 1), "Full + hum");
+    /* Without it a saved Full + hum reads On and turns Off. */
+    CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_FULL_HUM, 0), DX_UI_SOUND_OFF);
+    CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_FULL_HUM, 0), "On");
     /* Without it: Off and On. A saved Full reads On and turns Off. */
     CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_OFF, 0), DX_UI_SOUND_ON);
     CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_ON, 0), DX_UI_SOUND_OFF);

@@ -28,7 +28,7 @@ typedef struct dx_service {
     void (*stop)(void);
 } dx_service_t;
 
-#define DX_SERVICES_MAX 4
+#define DX_SERVICES_MAX 5
 
 typedef struct dx_app {
     const dx_screen_t *const *screens;

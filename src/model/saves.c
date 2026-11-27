@@ -123,7 +123,7 @@ int dx_settings_set_volume(dx_settings_t *s, int volume)
 
 int dx_settings_set_ui_sound(dx_settings_t *s, int level)
 {
-    return set(s, &s->ui_sound, level, 2);
+    return set(s, &s->ui_sound, level, 3);
 }
 
 int dx_settings_set_station(dx_settings_t *s, int number)
@@ -161,7 +161,7 @@ int dx_settings_decode(dx_settings_t *s, const uint8_t *buf, int32_t n, uint8_t 
     if (r[1] <= DX_VOLUME_MAX) {
         s->volume = r[1];
     }
-    if (r[2] <= 2) {
+    if (r[2] <= 3) {
         s->ui_sound = r[2];
     }
     if (r[3] <= 6) {

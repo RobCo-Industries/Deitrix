@@ -2,15 +2,16 @@
 
 It runs only with --sfx-preview-log PATH. The card is the one make
 sdimage writes, its PIPOS.CFG set as for make boot-sound, with the
-system sound on, and a DEITRIX.SAV with "UI sounds" on Full. The session:
+system sound on, and a DEITRIX.SAV with "UI sounds" on "Full + hum".
+The hum runs under the session, so it never goes quiet. The session:
 
-- the boot, up to the weep and the quiet after it
+- the boot, up to the weep and the hum's start after it
 - the dial through the other four modes, STAT to RADIO
 - a station on, then off, each with the tuner sound
 - five rows down on RADIO
 - the dial to INV, RIGHT to the next category, SELECT, BACK
 - the dial to DATA, RIGHT to TAPES, a tape launched and left by Quit,
-  with the tape start and stop sounds
+  with the tape start and stop sounds, then the hum's return
 
 The kernel keeps only the newest sound request inside one 10 ms tick,
 so each input waits for its sound before the next one. Each part ends
@@ -24,10 +25,11 @@ import time
 import pytest
 
 from pipos_testing import TIMEOUT, no_exception, press, script
-from test_boot_sound_log import CFG, CFG_PATH, wait_quiet
+from test_boot_sound_log import CFG, CFG_PATH
 from test_deitrix import boot_rom, wait_ready, wait_tabs
 from test_model import card_target, mtools, wait_line
-from test_sfx import MODE, SCROLL, SELECT, TAB, HIGHLIGHT, plays_after
+from test_sfx import TABLES, plays_after
+from test_sfx_hum import audio
 from test_sfx_tape_tuner import TAPE_START, TAPE_STOP, TUNER
 from test_weep import WEEP, write_settings
 
@@ -70,12 +72,12 @@ def test_save_session_log(request, board, kernel_image, card, tmp_path, need_mto
     cfg = tmp_path / "PIPOS.CFG"
     cfg.write_text(CFG)
     mtools("mcopy", "-o", "-i", card_target(card), str(cfg), CFG_PATH)
-    write_settings(card, tmp_path, ui_sound=2)
+    write_settings(card, tmp_path, ui_sound=3)
     with boot_rom(kernel_image, board, sd=card) as vm:
         wait_ready(vm)
-        wait_line(vm, "deitrix: load DEITRIX.SAV ok tab=0 volume=80 sound=2 station=0")
+        wait_line(vm, "deitrix: load DEITRIX.SAV ok tab=0 volume=80 sound=3 station=0")
         vm.wait_for(WEEP, timeout=TIMEOUT)
-        wait_quiet(vm)
+        wait_for(vm, "no hum after the weep", lambda: ("pcm", "HUM_1") in audio(vm))
         time.sleep(GAP_S)
         start = len(vm.serial)
         # The other four modes.
@@ -113,15 +115,22 @@ def test_save_session_log(request, board, kernel_image, card, tmp_path, need_mto
         time.sleep(GAP_S)
         press(vm, "select")
         wait_line(vm, "deitrix: data tape rc=0")
-        wait_quiet(vm)
-        time.sleep(GAP_S)
+        back = vm.serial.index("deitrix: data tape rc=0", mark)
+        wait_for(vm, "no hum after the tape", lambda: ("pcm", "HUM_1") in audio(vm, back))
+        hum = vm.serial.index("len=%d " % TABLES["HUM_1"][0], back)
+        wait_for(vm, "no part two after the tape",
+                 lambda: ("pcm_next", "HUM_2") in audio(vm, hum))
         no_exception(vm)
         log = vm.serial
         got = plays_after(vm, start)
+        queued = [a[1] for a in audio(vm, start) if a[0] == "pcm_next"]
     with open(path, "w", encoding="utf-8") as f:
         f.write(log)
-    for name, table in (("mode", MODE), ("tab", TAB), ("scroll", SCROLL),
-                        ("select", SELECT), ("highlight", HIGHLIGHT), ("tuner", TUNER),
-                        ("tape start", TAPE_START), ("tape stop", TAPE_STOP)):
+    for name, table in (("tuner", TUNER), ("tape start", TAPE_START), ("tape stop", TAPE_STOP),
+                        ("the hum's part one", (37500,) + TABLES["HUM_1"])):
         if table not in got:
             pytest.fail("the session played no %s\n%s" % (name, log[start:]))
+    # The UI sounds play over the hum: each head, then its rest.
+    for name in ("MODE", "TAB", "SCROLL", "SELECT", "HIGHLIGHT"):
+        if (37500,) + TABLES[name + "_HEAD"] not in got or name + "_REST" not in queued:
+            pytest.fail("the session played no %s over the hum\n%s" % (name.lower(), log[start:]))

@@ -24,7 +24,7 @@ Pure data code, with no drawing and no system calls. `nav.c` moves between tabs 
 
 ### `src/services/`
 
-The background services: the radio, the autosave, the uptime and the tape slot. See [Services](#services).
+The background services: the radio, the hum, the autosave, the uptime and the tape slot. `sfx.c` holds the hum service with the sound effects. See [Services](#services).
 
 ### `src/ui/`
 
@@ -142,7 +142,24 @@ The weep is a short rising chirp under the first frame. The shell calls `dx_sfx_
 
 The table is two glides summed. The bright one runs from 2344 to 4500 Hz by a constant ratio over 140 ms, with a peak of 66.9 steps and its second harmonic 10 dB under, 21.1 steps. The lower one starts 10 ms in and runs from 700 to 2300 Hz over 130 ms, also by a constant ratio, with a peak of 17.6 steps. Each fades in over 10 ms and out over 15 ms. The first and last bytes are 128. `tools/mkweep.py` writes `src/services/weep_table.c` and `.h` from `tools/weep_params.json`, with the exact arithmetic of Pip-OS's `tools/sound_table.py`, so the bytes are the same on every machine. The files are committed. `make weep-table` writes them again, and `make weep-table-check` stops the ROM and host test builds when they are stale.
 
-The table sounds come from `src/services/sfx_table.c`, see [CONTENT.md](CONTENT.md#sound-effects). The "UI sounds" setting has three values: 0 off, 1 on, 2 full. The shell calls `dx_ui_sound_event()` with the sound and whether the tab changed. With full, `dx_ui_sound_table()` picks one table per event through `dx_sfx_play()`. A move plays `mode` when the tab changed, else `tab` with the result flag `DX_UI_TAB_MOVED`, else `scroll` with `DX_UI_ROW_MOVED`. A select plays `select` and a back plays `highlight`. Deny keeps its tone. Every other sound, and a table that cannot play, falls back to the tone. `dx_sfx_play()` follows the weep's rules: ABI 1.5 or later, both audio flags, and no radio. It sets the rate to 37500 Hz, starts the table with `sample` and sets the rate before back at once. It never waits for the play. RADIO offers full only when `dx_sfx_full()` says the kernel set both flags.
+The table sounds come from `src/services/sfx_table.c`, see [CONTENT.md](CONTENT.md#sound-effects). The "UI sounds" setting has four values: 0 off, 1 on, 2 full, 3 full with the hum. The shell calls `dx_ui_sound_event()` with the sound and whether the tab changed. With full, `dx_ui_sound_table()` picks one table per event through `dx_sfx_play()`. A move plays `mode` when the tab changed, else `tab` with the result flag `DX_UI_TAB_MOVED`, else `scroll` with `DX_UI_ROW_MOVED`. A select plays `select` and a back plays `highlight`. Deny keeps its tone. Every other sound, and a table that cannot play, falls back to the tone. `dx_sfx_play()` follows the weep's rules: ABI 1.5 or later, both audio flags, and no radio. It sets the rate to 37500 Hz, starts the table with `sample` and sets the rate before back at once. It never waits for the play. RADIO offers full and full with the hum only when `dx_sfx_full()` says the kernel set both flags. A saved 3 on a kernel without them plays the tones, as a saved 2 does.
+
+### The hum
+
+Value 3 adds the hum, a quiet loop under the other sounds. Pip-OS plays one sound at a time, so the ROM keeps the hum going itself. The rule: a sound over a loop is a head, with the loop's rest queued behind it.
+
+- At start the hum service mixes each of the eight tables with the hum's first bytes into a static buffer: `head[i] = clamp(shot[i] + bed[i] - 128, 0, 255)`. `dx_sfx_mix()` is the pure function, and `DX_SFX_HEADS_SIZE`, the sum of the header's head lengths, sizes the buffer: 56 732 bytes of BSS.
+- The hum is two parts of 43 326 and 43 325 bytes, since `sample` takes 65536 bytes at most. Part one starts with `sample`. Every 250 ms, `DX_HUM_POLL_MS`, the service queues the next part with `sample_queue` when the queue is free, so the parts take turns with no gap. When nothing plays, it starts part one again.
+- While the hum runs, `dx_sfx_play()` starts the table's head with `sample` and queues the rest of part one behind it. Part two comes next. With value 2, or while the hum does not run, the same call plays the plain table.
+- `dx_hum_step()` is the top-up as a pure state machine. Off, it stops the hum once. With the radio on, it stops running and leaves the voice to the radio. When another sound took the voice, it waits for `audio_status` to read idle, then starts part one.
+- Leaving value 3 stops the hum at once through `dx_hum_leave()`, in the same pass as the change, from the row's keys or a settings load: it cuts the hum or a head over it, never a tone or a plain sound, and logs `deitrix: sound left hum t_ms=`. Entering value 3 waits for the next top-up.
+- A tone, the weep and a plain table call `dx_hum_halt()`: they replaced the hum, so the service waits for their end. A tone after a key is never cut: the service keeps its own period, and the wake of every service after a key does not top it up early.
+- A station calls `dx_hum_halt()` before its `tuner` sound, so the tuner plays plain. The tuning state then still sees the tuner end through `audio_status`, as on value 2. A stop's `tuner` plays plain too. The hum starts again at the next top-up after it.
+- A tape launch calls `dx_hum_halt()` before `tape_start`, so the start sound plays plain and the 500 ms wait ends with it. Pip-OS stops every sound at the launch and the return. `tape_stop` plays plain, and the hum starts again at the first top-up after it ends.
+- Each call that sends the hum or a head sets the rate to 37500 Hz and sets the rate before back at once. A queued part plays at the rate of the play it joins. So the rate in force stays 8000 Hz, and a radio track always starts at 8000 Hz, before or after the hum.
+- The rest behind the longest head, `tape_start`, is 27 057 bytes, 721 ms. It outlasts a top-up period plus a full panel frame of 128 ms. A host test checks 500 ms or more.
+- The hum's peak is 16 steps. With the loudest table, 88, the sum stays at 104, under 127, so the clamp never acts. A host test checks it from the header.
+- The kernel's disk clicks never mix with a ROM's sound. So while the hum plays, the kernel plays no click. The ROM does not touch that rule.
 
 ### Layout
 
@@ -291,12 +308,12 @@ deitrix: load DEITRIX.SAV ok tab=4 volume=80 sound=1 station=1
 1. The app shell: the drawing table and the theme, then the screen table check.
 2. The content, as above.
 3. The saves, on top of the content. The volume default is the level Pip-OS had at start. The volume and the UI sound setting apply at once.
-4. The services: the radio, the autosave and the uptime.
+4. The services: the radio, the hum, the autosave, the uptime and the tape slot.
 5. The tab from the settings. Then the first frame and `deitrix: ready`.
 
 ## Services
 
-A service is a `dx_service_t`: a name, `init`, `tick` and `stop`. `dx_app_start_services()` takes a table of up to 4. The shell calls a service's `tick` when its wake time passes, and once after every routed event, so a service sees a change at once. `tick` returns the next wake time, built with `dx_ticks_add()`, or 0 for none. The loop's wait is the earliest of the next minute change, the screen's wake time and every service's wake time.
+A service is a `dx_service_t`: a name, `init`, `tick` and `stop`. `dx_app_start_services()` takes a table of up to 5. The shell calls a service's `tick` when its wake time passes, and once after every routed event, so a service sees a change at once. `tick` returns the next wake time, built with `dx_ticks_add()`, or 0 for none. The loop's wait is the earliest of the next minute change, the screen's wake time and every service's wake time.
 
 A service asks for a redraw the way a screen does: `tick` sets `DX_UI_DIRTY` in its `flags` argument when something a screen may show has changed. The shell then redraws the tab shown in the same step, with one `present`. It redraws whatever tab is shown, even one that shows nothing of the service. Such changes are rare, so the extra frame costs little. A tick that changes nothing visible leaves the flags alone and costs no frame: the streaming wakes every 250 ms draw nothing. A screen that calls a service directly, such as `dx_radio_play`, does so in its event handler, which already returns `DX_UI_DIRTY`.
 

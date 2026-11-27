@@ -33,7 +33,7 @@ enum {
 typedef struct dx_settings {
     uint8_t last_tab;     /* 0 to 4 */
     uint8_t volume;       /* 0 to 100 */
-    uint8_t ui_sound;     /* 0 off, 1 on, 2 full */
+    uint8_t ui_sound;     /* 0 off, 1 on, 2 full, 3 full + hum */
     uint8_t last_station; /* 1 to 6, or 0 for none */
     uint32_t changes;     /* counts changes, for the saves */
 } dx_settings_t;
