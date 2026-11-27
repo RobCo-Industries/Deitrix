@@ -173,9 +173,12 @@ The firmware comes from the network. `FIRMWARE=0` leaves it out, so the command 
 | `make card-tree` | `build/card/`: a fresh copy of `content/` plus the PCM tracks from `tools/mkpcm.py`, kept in `build/pcm/`. Then `tools/check_content.py` checks it, and any problem stops the build. `sdimage`, `run`, `bootdir` and `check-content` run it first. |
 | `make check-content` | `tools/check_content.py` on `content/`, where the generated tracks may be missing, and on `build/card/`, where they must be there |
 | `make check-pins` | The CI pins and the commit links in the docs match the submodules |
+| `make weep-table` | Writes `src/services/weep_table.c` and `.h` again from `tools/weep_params.json`. Commit them |
+| `make weep-table-check` | Fails when the committed weep table is stale. `make` and `make test-host` run it first |
+| `make boot-sound` | Boots the card in QEMU with the system sound on and writes `build/boot_sound.wav`, the whole boot and the weep. See [TESTING.md](TESTING.md#the-boot-sound-preview) |
 | `make check-format` | No unchecked C library string writer in `src/` or `tests/host/` |
 | `make tools-test` | The tests in `tests/tools/`, with Python's `unittest` |
-| `make test-host` | The C host unit tests, `check-format`, `check-pins`, the `check-pins` wiring test, the `pbm2c.py` test, `check-content`, `tools-test` and the card check |
+| `make test-host` | The C host unit tests, `weep-table-check`, `check-format`, `check-pins`, the `check-pins` wiring test, the `pbm2c.py` test, `check-content`, `tools-test` and the card check |
 | `make test-target` | The QEMU tests |
 | `make test` | `test-host`, then `test-target` |
 | `make gallery` | `build/gallery/`: the widget gallery, a test-only ROM, and its card |

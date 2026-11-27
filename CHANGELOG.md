@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Changed
 
+- Pip-OS moves to `21c9b4a`, with RobCo-Core `855569a` inside it: ABI 1.5, the system sound, disk clicks and centred tones. The SDK seals the ROM for ABI 1.5, and STAT's ABOUT page shows `ABI 1.5`. With the system sound off, the default, Deitrix sounds and looks as before.
+
 - Pip-OS moves to `93a07d2`, the commit that builds the `pipos` 1.4.0 SDK package, with RobCo-Core `712db81` inside it. Its `pipos-app.mk` takes `ABI`, writes `flags.json` with `make flags-json` and maps the build paths with `-ffile-prefix-map`. Culvert's tape keeps the same bytes. The CI workflow pins RobCo-Core `712db81` with the same image tag. The docs link the new commits.
 - Pip-OS moves to `ca2e054`, with RobCo-Core `cab5f69` inside it. The SDK seals the ROM for ABI 1.4. STAT's ABOUT page shows `ABI 1.4`. The CI workflow pins RobCo-Core `cab5f69` with the same image tag. The docs link the new commits.
 - The docs record the first hardware run: on a Pi Zero W 1.1, Deitrix booted, took serial keys and wrote DEITRIX.SAV. `docs/BUILD.md` gives the Mac commands that made the card.
@@ -24,6 +26,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 - Pip-OS moves to `5f891e7`, with RobCo-Core `79cbd82` inside it. The SDK seals the ROM for ABI 1.3. Pip-OS skips the macOS `._*` side files on the card, so `docs/BUILD.md` no longer asks for `dot_clean`.
 
 ### Added
+
+- The weep: a 140 ms rising chirp at 37500 Hz, played once right after the first frame. It needs ABI 1.5, an audio driver and an output that rests at its midpoint, which Pip-OS gives with `[audio] system_sound` on. It stays silent with UI sounds off or while the radio plays. `dx_plat_sample_rate()` wraps `sample_rate`. `tools/mkweep.py` writes the committed table from `tools/weep_params.json`, and `make weep-table-check` stops the build when it is stale. Host tests in `test_sfx.c`, tool tests in `test_mkweep.py`, QEMU tests in `test_weep.py`.
+- `make boot-sound` boots the card with the system sound on and renders the whole boot, the weep included, into `build/boot_sound.wav` with Pip-OS's preview tool.
 
 - `holotapes/culvert/robco.toml`, Culvert's manifest for RobCo Studio. Culvert's Makefile states `ABI := 1.4`, the ABI its tape already carried, so both files state the same ABI. The sources keep the Makefile's order, and the tape keeps the same bytes.
 - The holotape slot of ABI 1.4. A tape slot service reads `hw_flags` and, with a slot, asks `holo_eject_event` after each `PIP_EV_TAPE` event, each key and each launch. TAPES reads the list again after a change and keeps the selection on its tape, or on its row when the tape left. A slot tape shows `SLOT GAME` or `SLOT UTIL`. The footer shows a notice for 3 s when a card goes in, comes out or cannot be read, on any tab, and the keys keep working. A tape whose card is pulled while it runs comes back with "Tape pulled while running.". With no slot, or on a Pip-OS before 1.4, nothing changes.

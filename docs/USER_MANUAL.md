@@ -88,6 +88,8 @@ When a press opens a view, closes one or changes the tab, holding that key does 
 
 ### Key tones
 
+With `system_sound = yes` in `PIPOS.CFG`, a short rising chirp plays when the first screen appears. It stays silent when UI sounds are off or the radio plays, and with the system sound off, the default.
+
 A key that does something plays a short tone. A key that does nothing on the view plays a short low tone. Repeats never play the low tone. The tones stay silent while the radio plays, and when UI sounds are off on RADIO.
 
 ### In QEMU

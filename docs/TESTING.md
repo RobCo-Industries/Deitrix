@@ -8,7 +8,8 @@
 | Pin checks | `make check-pins`, part of `test-host` | The CI workflow pins and the commit links in the docs |
 | Environment guard | `tests/test_env_hygiene.py`, part of `test-target` | No test or tool copies `os.environ` |
 | Content check | `make check-content`, part of `test-host` | `build/card/` follows [CONTENT.md](CONTENT.md) |
-| Tool tests | `make tools-test`, part of `test-host` | `tools/check_content.py`, `tools/tun2notes.py` and `tools/mkpcm.py` |
+| Tool tests | `make tools-test`, part of `test-host` | `tools/check_content.py`, `tools/tun2notes.py`, `tools/mkpcm.py` and `tools/mkweep.py` |
+| Weep table check | `make weep-table-check`, part of `all` and `test-host` | `src/services/weep_table.c` and `.h` match what `tools/mkweep.py` writes |
 | Card check | `make sdimage-test`, part of `test-host` | The card holds the ROM, the kernel, `PIPOS.CFG` and every file of `build/card/` with the same bytes; `build/card/` holds every file of `content/` and both PCM tracks |
 | QEMU tests | `make test-target` | The ROM and the widget gallery on Pip-OS on `raspi0`, `raspi1ap`, `raspi2b` and `raspi3b`; the holotape slot on Pip-OS's test kernel |
 
@@ -50,6 +51,7 @@ For other GCC-only warnings, CI is the check. If a GCC is installed, run `make C
 | `test_map.c` | Maps, boxes, lines and places with every drop; the fit for wide, tall, one-unit and one-pixel boxes, a sweep, the degenerate cases; the sample |
 | `test_radio.c` | Stations and their drops, availability, and the tune parser against `tun2notes.py` note for note and error line for error line |
 | `test_saves.c` | Both layouts pinned as hex, round trips of random states with a fixed seed, every bit flipped, every wrong size, fields out of range, record rules |
+| `test_sfx.c` | `dx_sfx_weep_allowed()` in every case: UI sounds, the radio, ABI 1.3, 1.4 and 1.5 or later, each of the two audio flags; the weep's calls in order, rate 37500, the 5250 bytes with their CRC, the rate before set back, 8000 or 37500; silence with UI sounds off, an older ABI, a missing flag, a failed `sys_info`, a refused rate, a playing radio; one weep after the first frame and none on the next; none on the fake's default kernel |
 | `test_services.c` | The radio: tune replay, PCM chunks with busy answers, the loop join, an underrun, a track played once, stop in every state, a missing file, a read error, volume, the tick wrap. The autosave: the quiet time, the 10 s bound, flush, failed writes and retries, the tick wrap. After a give-up: no more writes on ticks, one attempt per flush, the changes stay unsaved until a write works, a new change retries again, one failing save leaves the other alone, the retries across the tick wrap; the unsaved mark on a failing card, off when it heals, never on a healthy one; the uptime across one and two wraps of `ticks_ms` |
 | `test_stat_fmt.c` | STAT's text helpers: the uptime, the date, the versions, the SoC and the RAM |
 | `test_stat.c` | The STAT tab: the name's font size, each sub-tab with a full, a minimal, a missing and a broken profile, the ATTRS scroll, the keys STATUS ignores, the sub-tab kept across tabs, the ABOUT tick, a day of uptime and the tick wrap, every view inside the body, no block live at the end; a held LEFT changes the tab once; ABOUT logs on entry and once per uptime minute; the uptime goes on past the wrap |
@@ -96,7 +98,7 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 
 ## QEMU tests
 
-`tests/test_deitrix.py`, `tests/test_model.py`, `tests/test_stat.py`, `tests/test_inv.py`, `tests/test_data.py`, `tests/test_map.py`, `tests/test_radio_tab.py` and `tests/test_culvert.py` boot the card from `make sdimage` with the Pip-OS kernel. `tests/test_slot.py` boots the same card on Pip-OS's slot test kernel, see [The holotape slot](#the-holotape-slot). `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/21c9b4aaa454d491753f42c17017e49148405af8/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
+`tests/test_deitrix.py`, `tests/test_model.py`, `tests/test_stat.py`, `tests/test_inv.py`, `tests/test_data.py`, `tests/test_map.py`, `tests/test_radio_tab.py` `tests/test_culvert.py` and `tests/test_weep.py` boot the card from `make sdimage` with the Pip-OS kernel. `tests/test_slot.py` boots the same card on Pip-OS's slot test kernel, see [The holotape slot](#the-holotape-slot). `tests/test_gallery.py` boots the gallery's card from `make gallery`. They use Pip-OS's `pipos_testing` package, from `external/pip-os/sdk/testing/`, as its [Testing a ROM project](https://github.com/RobCo-Industries/Pip-OS/blob/21c9b4aaa454d491753f42c17017e49148405af8/docs/TESTING.md#testing-a-rom-project) shows. `tests/conftest.py` puts that folder on `sys.path` and loads `pipos_testing.plugin`, which brings RobCo-Core's harness. The tests use its helpers:
 
 - `booted(..., wait="jump")` boots the card. Deitrix never exits, so the kernel prints `ev=jump` but never `ev=ready`. Each test then waits for `deitrix: ready` on serial.
 - `script()` sends one script-channel command and checks it answered `ok`. `press()` presses and releases a button.
@@ -123,6 +125,9 @@ When a draw list changes on purpose, run the test, read the "got" side of the fa
 | `test_inv_no_items_file` | Without ITEMS.INI the tab matches `golden/inv_empty.png` and SELECT and DOWN do nothing |
 | `test_inv_empty_category` | A category without items matches `golden/inv_empty_cat.png`; SELECT does nothing; RIGHT at the last category moves to DATA |
 | `test_inv_hold_counts_up` | UP held for 1.6 s in the detail adds one per event, at least 5 |
+| `test_weep_after_the_first_frame` | With `system_sound = yes`, one `op=pcm rate=37500 len=5250` line after `deitrix: ready`, with the table's CRC. Station 4 then plays at `rate=8000`, so the rate came back. Still one weep 2 s later |
+| `test_no_weep_with_the_sound_off` | On the stock card no `len=5250` and no `rate=37500` line, and the STAT screen matches `golden/stat.png` |
+| `test_no_weep_with_ui_sounds_off` | With the sound on and a DEITRIX.SAV with UI sounds off, no weep |
 | `test_inv_held_left_closes_the_detail_once` | LEFT held for 1.5 s in FOOD's detail closes it once; the category and the tab stay |
 | `test_data_notes` | NOTES and an open note match `golden/data_notes.png` and `golden/data_note.png`; UP at the top and Back do nothing; DOWN stops at the last note; RIGHT, UP and DOWN stay in the note; LEFT and Back go back with the same note selected; the dial leaves from a note and the return shows the list; LEFT on NOTES moves to INV |
 | `test_data_no_notes` | Without notes NOTES matches `golden/data_notes_empty.png` and SELECT opens nothing |
@@ -218,6 +223,12 @@ The audio trace may show no `op=stop` when a tune gives way to a PCM station. Th
 .venv/bin/pytest tests -k minute_change --board raspi2b
 .venv/bin/pytest tests -k hold_repeats --board raspi2b
 ```
+
+## The boot sound preview
+
+QEMU has no sound. `make boot-sound` boots the card of `make sdimage` on `raspi0`, or on `BOARD`, with Deitrix as the ROM. `tests/test_boot_sound_log.py` writes a `PIPOS.CFG` with `char_delay_ms = 20`, `line_delay_ms = 200`, volume 80, the beep and `system_sound = yes`. It waits for the weep, then 3 s, then until no audio record has come for 1 s. It saves the serial log in `build/boot_sound/serial.log` and fails when the rest ramp, the soft beep, a disk click, a scroll blip or the weep is missing. The suite never collects it: it runs only with `--boot-sound-log`.
+
+The target then dumps the kernel's sound buffers with Pip-OS's `tools/sound_table.py --dump` into `build/boot_sound/pcm/`, the weep with `tools/mkweep.py --dump` into `build/boot_sound/weep/`, and renders the log with Pip-OS's `tools/boot_sound.py` into `build/boot_sound.wav`. It removes the old log first and stops when the boot did not run. The file holds the whole boot: the ramp, the beep, the clicks, the note, the scroll, the weep and the clicks Deitrix's card reads owe under the ROM.
 
 ## Real hardware
 
