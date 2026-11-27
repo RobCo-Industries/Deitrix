@@ -149,6 +149,9 @@ void dx_ui_sound(int snd);
 /* The owner's setting: 0 turns UI sounds off. On at start. */
 void dx_ui_sound_enable(int on);
 
+/* 1 when UI sounds are on: DX_UI_SOUND and the owner's setting. */
+int dx_ui_sound_enabled(void);
+
 /*
  * Pip-OS has one voice, and a tone replaces the sound that plays. So
  * while the radio plays, it blocks UI sounds: a tab change does not cut
