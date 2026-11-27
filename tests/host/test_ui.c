@@ -5,6 +5,7 @@
 #include "services/services.h"
 #include "ui/latch.h"
 #include "ui/list.h"
+#include "ui/subtabs.h"
 #include "ui/ui.h"
 
 #define CHECK_INT(a, b) CHECK_EQ((int64_t)(a), (int64_t)(b))
@@ -172,9 +173,74 @@ TEST(row_move_plays_scroll_on_full)
     /* A value change or a volume step keeps the move tone. */
     CHECK_INT(dx_ui_sound_for(&up, hd, 0), DX_SND_MOVE);
     CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd, 0), -1);
-    /* A tab change keeps the move tone, flag or not. */
-    CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd | DX_UI_ROW_MOVED, 1), -1);
+    /* A mode change plays the mode table, flag or not. */
+    CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd | DX_UI_ROW_MOVED, 1), DX_SFX_ID_MODE);
     CHECK_INT(dx_ui_sound_table(DX_SND_SELECT, DX_UI_HANDLED, 0), DX_SFX_ID_SELECT);
+}
+
+TEST(sound_table_for_every_event)
+{
+    static const int types[] = {
+        DX_UI_UP, DX_UI_DOWN, DX_UI_LEFT, DX_UI_RIGHT, DX_UI_SELECT, DX_UI_BACK, DX_UI_DIAL,
+    };
+    const unsigned hd = DX_UI_HANDLED | DX_UI_DIRTY;
+    unsigned t;
+    int i;
+    int changed;
+
+    /* Each event and result: the tone of today, and the one table of FULL. */
+    for (i = 0; i < (int)(sizeof(types) / sizeof(types[0])); i++) {
+        for (changed = 0; changed <= 1; changed++) {
+            for (t = 0; t < 32u; t++) {
+                dx_ui_event_t e = { types[i], 0, 0 };
+                int s = dx_ui_sound_for(&e, t, changed);
+                int want = -1;
+
+                if (s == DX_SND_MOVE) {
+                    want = changed                 ? DX_SFX_ID_MODE
+                           : (t & DX_UI_TAB_MOVED) ? DX_SFX_ID_TAB
+                           : (t & DX_UI_ROW_MOVED) ? DX_SFX_ID_SCROLL
+                                                   : -1;
+                } else if (s == DX_SND_SELECT) {
+                    want = DX_SFX_ID_SELECT;
+                } else if (s == DX_SND_BACK) {
+                    want = DX_SFX_ID_HIGHLIGHT;
+                }
+                CHECK_INT(dx_ui_sound_table(s, t, changed), want);
+            }
+        }
+    }
+    /* Every pair: mode, then tab, then row, then the move tone. */
+    CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd | DX_UI_TAB_MOVED | DX_UI_ROW_MOVED, 1), DX_SFX_ID_MODE);
+    CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd | DX_UI_TAB_MOVED, 1), DX_SFX_ID_MODE);
+    CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd | DX_UI_ROW_MOVED, 1), DX_SFX_ID_MODE);
+    CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd, 1), DX_SFX_ID_MODE);
+    CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd | DX_UI_TAB_MOVED | DX_UI_ROW_MOVED, 0), DX_SFX_ID_TAB);
+    CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd | DX_UI_TAB_MOVED, 0), DX_SFX_ID_TAB);
+    CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd | DX_UI_ROW_MOVED, 0), DX_SFX_ID_SCROLL);
+    CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd, 0), -1);
+    /* Deny keeps its tone with any flag. */
+    CHECK_INT(dx_ui_sound_table(DX_SND_DENY, DX_UI_TAB_MOVED | DX_UI_ROW_MOVED, 1), -1);
+    CHECK_INT(dx_ui_sound_table(DX_SND_NONE, DX_UI_TAB_MOVED | DX_UI_ROW_MOVED, 1), -1);
+}
+
+TEST(subtab_move_plays_tab_on_full)
+{
+    static const char *const labels[3] = { "WEAPONS", "APPAREL", "AID" };
+    dx_ui_event_t left = { DX_UI_LEFT, 0, 0 };
+    dx_ui_event_t right = { DX_UI_RIGHT, 0, 0 };
+    dx_subtabs_t st;
+    unsigned r;
+
+    dx_subtabs_init(&st, labels, 3);
+    /* LEFT at the first: no move, no flag, the shell may change mode. */
+    CHECK_INT(dx_subtabs_event(&st, &left), DX_UI_IGNORED);
+    /* An INV category change is a sub-tab move: tab, not scroll. */
+    r = dx_subtabs_event(&st, &right);
+    CHECK_INT(r, DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED);
+    CHECK_INT(dx_ui_sound_table(dx_ui_sound_for(&right, r, 0), r, 0), DX_SFX_ID_TAB);
+    r = dx_subtabs_event(&st, &left);
+    CHECK_INT(dx_ui_sound_table(dx_ui_sound_for(&left, r, 0), r, 0), DX_SFX_ID_TAB);
 }
 
 TEST(sound_plays_tone)

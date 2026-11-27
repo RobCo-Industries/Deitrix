@@ -201,12 +201,12 @@ TEST(subtabs_ends)
     dx_subtabs_init(&s, labels, 3);
     CHECK_INT(sub_key(&s, DX_UI_LEFT), DX_UI_IGNORED);
     CHECK_INT(s.active, 0);
-    CHECK_INT(sub_key(&s, DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY);
-    CHECK_INT(sub_key(&s, DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(sub_key(&s, DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED);
+    CHECK_INT(sub_key(&s, DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED);
     CHECK_INT(sub_key(&s, DX_UI_RIGHT), DX_UI_IGNORED);
     CHECK_INT(s.active, 2);
     CHECK_INT(sub_key(&s, DX_UI_UP), DX_UI_IGNORED);
-    CHECK_INT(sub_key(&s, DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(sub_key(&s, DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED);
     CHECK_INT(s.active, 1);
     /* Six labels: the sixth is dropped. */
     {

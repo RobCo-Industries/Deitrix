@@ -130,13 +130,26 @@ void dx_ui_sound(int snd)
 
 int dx_ui_sound_table(int snd, unsigned result, int tab_changed)
 {
-    if (snd == DX_SND_MOVE && !tab_changed && (result & DX_UI_ROW_MOVED)) {
-        return DX_SFX_ID_SCROLL;
-    }
-    if (snd == DX_SND_SELECT) {
+    /* One event, one sound: mode, then tab, then row, then the tone. */
+    switch (snd) {
+    case DX_SND_MOVE:
+        if (tab_changed) {
+            return DX_SFX_ID_MODE;
+        }
+        if (result & DX_UI_TAB_MOVED) {
+            return DX_SFX_ID_TAB;
+        }
+        if (result & DX_UI_ROW_MOVED) {
+            return DX_SFX_ID_SCROLL;
+        }
+        return -1;
+    case DX_SND_SELECT:
         return DX_SFX_ID_SELECT;
+    case DX_SND_BACK:
+        return DX_SFX_ID_HIGHLIGHT;
+    default:
+        return -1;
     }
-    return -1;
 }
 
 void dx_ui_sound_event(int snd, unsigned result, int tab_changed)

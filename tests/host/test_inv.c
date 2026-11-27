@@ -156,7 +156,7 @@ TEST(categories_and_empty_category)
     load(SMALL);
     CHECK_INT(key(DX_UI_LEFT), DX_UI_IGNORED);
     CHECK_STR(fake.log, "");
-    CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED);
     CHECK_STR(last_log(), "deitrix: inv cat=1 row=0");
     draw();
     /* A count of 0 is dim. No weight in the category: entries only. */
@@ -166,7 +166,7 @@ TEST(categories_and_empty_category)
               "text 12 48 \"Rye bread\" bg dim s1\n"
               "line 0 193 319 193 faint\n"
               "text 12 197 \"1 entry\" dim none s1\n");
-    CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED);
     draw();
     CHECK(has_text("Nothing here."));
     CHECK(!has_text("0 entries"));
@@ -180,8 +180,8 @@ TEST(categories_and_empty_category)
     CHECK_STR(last_log(), "deitrix: inv idle");
     CHECK_STR(fake.log, "deitrix: inv cat=1 row=0\ndeitrix: inv cat=2 row=0\n"
                         "deitrix: inv idle\ndeitrix: inv end row=0\ndeitrix: inv idle\n");
-    CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY);
-    CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED);
+    CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED);
     CHECK_STR(last_log(), "deitrix: inv cat=0 row=0");
 }
 
@@ -196,8 +196,8 @@ TEST(list_moves_and_ends)
     CHECK_STR(last_log(), "deitrix: inv end row=1");
     CHECK_INT(key(DX_UI_BACK), DX_UI_IGNORED);
     /* Each category keeps its row. */
-    CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY);
-    CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED);
+    CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED);
     CHECK_STR(last_log(), "deitrix: inv cat=0 row=1");
     draw();
     CHECK(strstr(fake.draws, "text 12 64 \"Rope\" bg fg s1\n") != NULL);
@@ -225,7 +225,7 @@ TEST(detail_view)
     CHECK_STR(inv->hint(inv->st), "UP/DOWN: +/-  SELECT: mark  BACK: list");
     /* An item without weight or note: no Weight row, no note. */
     CHECK_INT(key(DX_UI_BACK), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
-    CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_RIGHT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED);
     CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_LEVEL);
     draw();
     CHECK(!has_text("Weight"));
