@@ -100,24 +100,38 @@ static unsigned move(const dx_radio_t *r, int step)
     return DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_ROW_MOVED;
 }
 
-/* SELECT on a station: start it, or stop it when it plays. */
+/* SELECT on a station: start it, or stop it when it plays. With UI
+ * sounds on Full the tuner sound marks both. It plays while the radio
+ * is off, after the stop lifted the radio's block on UI sounds and
+ * before the tuning state sets it again, so the block never lifts for
+ * another sound. The station then starts from the radio's tick. */
 static unsigned station_select(const dx_radio_t *r)
 {
     const dx_station_t *s = &r->stations[sel];
+    unsigned sounded = 0;
+    int rc;
 
     if (dx_radio_current() == sel) {
         log_line("off", -1);
         dx_radio_stop();
-        return DX_UI_HANDLED | DX_UI_DIRTY;
+        return DX_UI_HANDLED | DX_UI_DIRTY |
+               (dx_ui_sound_play(DX_SFX_ID_TUNER) ? DX_UI_SOUNDED : 0u);
     }
     /* The line goes out before the sound starts, so a test sees the
      * audio trace after it. */
     log_line("station=", s->number);
     dx_settings_set_station(dx_content_settings(), s->number);
-    if (dx_radio_play(sel, 0) != 0) {
+    dx_radio_stop();
+    if (dx_ui_sound_play(DX_SFX_ID_TUNER)) {
+        sounded = DX_UI_SOUNDED;
+        rc = dx_radio_tune(sel, dx_plat_ticks());
+    } else {
+        rc = dx_radio_play(sel, 0);
+    }
+    if (rc != 0) {
         dx_plat_log("deitrix: radio cannot play\n");
     }
-    return DX_UI_HANDLED | DX_UI_DIRTY;
+    return DX_UI_HANDLED | DX_UI_DIRTY | sounded;
 }
 
 /* The next multiple of the step up or down, inside 0 to 100. */

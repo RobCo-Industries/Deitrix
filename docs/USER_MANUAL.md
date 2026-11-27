@@ -101,8 +101,11 @@ With UI sounds on `Full`, these actions play a sound of their own in place of th
 | A list row moves | `scroll` |
 | SELECT | `select` |
 | BACK | `highlight` |
+| SELECT starts a station or stops one | `tuner` |
+| SELECT starts a holotape | `tape_start`, before the tape starts |
+| A holotape ends and returns to Deitrix | `tape_stop` |
 
-When one key does two of these, the first row of the table wins. A key that does nothing keeps its low tone. A count change, a volume step, a text scroll and a new map place keep the move tone. `Full` needs `system_sound = yes` in `PIPOS.CFG`. Without it RADIO offers only `On` and `Off`, and a saved `Full` shows `On` and plays the tones.
+When one key does two of these, the first row of the table wins, except that a station or a holotape plays its own sound and not `select`. A station starts once the `tuner` sound ends. A holotape starts once `tape_start` ends, half a second at most after SELECT. A key that does nothing keeps its low tone. A count change, a volume step, a text scroll and a new map place keep the move tone. `Full` needs `system_sound = yes` in `PIPOS.CFG`. Without it RADIO offers only `On` and `Off`, and a saved `Full` shows `On` and plays the tones.
 
 ### In QEMU
 

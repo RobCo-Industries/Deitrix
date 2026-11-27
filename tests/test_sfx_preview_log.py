@@ -6,10 +6,11 @@ system sound on, and a DEITRIX.SAV with "UI sounds" on Full. The session:
 
 - the boot, up to the weep and the quiet after it
 - the dial through the other four modes, STAT to RADIO
-- a station on, then off
+- a station on, then off, each with the tuner sound
 - five rows down on RADIO
 - the dial to INV, RIGHT to the next category, SELECT, BACK
-- the dial to DATA, RIGHT to TAPES, a tape launched and left by Quit
+- the dial to DATA, RIGHT to TAPES, a tape launched and left by Quit,
+  with the tape start and stop sounds
 
 The kernel keeps only the newest sound request inside one 10 ms tick,
 so each input waits for its sound before the next one. Each part ends
@@ -27,6 +28,7 @@ from test_boot_sound_log import CFG, CFG_PATH, wait_quiet
 from test_deitrix import boot_rom, wait_ready, wait_tabs
 from test_model import card_target, mtools, wait_line
 from test_sfx import MODE, SCROLL, SELECT, TAB, HIGHLIGHT, plays_after
+from test_sfx_tape_tuner import TAPE_START, TAPE_STOP, TUNER
 from test_weep import WEEP, write_settings
 
 GAP_S = 0.5
@@ -119,6 +121,7 @@ def test_save_session_log(request, board, kernel_image, card, tmp_path, need_mto
     with open(path, "w", encoding="utf-8") as f:
         f.write(log)
     for name, table in (("mode", MODE), ("tab", TAB), ("scroll", SCROLL),
-                        ("select", SELECT), ("highlight", HIGHLIGHT)):
+                        ("select", SELECT), ("highlight", HIGHLIGHT), ("tuner", TUNER),
+                        ("tape start", TAPE_START), ("tape stop", TAPE_STOP)):
         if table not in got:
             pytest.fail("the session played no %s\n%s" % (name, log[start:]))

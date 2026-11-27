@@ -94,6 +94,9 @@ int dx_ui_translate(const dx_event_t *ev, dx_ui_event_t *out);
 /* Set with DX_UI_HANDLED when a sub-tab moved. With UI sounds on FULL
  * the shell then plays the tab table. */
 #define DX_UI_TAB_MOVED 16u
+/* Set with DX_UI_HANDLED when the screen played the event's own table,
+ * such as the tuner. The shell then plays no sound for the event. */
+#define DX_UI_SOUNDED 32u
 
 /* ---- Tick arithmetic ---------------------------------------------------- */
 
@@ -170,12 +173,17 @@ int dx_ui_sound_enabled(void);
  * changed, else the tab table with DX_UI_TAB_MOVED in `result`, else
  * the scroll table with DX_UI_ROW_MOVED. A select plays the select
  * table and a back the highlight table. Every other case, deny
- * included, and a table that cannot play, goes to dx_ui_sound.
+ * included, and a table that cannot play, goes to dx_ui_sound. With
+ * DX_UI_SOUNDED in `result` it plays nothing.
  */
 void dx_ui_sound_event(int snd, unsigned result, int tab_changed);
 /* The table dx_ui_sound_event plays on FULL, a DX_SFX_ID_*, or -1 for
  * the tone. */
 int dx_ui_sound_table(int snd, unsigned result, int tab_changed);
+/* Plays table `id`, a DX_SFX_ID_*, when the setting is FULL and the
+ * radio does not block UI sounds. 1 when it started, else 0: the caller
+ * then leaves the event's sound to the shell. */
+int dx_ui_sound_play(int id);
 
 /* The "UI sounds" row. The value after `level` for one press: OFF, ON,
  * FULL and round when `full` is 1, else OFF and ON. */

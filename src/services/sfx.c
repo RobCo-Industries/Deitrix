@@ -63,12 +63,38 @@ int dx_sfx_play(int id)
         [DX_SFX_ID_MODE] = { dx_sfx_mode, DX_SFX_MODE_LEN },
         [DX_SFX_ID_TAB] = { dx_sfx_tab, DX_SFX_TAB_LEN },
         [DX_SFX_ID_HIGHLIGHT] = { dx_sfx_highlight, DX_SFX_HIGHLIGHT_LEN },
+        [DX_SFX_ID_TUNER] = { dx_sfx_tuner, DX_SFX_TUNER_LEN },
+        [DX_SFX_ID_TAPE_START] = { dx_sfx_tape_start, DX_SFX_TAPE_START_LEN },
+        [DX_SFX_ID_TAPE_STOP] = { dx_sfx_tape_stop, DX_SFX_TAPE_STOP_LEN },
     };
 
     if (id < 0 || id >= DX_SFX_COUNT || dx_radio_state() != DX_RADIO_OFF || !dx_sfx_full()) {
         return 0;
     }
     return play_hi(tables[id].data, tables[id].len);
+}
+
+int dx_sfx_wait_more(int played, int busy, uint32_t waited_ms, unsigned rounds)
+{
+    return played && busy && waited_ms < DX_SFX_DRAIN_MS && rounds < DX_SFX_DRAIN_ROUNDS;
+}
+
+/* One wait at most this long: a short step keeps the end close. */
+#define DRAIN_STEP_MS 10u
+
+void dx_sfx_drain(int played)
+{
+    uint32_t start = dx_plat_ticks();
+    uint32_t waited = 0;
+    unsigned n;
+
+    for (n = 0; dx_sfx_wait_more(played, dx_plat_audio_status(), waited, n); n++) {
+        uint32_t left = DX_SFX_DRAIN_MS - waited;
+        dx_event_t ev;
+
+        dx_plat_wait(&ev, left < DRAIN_STEP_MS ? left : DRAIN_STEP_MS);
+        waited = dx_ticks_since(start, dx_plat_ticks());
+    }
 }
 
 int dx_sfx_weep(void)

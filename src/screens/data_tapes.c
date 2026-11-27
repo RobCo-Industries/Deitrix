@@ -224,6 +224,7 @@ static unsigned launch(void)
     const dx_holo_t *h = &tapes.holos[tapes.list.sel];
     char file[DX_NAME83_SIZE];
     int kind = h->kind;
+    unsigned sounded = 0;
     int32_t rc;
 
     if (kind == DX_HOLO_DATA) {
@@ -242,9 +243,18 @@ static unsigned launch(void)
     tapes.armed = 0;
     /* Pip-OS stops the sound when a tape starts: the radio must know. */
     dx_radio_stop();
+    /* With UI sounds on Full the tape start sound plays out first, since
+     * Pip-OS would cut it at the launch. */
+    if (dx_ui_sound_play(DX_SFX_ID_TAPE_START)) {
+        sounded = DX_UI_SOUNDED;
+        dx_sfx_drain(1);
+    }
     log_rc("launch ", file, 0);
     rc = dx_plat_holo_launch(file, "");
     log_rc("tape rc=", NULL, rc);
+    if (rc >= 0 && dx_ui_sound_play(DX_SFX_ID_TAPE_STOP)) {
+        sounded = DX_UI_SOUNDED;
+    }
     /* The ABI asks for the slot changes after each launch: the queue
      * was emptied around it, so no PIP_EV_TAPE tells of a pull. */
     dx_tapes_poll(dx_plat_ticks());
@@ -255,7 +265,7 @@ static unsigned launch(void)
     tapes.result = result_text(rc, kind);
     /* The back buffer holds what the tape drew: the frame redraws all. */
     dx_data_log_reset();
-    return DX_UI_HANDLED | DX_UI_DIRTY;
+    return DX_UI_HANDLED | DX_UI_DIRTY | sounded;
 }
 
 unsigned dx_data_tapes_event(const dx_ui_event_t *ev)

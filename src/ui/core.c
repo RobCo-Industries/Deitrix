@@ -152,8 +152,16 @@ int dx_ui_sound_table(int snd, unsigned result, int tab_changed)
     }
 }
 
+int dx_ui_sound_play(int id)
+{
+    return DX_UI_SOUND && sound_full && !sound_blocked && dx_sfx_play(id);
+}
+
 void dx_ui_sound_event(int snd, unsigned result, int tab_changed)
 {
+    if (result & DX_UI_SOUNDED) {
+        return; /* the screen played the event's own sound */
+    }
     if (DX_UI_SOUND && sound_full && !sound_blocked) {
         int id = dx_ui_sound_table(snd, result, tab_changed);
 

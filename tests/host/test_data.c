@@ -11,6 +11,7 @@
 #include "screens/data_view.h"
 #include "screens/screens.h"
 #include "services/services.h"
+#include "services/sfx_table.h"
 #include "ui/frame.h"
 #include "ui/text.h"
 
@@ -1392,4 +1393,84 @@ TEST(held_keys_open_and_close_a_note_once)
     /* After a fresh press, LEFT acts again: the shell changes the tab. */
     key(DX_UI_LEFT);
     CHECK_INT(app.tab, 1);
+}
+
+/* ---- The tape sounds ------------------------------------------------------ */
+
+/* Boots the TAPES sub-tab with two tapes on a kernel that allows Full,
+ * at UI sounds `level`, with the cursor on the tool and the counters
+ * cleared. */
+static void boot_tape_sounds(int level, int32_t rc)
+{
+    fake_reset();
+    fake.sysinfo.abi_version = DX_ABI_1_5;
+    fake.sysinfo.hw_flags = DX_HW_AUDIO | DX_HW_AUDIO_MID;
+    fake_add_holo("BEACON.HTP", DX_HOLO_GAME, "Beacon", NULL);
+    fake_add_holo("TOOL.HTP", DX_HOLO_UTILITY, "Tool", NULL);
+    boot_tapes();
+    dx_ui_sound_enable(level);
+    key(DX_UI_DOWN);
+    fake.launch_rc = rc;
+    fake.tick_step = 10;
+    fake.audio_count = 0;
+    fake.tone_count = 0;
+}
+
+/* The length of each sample play, in order, from fake.audio[from]. */
+static int samples(int from, uint32_t *len, int max)
+{
+    int i, n = 0;
+
+    for (i = from; i < fake.audio_count && n < max; i++) {
+        if (fake.audio[i].op == FAKE_AU_SAMPLE) {
+            len[n++] = fake.audio[i].n;
+        }
+    }
+    return n;
+}
+
+TEST(tapes_launch_sounds_per_setting)
+{
+    uint32_t len[4];
+    int t0;
+
+    /* Full: the start sound plays out before the launch, the stop sound
+     * after the return, and no select sound. */
+    boot_tape_sounds(DX_UI_SOUND_FULL, 0);
+    t0 = (int)fake.ticks;
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 1);
+    CHECK_INT(samples(0, len, 4), 2);
+    CHECK_INT(len[0], DX_SFX_TAPE_START_LEN);
+    CHECK_INT(len[1], DX_SFX_TAPE_STOP_LEN);
+    CHECK(fake.launch_audio_at > 0);
+    {
+        uint32_t before[4];
+
+        CHECK_INT(samples(fake.launch_audio_at, before, 4), 1);
+        CHECK_INT(before[0], DX_SFX_TAPE_STOP_LEN);
+    }
+    /* The wait took the start sound's length and not the limit. */
+    CHECK((int)fake.ticks - t0 >= (int)(DX_SFX_TAPE_START_LEN * 1000u / 37500u));
+    CHECK_INT(fake.tone_count, 0);
+    /* Full, a tape that did not run: the start sound only. */
+    boot_tape_sounds(DX_UI_SOUND_FULL, DX_EIO);
+    key(DX_UI_SELECT);
+    CHECK_INT(samples(0, len, 4), 1);
+    CHECK_INT(len[0], DX_SFX_TAPE_START_LEN);
+    CHECK_INT(fake.tone_count, 0);
+    /* On: the select tone after the return, as before. No wait. */
+    boot_tape_sounds(DX_UI_SOUND_ON, 0);
+    key(DX_UI_SELECT);
+    CHECK_INT(samples(0, len, 4), 0);
+    CHECK_INT(fake.tone_count, 1);
+    CHECK_INT(fake.tones[0][0], 1900);
+    CHECK_INT(fake.launch_audio_at, 0);
+    /* Off: nothing. */
+    boot_tape_sounds(DX_UI_SOUND_OFF, 0);
+    key(DX_UI_SELECT);
+    CHECK_INT(fake.launch_count, 1);
+    CHECK_INT(samples(0, len, 4), 0);
+    CHECK_INT(fake.tone_count, 0);
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
 }

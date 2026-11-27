@@ -10,6 +10,7 @@
 #include "screens/radio_screen.h"
 #include "screens/screens.h"
 #include "services/services.h"
+#include "services/sfx_table.h"
 #include "ui/frame.h"
 
 #define CHECK_INT(a, b) CHECK_EQ((int64_t)(a), (int64_t)(b))
@@ -672,4 +673,207 @@ TEST(held_left_changes_the_tab_once)
     CHECK_INT(app.tab, TAB_RADIO);
     CHECK(strstr(fake.log, "deitrix: radio volume=70\ndeitrix: radio volume=60\n"
                            "deitrix: radio volume=50\ndeitrix: radio volume=40\n") != NULL);
+}
+
+/* ---- The tuner sound ------------------------------------------------------ */
+
+/* SELECT on the RADIO tab as the shell routes it: the screen, then the
+ * shell's sound for the result. */
+static unsigned select_as_shell(void)
+{
+    dx_ui_event_t ev = { DX_UI_SELECT, 0, 0 };
+    unsigned r = radio->event(radio->st, &ev);
+
+    dx_ui_sound_event(dx_ui_sound_for(&ev, r, 0), r, 0);
+    return r;
+}
+
+static void load_level(int level)
+{
+    load(SMALL);
+    fake.sysinfo.abi_version = DX_ABI_1_5;
+    fake.sysinfo.hw_flags = DX_HW_AUDIO | DX_HW_AUDIO_MID;
+    dx_ui_sound_enable(level);
+}
+
+/* The sample plays since the last clear: their count, the last one's
+ * length in *len. */
+static int sample_plays(uint32_t *len)
+{
+    int i, n = 0;
+
+    for (i = 0; i < fake.audio_count; i++) {
+        if (fake.audio[i].op == FAKE_AU_SAMPLE) {
+            *len = fake.audio[i].n;
+            n++;
+        }
+    }
+    return n;
+}
+
+static void clear_sounds(void)
+{
+    fake.audio_count = 0;
+    fake.tone_count = 0;
+}
+
+TEST(tuner_on_full_starts_late_and_stops)
+{
+    unsigned flags = 0;
+    uint32_t len = 0, t0;
+
+    load_level(DX_UI_SOUND_FULL);
+    clear_sounds();
+    t0 = fake.ticks;
+    CHECK_INT(select_as_shell(), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_SOUNDED);
+    CHECK_STR(fake.log, "deitrix: radio station=1\n");
+    /* The tuner and nothing else: no select sound, no station yet. */
+    CHECK_INT(sample_plays(&len), 1);
+    CHECK_INT(len, DX_SFX_TUNER_LEN);
+    CHECK_INT(fake.tone_count, 0);
+    CHECK_INT(fake.seq_count, 0);
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNING);
+    CHECK_INT(dx_radio_current(), 0);
+    check_hint("UP/DOWN: move  SELECT: stop");
+    /* UI sounds stay blocked while it tunes. */
+    dx_ui_sound(DX_SND_MOVE);
+    CHECK_INT(fake.tone_count, 0);
+    /* 99 ms: still tuning. The wake asks for the 100 ms mark. */
+    fake.ticks = t0 + 99;
+    CHECK_INT(dx_service_radio.tick(fake.ticks, &flags), t0 + 100);
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNING);
+    CHECK_INT(fake.seq_count, 0);
+    /* 100 ms: the station starts, with no stop before it. */
+    fake.ticks = t0 + 100;
+    CHECK(dx_service_radio.tick(fake.ticks, &flags) != 0);
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNE);
+    CHECK_INT(fake.seq_count, 1);
+    CHECK_INT(fake_audio_ops(FAKE_AU_STOP), 0);
+    CHECK(flags & DX_UI_DIRTY);
+    /* SELECT again stops it, and the tuner plays once more. */
+    clear_sounds();
+    CHECK_INT(select_as_shell(), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_SOUNDED);
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    CHECK_INT(fake_audio_ops(FAKE_AU_STOP), 1);
+    CHECK_INT(sample_plays(&len), 1);
+    CHECK_INT(len, DX_SFX_TUNER_LEN);
+    CHECK_INT(fake.tone_count, 0);
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
+}
+
+TEST(tuner_stop_while_tuning)
+{
+    uint32_t len = 0;
+
+    load_level(DX_UI_SOUND_FULL);
+    select_as_shell();
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNING);
+    clear_sounds();
+    CHECK_INT(select_as_shell(), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_SOUNDED);
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    CHECK_INT(dx_radio_current(), -1);
+    CHECK_INT(sample_plays(&len), 1);
+    CHECK_INT(len, DX_SFX_TUNER_LEN);
+    /* Nothing starts later. */
+    fake.ticks += 200;
+    {
+        unsigned flags = 0;
+
+        CHECK_INT(dx_service_radio.tick(fake.ticks, &flags), 0);
+    }
+    CHECK_INT(fake.seq_count, 0);
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
+}
+
+TEST(tuner_waits_for_the_sound_to_end)
+{
+    unsigned flags = 0;
+    uint32_t t0;
+
+    load_level(DX_UI_SOUND_FULL);
+    t0 = fake.ticks;
+    select_as_shell();
+    /* At 100 ms the tuner still plays: the station waits for idle. */
+    fake.ticks = t0 + 50;
+    dx_plat_audio_stop();
+    clear_sounds();
+    CHECK_INT(dx_plat_play_seq((const dx_note_t[]){ { 440, 200 } }, 1), 0);
+    fake.ticks = t0 + 100;
+    CHECK_INT(dx_service_radio.tick(fake.ticks, &flags), t0 + 100 + DX_RADIO_TUNING_POLL_MS);
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNING);
+    /* A status that stays busy: the limit starts the station. */
+    fake.ticks = t0 + DX_RADIO_TUNING_MAX_MS;
+    CHECK(dx_service_radio.tick(fake.ticks, &flags) != 0);
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNE);
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
+}
+
+/* The file goes between the tuner and the start: the same line and the
+ * same end as a failed immediate start. */
+TEST(tuner_failed_delayed_start)
+{
+    unsigned flags = 0;
+    uint32_t t0;
+
+    load_level(DX_UI_SOUND_FULL);
+    key(DX_UI_DOWN);
+    t0 = fake.ticks;
+    select_as_shell();
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNING);
+    fake_remove_file("/PIPBOY/DATA/RADIO/HEARTH.PCM");
+    fake.log[0] = '\0';
+    fake.ticks = t0 + DX_RADIO_TUNING_MAX_MS;
+    CHECK_INT(dx_service_radio.tick(fake.ticks, &flags), 0);
+    CHECK_STR(fake.log, "deitrix: radio cannot play\n");
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    CHECK_INT(dx_radio_current(), -1);
+    CHECK_INT(dx_radio_failed(), 1);
+    CHECK(flags & DX_UI_DIRTY);
+    draw();
+    CHECK_STR(last_log(), "deitrix: radio shows Cannot play Hearth");
+    check_hint("UP/DOWN: move  SELECT: play");
+    /* UI sounds play again. */
+    clear_sounds();
+    dx_ui_sound(DX_SND_MOVE);
+    CHECK(fake.tone_count + fake.audio_count > 0);
+    /* The immediate start of the same station ends the same way. */
+    load_level(DX_UI_SOUND_ON);
+    key(DX_UI_DOWN);
+    fake_remove_file("/PIPBOY/DATA/RADIO/HEARTH.PCM");
+    fake.log[0] = '\0';
+    key(DX_UI_SELECT);
+    CHECK_STR(fake.log, "deitrix: radio station=2\ndeitrix: radio cannot play\n");
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    CHECK_INT(dx_radio_current(), -1);
+    CHECK_INT(dx_radio_failed(), 1);
+    draw();
+    CHECK_STR(last_log(), "deitrix: radio shows Cannot play Hearth");
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
+}
+
+TEST(station_sounds_on_and_off_keep_today)
+{
+    uint32_t len = 0;
+
+    /* On: the start plays no UI sound, since the radio blocks it at once.
+     * The stop plays the select tone. The station starts at once. */
+    load_level(DX_UI_SOUND_ON);
+    clear_sounds();
+    CHECK_INT(select_as_shell(), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNE);
+    CHECK_INT(sample_plays(&len), 0);
+    CHECK_INT(fake.tone_count, 0);
+    CHECK_INT(select_as_shell(), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(fake.tone_count, 1);
+    CHECK_INT(fake.tones[0][0], 1900);
+    CHECK_INT(sample_plays(&len), 0);
+    /* Off: nothing at all. */
+    load_level(DX_UI_SOUND_OFF);
+    clear_sounds();
+    select_as_shell();
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNE);
+    select_as_shell();
+    CHECK_INT(fake.tone_count, 0);
+    CHECK_INT(sample_plays(&len), 0);
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
 }
