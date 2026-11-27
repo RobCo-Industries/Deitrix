@@ -157,7 +157,7 @@ static unsigned sound_toggle(const dx_ui_event_t *ev)
     if (ev->repeat) {
         return DX_UI_HANDLED; /* one toggle per press; no tab change */
     }
-    dx_settings_set_ui_sound(st, !st->ui_sound);
+    dx_settings_set_ui_sound(st, dx_ui_sound_next(st->ui_sound, dx_sfx_full()));
     /* On first, so the shell's tone for this key plays when it turns on. */
     dx_ui_sound_enable(st->ui_sound);
     log_line("sound=", st->ui_sound);
@@ -341,7 +341,7 @@ static void draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
     ctx->gfx->line(area.x, y, area.x + area.w - 1, y, ctx->theme.faint);
     y = area.y + DX_RADIO_SET_DY;
     volume_row(ctx, area, y, set->volume, sel == row_volume(r));
-    setting_row(ctx, area, y + DX_ROW_H, "UI sounds", set->ui_sound ? "On" : "Off",
+    setting_row(ctx, area, y + DX_ROW_H, "UI sounds", dx_ui_sound_label(set->ui_sound, dx_sfx_full()),
                 sel == row_sound(r));
 }
 

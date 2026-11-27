@@ -261,7 +261,7 @@ void dx_app_route(dx_app_t *app, const dx_ui_event_t *ev)
         }
     }
     dx_latch_note(&app->latch, ev, result, changed);
-    dx_ui_sound(dx_ui_sound_for(ev, result, changed));
+    dx_ui_sound_event(dx_ui_sound_for(ev, result, changed), changed);
     wake_services(app);
 }
 

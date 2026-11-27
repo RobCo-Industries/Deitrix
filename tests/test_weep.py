@@ -48,7 +48,12 @@ def sound_on(card, tmp_path):
 
 def ui_sounds_off(card, tmp_path):
     """Writes a DEITRIX.SAV with UI sounds off: tab 0, volume 80, no station."""
-    payload = bytes([0, 80, 0, 0]) + bytes(4)
+    write_settings(card, tmp_path, ui_sound=0)
+
+
+def write_settings(card, tmp_path, ui_sound):
+    """Writes a DEITRIX.SAV with this UI sounds value: tab 0, volume 80, no station."""
+    payload = bytes([0, 80, ui_sound, 0]) + bytes(4)
     data = b"DXST" + struct.pack("<HHI", 1, 1, zlib.crc32(payload)) + payload
     path = tmp_path / "DEITRIX.SAV"
     path.write_bytes(data)

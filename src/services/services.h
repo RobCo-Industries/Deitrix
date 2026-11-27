@@ -114,6 +114,25 @@ int dx_sfx_weep_allowed(int ui_sound_on, int radio_on, uint32_t abi_version, uin
  */
 int dx_sfx_weep(void);
 
+/* 1 when a table may play on this kernel: ABI 1.5 or later, and
+ * hw_flags with DX_HW_AUDIO and DX_HW_AUDIO_MID. */
+int dx_sfx_mid(uint32_t abi_version, uint32_t hw_flags);
+
+/* dx_sfx_mid for the running kernel. The "UI sounds" row offers "Full"
+ * only when it is 1. */
+int dx_sfx_full(void);
+
+/* The tables of src/services/sfx_table.c that dx_sfx_play knows. */
+enum { DX_SFX_ID_SCROLL, DX_SFX_ID_SELECT, DX_SFX_COUNT };
+
+/*
+ * Starts table `id` at DX_RATE_HI, then sets the rate back to the one
+ * before, as the weep does. It never waits for the play. Does nothing
+ * on a kernel where dx_sfx_full says no, or while the radio plays.
+ * Returns 1 when the play started, else 0.
+ */
+int dx_sfx_play(int id);
+
 /* ---- Tape slot ---------------------------------------------------------- */
 
 /* The footer notices of the slot changes. */
