@@ -202,8 +202,8 @@ def test_row_offers_full_with_the_sound_on(board, kernel_image, card, tmp_path, 
     with boot_rom(kernel_image, board, sd=card) as vm:
         wait_ready(vm)
         to_sound_row(vm)
-        assert [radio_key(vm, "select") for _ in range(3)] == \
-            ["sound=2", "sound=0", "sound=1"], vm.serial
+        assert [radio_key(vm, "select") for _ in range(4)] == \
+            ["sound=2", "sound=3", "sound=0", "sound=1"], vm.serial
         no_exception(vm)
 
 
