@@ -78,6 +78,8 @@ def check_params(p):
         top = g["start_hz"] if g["start_hz"] > g["end_hz"] else g["end_hz"]
         if not g["start_hz"] > 0 or not g["end_hz"] > 0:
             raise ParamError("a glide's pitch must be above 0 Hz")
+        if not top * 2 < rate:
+            raise ParamError("a glide reaches half the rate")
         total = total + g["peak_steps"]
         for pt in g["partials"]:
             h = pt["harmonic"]

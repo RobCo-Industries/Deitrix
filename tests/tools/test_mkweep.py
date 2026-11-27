@@ -181,6 +181,19 @@ class Check(unittest.TestCase):
         with self.assertRaises(mkweep.ParamError):
             mkweep.build(p)
 
+    def test_a_glide_at_half_the_rate_is_refused(self):
+        # With no partial too: the pitch itself would alias.
+        for end in ("start_hz", "end_hz"):
+            p = copy.deepcopy(PARAMS)
+            p["glides"][1]["partials"] = []
+            p["glides"][1][end] = 20000
+            with self.assertRaisesRegex(mkweep.ParamError, "half the rate", msg=end):
+                mkweep.build(p)
+        p = copy.deepcopy(PARAMS)
+        p["glides"][1]["partials"] = []
+        p["glides"][1]["end_hz"] = 18000
+        mkweep.build(p)
+
 
 if __name__ == "__main__":
     unittest.main()
