@@ -19,6 +19,8 @@
 #   make boot-sound           boot a card with the system sound on in QEMU and
 #                             write build/boot_sound.wav, the whole boot and
 #                             the weep, what the audio pin would play
+#   make sfx-preview          drive a session with "UI sounds" on Full in
+#                             QEMU and write build/sfx_preview.wav
 #   make sdimage              build/pipos/sd.img: the Pip-OS kernel, its sample
 #                             PIPOS.CFG, ROM1.ROM and the card tree
 #   make card-tree            build/card/: content/ plus the generated radio
@@ -261,6 +263,40 @@ boot-sound: sdimage venv
 	$(PYTHON) -I tools/mkweep.py --dump $(BOOT_SOUND_DIR)/weep
 	$(PYTHON) -I $(ROBCO_CORE)/tools/audio_preview.py $(BOOT_SOUND_DIR)/serial.log $(BUILD)/boot_sound.wav \
 		--pcm $(BOOT_SOUND_DIR)/pcm --pcm $(BOOT_SOUND_DIR)/weep
+
+# ---- Session sound preview -------------------------------------------
+
+# `make sfx-preview` boots the same card with the system sound on and a
+# saved "UI sounds" of Full, and drives the session of
+# tests/test_sfx_preview_log.py: the boot, the five modes, a station on
+# and off, five rows down, a sub-tab, SELECT, BACK and a tape launched
+# and left. It renders the log with the kernel's buffers, the weep and
+# Deitrix's tables. It fails on a missing log, on any warning of the
+# tool and on a silent file. See docs/TESTING.md.
+SFX_PREVIEW_DIR := $(BUILD)/sfx_preview
+.PHONY: sfx-preview
+sfx-preview: sdimage venv
+	@mkdir -p $(SFX_PREVIEW_DIR)
+	@rm -rf $(SFX_PREVIEW_DIR)/serial.log $(SFX_PREVIEW_DIR)/pcm $(SFX_PREVIEW_DIR)/weep \
+		$(SFX_PREVIEW_DIR)/sfx $(SFX_PREVIEW_DIR)/warnings.txt $(BUILD)/sfx_preview.wav
+	$(VENV)/bin/pytest tests/test_sfx_preview_log.py -q --tb=short --board $(BOOT_SOUND_BOARD) \
+		--build-dir $(BUILD) --sfx-preview-log $(SFX_PREVIEW_DIR)/serial.log
+	@test -s $(SFX_PREVIEW_DIR)/serial.log || { \
+		echo "sfx-preview: the session did not run, so there is no log. Check that QEMU and mtools are installed." >&2; \
+		exit 1; }
+	$(PYTHON) -I $(PIP_OS)/tools/sound_table.py --dump $(SFX_PREVIEW_DIR)/pcm
+	$(PYTHON) -I tools/mkweep.py --dump $(SFX_PREVIEW_DIR)/weep
+	$(PYTHON) -I $(SFX_TOOL) $(SFX_MODEL) --dump $(SFX_PREVIEW_DIR)/sfx
+	$(PYTHON) -I $(ROBCO_CORE)/tools/audio_preview.py $(SFX_PREVIEW_DIR)/serial.log $(BUILD)/sfx_preview.wav \
+		--pcm $(SFX_PREVIEW_DIR)/pcm --pcm $(SFX_PREVIEW_DIR)/weep --pcm $(SFX_PREVIEW_DIR)/sfx \
+		2> $(SFX_PREVIEW_DIR)/warnings.txt || { cat $(SFX_PREVIEW_DIR)/warnings.txt >&2; exit 1; }
+	@if test -s $(SFX_PREVIEW_DIR)/warnings.txt; then \
+		cat $(SFX_PREVIEW_DIR)/warnings.txt >&2; \
+		echo "sfx-preview: the tool warned, so the file misses sounds." >&2; \
+		exit 1; fi
+	$(PYTHON) -I -c 'import sys, wave; w = wave.open(sys.argv[1]); \
+		sys.exit("sfx-preview: the file is silent" if not any(w.readframes(w.getnframes())) else 0)' \
+		$(BUILD)/sfx_preview.wav
 
 # ---- Checks and tests ------------------------------------------------------
 
