@@ -313,6 +313,10 @@ The radio plays whatever tab is shown. Its states are off, playing a tune and pl
 
 Pip-OS has one voice, and a UI tone would replace the radio. So while the radio plays, it blocks the UI tones with `dx_ui_sound_block()`. They come back when it stops.
 
+With UI sounds on `Full` a station starts through a fourth state, tuning. The RADIO tab stops the radio, which lifts the block, and plays the `tuner` table. Then `dx_radio_tune()` sets the state to `DX_RADIO_TUNING`, makes the station current and blocks UI sounds again. So no other UI sound plays between the stop and the start. The service's tick starts the station once `dx_radio_tuned()` says 100 ms, `DX_RADIO_TUNING_MS`, have passed since the tuner started. The station does not cut the tuner at once. A stop while tuning calls no `audio_stop`: only the tuner plays then. A stop plays the tuner too. The tab then returns `DX_UI_SOUNDED`, so the shell plays no `select` over it. With `On` or `Off` the station starts at once, as before.
+
+Before a holotape starts on `Full`, TAPES plays `tape_start` and waits for `audio_status` to turn 0, 500 ms at most, `DX_SFX_DRAIN_MS`. Pip-OS stops a ROM's sound when a tape starts, so the sound must end first. The wait goes through `dx_plat_wait` in 10 ms steps, as the main loop waits, so the kernel keeps its services running. A key in the wait is dropped. When the tape returns with a status of 0 or more, TAPES plays `tape_stop`.
+
 ### The autosave
 
 The autosave writes DEITRIX.SAV and INV.SAV when their counters change. It writes 2 s after the last change, and at most 10 s after the first one, so a burst of changes writes once. It writes only the saves that changed. Each write logs `deitrix: save DEITRIX.SAV ok` or `failed`. A failed write is tried again 5 s later. After 3 failed retries it gives up and logs `deitrix: save gave up` once. 
