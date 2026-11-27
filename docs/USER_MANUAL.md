@@ -27,12 +27,12 @@ The pictures on this page are the test screenshots of one emulated board. The te
 
 ## What you need
 
-- A device that runs Pip-OS. Pip-OS's [user manual](https://github.com/RobCo-Industries/Pip-OS/blob/693e4578c8f73329032a5a59e41e3ba4a311dddd/docs/USER_MANUAL.md) lists the boards and the parts.
+- A device that runs Pip-OS. Pip-OS's [user manual](https://github.com/RobCo-Industries/Pip-OS/blob/084590e569f2c045f1ce837603c6ba9a94892bef/docs/USER_MANUAL.md) lists the boards and the parts.
 - An SD card built for Deitrix. [BUILD.md](BUILD.md) explains how to build one.
 
 ## Turning it on
 
-Pip-OS starts first and prints its boot lines. Among them, `1 HOLOTAPE FOUND` counts the holotapes on the card, and `LOAD ROM(1): DEITRIX 0.1.0` says Deitrix passed Pip-OS's checks. Pip-OS's manual explains [every boot line](https://github.com/RobCo-Industries/Pip-OS/blob/693e4578c8f73329032a5a59e41e3ba4a311dddd/docs/USER_MANUAL.md#what-you-see-at-boot).
+Pip-OS starts first and prints its boot lines. Among them, `1 HOLOTAPE FOUND` counts the holotapes on the card, and `LOAD ROM(1): DEITRIX 0.1.0` says Deitrix passed Pip-OS's checks. Pip-OS's manual explains [every boot line](https://github.com/RobCo-Industries/Pip-OS/blob/084590e569f2c045f1ce837603c6ba9a94892bef/docs/USER_MANUAL.md#what-you-see-at-boot).
 
 Deitrix then reads its content and its saves from the card and opens the tab you used last. The first time, that is STAT. The radio does not start by itself.
 
@@ -490,7 +490,7 @@ Everything Deitrix shows comes from text files in `/PIPBOY/DATA/` on the card. E
 
 | Symptom | Cause | What to do |
 |---|---|---|
-| `ROM(1) NOT LOADED: ...` at boot | Pip-OS could not load Deitrix | See Pip-OS's [boot table](https://github.com/RobCo-Industries/Pip-OS/blob/693e4578c8f73329032a5a59e41e3ba4a311dddd/docs/USER_MANUAL.md#what-you-see-at-boot) |
+| `ROM(1) NOT LOADED: ...` at boot | Pip-OS could not load Deitrix | See Pip-OS's [boot table](https://github.com/RobCo-Industries/Pip-OS/blob/084590e569f2c045f1ce837603c6ba9a94892bef/docs/USER_MANUAL.md#what-you-see-at-boot) |
 | `!` left of the clock stays | Changes cannot reach the card | Check that the card is in place, not full and not locked. Make a change to try again. Do not power off. |
 | Changes are lost after power-off | The card could not be written, or power went off within 10 seconds of a change | Check the card. Wait until no `!` shows and 10 seconds have passed. |
 | `--:--` in the header | The device has no time | Set it on DATA, CLOCK. Fit a clock chip to keep it. |
