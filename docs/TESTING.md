@@ -236,6 +236,21 @@ QEMU has no sound. `make boot-sound` boots the card of `make sdimage` on `raspi0
 
 The target then dumps the kernel's sound buffers with Pip-OS's `tools/sound_table.py --dump` into `build/boot_sound/pcm/`, the weep with `tools/mkweep.py --dump` into `build/boot_sound/weep/`, and renders the log with RobCo-Core's [`tools/audio_preview.py`](https://github.com/RobCo-Industries/RobCo-Core/blob/c0bee999b3c0993bd627ca5c4b0ecc8512563fca/tools/audio_preview.py) into `build/boot_sound.wav`. It removes the old log first and stops when the boot did not run. The file holds the whole boot: the ramp, the beep, the clicks, the note, the scroll, the weep and the clicks Deitrix's card reads owe under the ROM.
 
+## The session sound preview
+
+`make sfx-preview` boots the same card on `raspi0`, or on `BOARD`, with the `PIPOS.CFG` of the boot sound preview and a `DEITRIX.SAV` with "UI sounds" on Full. `tests/test_sfx_preview_log.py` drives one session:
+
+- the boot, up to the weep and the quiet after it
+- the dial through INV, DATA, MAP and RADIO, so all five modes
+- a station on, then off: the Morning tune plays for 3 s
+- five rows down on RADIO
+- the dial to INV, RIGHT to the next category, SELECT and BACK
+- the dial to DATA, RIGHT to TAPES, then Culvert launched and left by Quit on its title
+
+The radio and the tape make their sounds of today, which are not table sounds. The kernel keeps only the newest sound request in one 10 ms tick, so each input waits for its sound before the next one. Each part ends with about half a second of quiet. The test fails when the session plays no mode, tab, scroll, select or highlight table. The suite never collects it: it runs only with `--sfx-preview-log`.
+
+The target saves the log in `build/sfx_preview/serial.log`. It dumps the kernel's buffers into `build/sfx_preview/pcm/`, the weep into `build/sfx_preview/weep/` and Deitrix's tables with RobCo-Core's `tools/sfx_table.py --dump` into `build/sfx_preview/sfx/`. Then `tools/audio_preview.py` writes `build/sfx_preview.wav`. The target fails when the log is missing, when the tool prints a warning or when the file is silent. Nothing commits the file.
+
 ## Real hardware
 
 No test runs on a real board. Each hardware run is recorded here by hand: the board, the commits, the exact serial log and what it shows. The runs below used Pip-OS `2d10c2c`. Nothing has run on hardware with the current pin, Pip-OS `93a07d2`, and no board has a holotape slot yet.
