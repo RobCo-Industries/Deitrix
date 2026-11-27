@@ -117,6 +117,11 @@ def add_glide(acc, g, rate):
         phase = st.frac(phase + hz / rate)
 
 
+def load_params(path=PARAMS):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 def build(p):
     check_params(p)
     acc = [0.0] * p["samples"]
@@ -165,8 +170,7 @@ def main(argv=None):
     ap.add_argument("--dump", metavar="DIR", help="write the table as DIR/weep.u8")
     a = ap.parse_args(argv)
 
-    with open(a.params, "r", encoding="utf-8") as f:
-        p = json.load(f)
+    p = load_params(a.params)
     try:
         data = build(p)
     except (ParamError, KeyError, TypeError, ValueError) as e:

@@ -44,7 +44,7 @@ typedef struct fake_save {
 } fake_save_t;
 
 enum { FAKE_AU_SEQ, FAKE_AU_SAMPLE, FAKE_AU_QUEUE, FAKE_AU_BUSY, FAKE_AU_STOP, FAKE_AU_VOLUME,
-       FAKE_AU_TONE };
+       FAKE_AU_TONE, FAKE_AU_RATE };
 
 /* One audio call: op, the note count or byte length or level, and the
  * first note's frequency or the first byte. */
@@ -125,6 +125,9 @@ typedef struct fake_platform {
     fake_audio_t audio[FAKE_MAX_AUDIO];
     int audio_count;
     uint32_t volume;
+    uint32_t rate;       /* the rate of the next sample play, 8000 at reset */
+    int32_t rate_result; /* while not 0, sample_rate returns it and sets nothing */
+    uint32_t au_rate;    /* the rate of the last sample play */
     int au_on;           /* a sound started and not stopped */
     uint32_t au_end;     /* tick when the playing sound ends */
     uint32_t au_wait;    /* ms of the waiting sample, 0 for none */
