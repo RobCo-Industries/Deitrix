@@ -188,13 +188,17 @@ $(PCM_DIR)/%.PCM: tools/mkpcm.py
 	$(PYTHON) tools/mkpcm.py $(PCM_DIR) --only $*
 
 .PHONY: card-tree
+# The recipe reads CARD_NOTE from the environment, so a quote or a space
+# in the path cannot break the shell command.
+export CARD_NOTE
+
 card-tree: $(PCM_FILES)
 	rm -rf $(CARD_TREE)
 	mkdir -p $(CARD_TREE)
 	cp -R $(CONTENT)/. $(CARD_TREE)/
 	cp $(PCM_FILES) $(CARD_TREE)/PIPBOY/DATA/RADIO/
-	$(if $(strip $(CARD_NOTE)),test -f '$(CARD_NOTE)' || { echo "card-tree: CARD_NOTE names no file: $(CARD_NOTE)" >&2; exit 1; })
-	$(if $(strip $(CARD_NOTE)),cp '$(CARD_NOTE)' $(CARD_TREE)/PIPBOY/VERSIONS.TXT)
+	$(if $(strip $(CARD_NOTE)),test -f "$$CARD_NOTE" || { echo "card-tree: CARD_NOTE names no file: $$CARD_NOTE" >&2; exit 1; })
+	$(if $(strip $(CARD_NOTE)),cp "$$CARD_NOTE" $(CARD_TREE)/PIPBOY/VERSIONS.TXT)
 	$(PYTHON) tools/check_content.py $(CARD_TREE)
 
 # ---- Pip-OS: kernel, card, QEMU, real card --------------------------------

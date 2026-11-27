@@ -62,6 +62,15 @@ class CardTree(unittest.TestCase):
             with open(os.path.join(d, "build", NOTE), "rb") as f:
                 self.assertEqual(f.read(), NOTE_BYTES)
 
+    def test_card_note_path_may_hold_a_quote_and_a_space(self):
+        with tempfile.TemporaryDirectory() as d:
+            note = os.path.join(d, "Bob's note.txt")
+            shutil.copyfile(write_note(d), note)
+            r = make(os.path.join(d, "build"), "CARD_NOTE=" + note)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            with open(os.path.join(d, "build", NOTE), "rb") as f:
+                self.assertEqual(f.read(), NOTE_BYTES)
+
     def test_no_card_note_leaves_no_versions_txt(self):
         with tempfile.TemporaryDirectory() as d:
             build = os.path.join(d, "build")
