@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Changed
 
+- `make boot-sound` renders the log with RobCo-Core's `tools/audio_preview.py`, since Pip-OS removed its `tools/boot_sound.py`. The WAV keeps the same bytes.
+- Pip-OS moves to `693e457`, with RobCo-Core `c0bee99` inside it. The library now holds the audio preview tool and adds `loop=1` to the trace of a looped play. Deitrix's radio refills a queue and never starts a looped play, so no test or doc changes. The CI workflow pins RobCo-Core `c0bee99`. The docs link the new commits.
 - Pip-OS moves to `5175bbd`, with RobCo-Core `9a11561` inside it: ABI 1.5, the system sound, disk clicks and centred tones. The SDK seals the ROM for ABI 1.5, and STAT's ABOUT page shows `ABI 1.5`. With the system sound off, the default, Deitrix sounds and looks as before.
 
 - Pip-OS moves to `93a07d2`, the commit that builds the `pipos` 1.4.0 SDK package, with RobCo-Core `712db81` inside it. Its `pipos-app.mk` takes `ABI`, writes `flags.json` with `make flags-json` and maps the build paths with `-ffile-prefix-map`. Culvert's tape keeps the same bytes. The CI workflow pins RobCo-Core `712db81` with the same image tag. The docs link the new commits.

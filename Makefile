@@ -216,7 +216,7 @@ gallery-card: all card-tree
 # QEMU has no sound. `make boot-sound` boots the card of make sdimage on
 # one board, raspi0 unless BOARD names one, with the system sound on and
 # the stock typing pace. It saves the serial log until 3 s after the weep
-# and renders it with Pip-OS's tools/boot_sound.py. The kernel's sound
+# and renders it with RobCo-Core's tools/audio_preview.py. The kernel's sound
 # buffers and the weep come as .u8 files in two --pcm folders.
 # See docs/TESTING.md.
 BOOT_SOUND_BOARD = $(if $(filter all,$(BOARD)),raspi0,$(BOARD))
@@ -232,7 +232,7 @@ boot-sound: sdimage venv
 		exit 1; }
 	$(PYTHON) -I $(PIP_OS)/tools/sound_table.py --dump $(BOOT_SOUND_DIR)/pcm
 	$(PYTHON) -I tools/mkweep.py --dump $(BOOT_SOUND_DIR)/weep
-	$(PYTHON) -I $(PIP_OS)/tools/boot_sound.py $(BOOT_SOUND_DIR)/serial.log $(BUILD)/boot_sound.wav \
+	$(PYTHON) -I $(ROBCO_CORE)/tools/audio_preview.py $(BOOT_SOUND_DIR)/serial.log $(BUILD)/boot_sound.wav \
 		--pcm $(BOOT_SOUND_DIR)/pcm --pcm $(BOOT_SOUND_DIR)/weep
 
 # ---- Checks and tests ------------------------------------------------------

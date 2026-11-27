@@ -6,8 +6,8 @@ per character, 200 ms per line, volume 80, the beep and the system sound
 on. So the log holds the kernel's boot sounds, the scroll's blips, the
 weep under Deitrix's first frame and the clicks of Deitrix's card reads
 after it. The test waits 3 s after the weep, then until no audio record
-has come for 1 s. Pip-OS's tools/boot_sound.py turns the log into a WAV
-file.
+has come for 1 s. RobCo-Core's tools/audio_preview.py turns the log into
+a WAV file.
 """
 
 import time
