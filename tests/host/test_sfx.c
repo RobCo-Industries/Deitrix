@@ -388,17 +388,21 @@ TEST(ui_sound_row_values)
 TEST(sfx_wait_more_rule)
 {
     /* The status turns 0: the wait ends at once. */
-    CHECK_INT(dx_sfx_wait_more(1, 1, 0), 1);
-    CHECK_INT(dx_sfx_wait_more(1, 0, 0), 0);
-    CHECK_INT(dx_sfx_wait_more(1, 0, 120), 0);
+    CHECK_INT(dx_sfx_wait_more(1, 1, 0, 0), 1);
+    CHECK_INT(dx_sfx_wait_more(1, 0, 0, 0), 0);
+    CHECK_INT(dx_sfx_wait_more(1, 0, 120, 0), 0);
     /* The limit: 499 ms waits on, 500 ms ends it. */
-    CHECK_INT(dx_sfx_wait_more(1, 1, DX_SFX_DRAIN_MS - 1), 1);
-    CHECK_INT(dx_sfx_wait_more(1, 1, DX_SFX_DRAIN_MS), 0);
-    CHECK_INT(dx_sfx_wait_more(1, 1, DX_SFX_DRAIN_MS + 1), 0);
+    CHECK_INT(dx_sfx_wait_more(1, 1, DX_SFX_DRAIN_MS - 1, 0), 1);
+    CHECK_INT(dx_sfx_wait_more(1, 1, DX_SFX_DRAIN_MS, 0), 0);
+    CHECK_INT(dx_sfx_wait_more(1, 1, DX_SFX_DRAIN_MS + 1, 0), 0);
     /* No sound at all: no wait, busy or not. */
-    CHECK_INT(dx_sfx_wait_more(0, 1, 0), 0);
-    CHECK_INT(dx_sfx_wait_more(0, 0, 0), 0);
+    CHECK_INT(dx_sfx_wait_more(0, 1, 0, 0), 0);
+    CHECK_INT(dx_sfx_wait_more(0, 0, 0, 0), 0);
     CHECK_INT(DX_SFX_DRAIN_MS, 500);
+    /* The round cap ends a wait on a clock that stands still. */
+    CHECK_INT(dx_sfx_wait_more(1, 1, 0, DX_SFX_DRAIN_ROUNDS - 1), 1);
+    CHECK_INT(dx_sfx_wait_more(1, 1, 0, DX_SFX_DRAIN_ROUNDS), 0);
+    CHECK_INT(DX_SFX_DRAIN_ROUNDS, 5000);
 }
 
 TEST(sfx_drain_waits_for_the_end)
@@ -441,6 +445,53 @@ TEST(sfx_drain_stops_at_the_limit_and_without_a_sound)
     CHECK_INT(dx_plat_play_seq(long_note, 1), 0);
     dx_sfx_drain(0);
     CHECK_INT(fake.waits, 0);
+}
+
+TEST(sfx_drain_counts_time_not_rounds)
+{
+    static const dx_note_t long_note[] = { { 440, 2000 } };
+    uint32_t t0;
+    int i;
+
+    /* A key burst: every round returns at once after 1 ms. The wait
+     * still lasts 500 ms by the clock, far past 100 rounds. */
+    setup();
+    fake.tick_step = 1;
+    for (i = 0; i < FAKE_MAX_EVENTS; i++) {
+        fake_push(DX_EV_BUTTON, DX_BTN_UP, DX_PRESS_DOWN);
+    }
+    t0 = fake.ticks;
+    CHECK_INT(dx_plat_play_seq(long_note, 1), 0);
+    dx_sfx_drain(1);
+    CHECK_INT(fake.ticks - t0, DX_SFX_DRAIN_MS);
+    CHECK_INT(fake.waits, DX_SFX_DRAIN_MS);
+    /* The status turns 0 within a burst: the wait ends then. */
+    setup();
+    fake.tick_step = 1;
+    for (i = 0; i < FAKE_MAX_EVENTS; i++) {
+        fake_push(DX_EV_BUTTON, DX_BTN_UP, DX_PRESS_DOWN);
+    }
+    dx_ui_sound_enable(DX_UI_SOUND_FULL);
+    t0 = fake.ticks;
+    CHECK_INT(dx_ui_sound_play(DX_SFX_ID_TAPE_START), 1);
+    dx_sfx_drain(1);
+    CHECK_INT(dx_plat_audio_status(), 0);
+    CHECK(fake.ticks - t0 < DX_SFX_DRAIN_MS);
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
+    /* The clock wraps in the wait: still 500 ms. */
+    setup();
+    fake.tick_step = 10;
+    fake.ticks = 0xFFFFFF00u;
+    t0 = fake.ticks;
+    CHECK_INT(dx_plat_play_seq(long_note, 1), 0);
+    dx_sfx_drain(1);
+    CHECK_INT(fake.ticks - t0, DX_SFX_DRAIN_MS);
+    /* A clock that stands still: the round cap ends the wait. */
+    setup();
+    fake.tick_step = 0;
+    CHECK_INT(dx_plat_play_seq(long_note, 1), 0);
+    dx_sfx_drain(1);
+    CHECK_INT(fake.waits, DX_SFX_DRAIN_ROUNDS);
 }
 
 /* ---- The tuning state ---------------------------------------------------- */

@@ -74,15 +74,13 @@ int dx_sfx_play(int id)
     return play_hi(tables[id].data, tables[id].len);
 }
 
-int dx_sfx_wait_more(int played, int busy, uint32_t waited_ms)
+int dx_sfx_wait_more(int played, int busy, uint32_t waited_ms, unsigned rounds)
 {
-    return played && busy && waited_ms < DX_SFX_DRAIN_MS;
+    return played && busy && waited_ms < DX_SFX_DRAIN_MS && rounds < DX_SFX_DRAIN_ROUNDS;
 }
 
 /* One wait at most this long: a short step keeps the end close. */
 #define DRAIN_STEP_MS 10u
-/* A bound on the steps, in case the clock stands still. */
-#define DRAIN_STEPS   (2u * DX_SFX_DRAIN_MS / DRAIN_STEP_MS)
 
 void dx_sfx_drain(int played)
 {
@@ -90,8 +88,7 @@ void dx_sfx_drain(int played)
     uint32_t waited = 0;
     unsigned n;
 
-    for (n = 0; n < DRAIN_STEPS && dx_sfx_wait_more(played, dx_plat_audio_status(), waited);
-         n++) {
+    for (n = 0; dx_sfx_wait_more(played, dx_plat_audio_status(), waited, n); n++) {
         uint32_t left = DX_SFX_DRAIN_MS - waited;
         dx_event_t ev;
 

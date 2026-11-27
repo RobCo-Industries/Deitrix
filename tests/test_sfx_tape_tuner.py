@@ -73,6 +73,34 @@ def test_tape_start_ends_before_the_launch(board, kernel_image, card, tmp_path, 
         no_exception(vm)
 
 
+def test_tape_start_ends_before_the_launch_under_a_key_burst(board, kernel_image, card, tmp_path,
+                                                             need_mtools):
+    # Keys right after SELECT end each round of the wait at once. The
+    # clock still bounds the wait, so the sound ends before the tape.
+    with boot_full(kernel_image, board, card, tmp_path) as vm:
+        wait_ready(vm)
+        wait_line(vm, "deitrix: load DEITRIX.SAV ok tab=0 volume=80 sound=2 station=0")
+        time.sleep(SETTLE_S)
+        script(vm, "dial 2")
+        assert wait_tabs(vm, 1)[-1] == "DATA", vm.serial
+        mark = len(vm.serial)
+        press(vm, "right")
+        wait_for(vm, "no tapes line", lambda: "deitrix: data tapes " in vm.serial[mark:])
+        time.sleep(SETTLE_S)
+        mark = len(vm.serial)
+        press(vm, "select")
+        for _ in range(60):
+            press(vm, "left")
+            if "ev=holo_start" in vm.serial[mark:]:
+                break
+        wait_line(vm, "culvert: title")
+        start = vm.serial.index("ev=holo_start", mark)
+        before = vm.serial[mark:start]
+        assert vm.serial.index("len=%d " % TAPE_START[1], mark) < start, vm.serial[mark:]
+        assert PCM_END in before[before.index("len=%d " % TAPE_START[1]):], before
+        no_exception(vm)
+
+
 def test_tuner_before_a_station_and_after_its_stop(board, kernel_image, card, tmp_path,
                                                   need_mtools):
     with boot_full(kernel_image, board, card, tmp_path) as vm:

@@ -157,9 +157,15 @@ int dx_sfx_play(int id);
 /* The longest wait for a sound to end before a tape starts. */
 #define DX_SFX_DRAIN_MS 500u
 
+/* The most rounds of the wait, in case the clock stands still. A key
+ * ends a round at once, so the cap is far above 500 ms of 10 ms rounds:
+ * the clock, not the count, ends the wait. */
+#define DX_SFX_DRAIN_ROUNDS 5000u
+
 /* 1 while the wait before a tape goes on: a sound was started, the
- * audio is still busy, and less than DX_SFX_DRAIN_MS went by. */
-int dx_sfx_wait_more(int played, int busy, uint32_t waited_ms);
+ * audio is still busy, less than DX_SFX_DRAIN_MS went by on the clock,
+ * and fewer than DX_SFX_DRAIN_ROUNDS rounds ran. */
+int dx_sfx_wait_more(int played, int busy, uint32_t waited_ms, unsigned rounds);
 
 /* Waits while dx_sfx_wait_more says so, through dx_plat_wait as the main
  * loop does, so the kernel keeps its services running. An event that
