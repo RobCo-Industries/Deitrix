@@ -98,6 +98,26 @@ def test_full_plays_scroll_and_select(board, kernel_image, card, tmp_path, need_
         no_exception(vm)
 
 
+def test_full_keeps_the_tone_for_a_count_change(board, kernel_image, card, tmp_path, need_mtools):
+    """Scroll is a list row move only. A count change is another move and
+    keeps the move tone."""
+    sound_on(card, tmp_path)
+    write_settings(card, tmp_path, ui_sound=2)
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        wait_line(vm, "deitrix: load DEITRIX.SAV ok tab=0 volume=80 sound=2 station=0")
+        move_and_select(vm)
+        wait_for(vm, "wanted two table plays", lambda: len(plays_after(vm, 0)) >= 2)
+        time.sleep(SETTLE_S)
+        at = len(vm.serial)
+        inv_key(vm, "up", "count=")
+        wait_for(vm, "wanted the move tone", lambda: len(tones_after(vm, at)) >= 1)
+        time.sleep(SETTLE_S)
+        assert tones_after(vm, at) == [1400], vm.serial[at:]
+        assert SCROLL not in plays_after(vm, at), vm.serial[at:]
+        no_exception(vm)
+
+
 def test_on_keeps_the_tones(board, kernel_image, card, tmp_path, need_mtools):
     sound_on(card, tmp_path)
     with boot_rom(kernel_image, board, sd=card) as vm:

@@ -399,7 +399,7 @@ All sounds are original synthesis from the parameters in `assets/sfx/sfx_models.
 
 RobCo-Core's `tools/sfx_table.py` turns the model into `src/services/sfx_table.c` and `.h`, with the prefix `dx_sfx_`. Both files are committed. Each table is unsigned 8-bit at 37500 Hz, 128 is silence. The header gives each table's length and CRC-32, and each sound's peak.
 
-Today the ROM plays two of them, with "UI sounds" on `Full`: `scroll` for a list row move and `select` for a select. The linker drops the tables nothing plays, so they cost no ROM space yet.
+Today the ROM plays two of them, with "UI sounds" on `Full`: `scroll` for a list row move only and `select` for a select. The linker drops the tables nothing plays, so they cost no ROM space yet.
 
 | Command | What it does |
 |---|---|

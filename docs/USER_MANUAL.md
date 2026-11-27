@@ -92,7 +92,7 @@ With `system_sound = yes` in `PIPOS.CFG`, a short rising chirp plays when the fi
 
 A key that does something plays a short tone. A key that does nothing on the view plays a short low tone. Repeats never play the low tone. The tones stay silent while the radio plays, and when UI sounds are off on RADIO.
 
-With UI sounds on `Full`, a list row move and a select each play a sound of their own in place of their tones. The other keys keep their tones. `Full` needs `system_sound = yes` in `PIPOS.CFG`. Without it RADIO offers only `On` and `Off`, and a saved `Full` shows `On` and plays the tones.
+With UI sounds on `Full`, a list row move and a select each play a sound of their own in place of their tones. The other keys keep their tones. A count change, a volume step, a text scroll and a new map place are not row moves: they keep the move tone. `Full` needs `system_sound = yes` in `PIPOS.CFG`. Without it RADIO offers only `On` and `Off`, and a saved `Full` shows `On` and plays the tones.
 
 ### In QEMU
 

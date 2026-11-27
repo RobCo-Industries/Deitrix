@@ -128,13 +128,23 @@ void dx_ui_sound(int snd)
     dx_plat_tone(tones[snd][0], tones[snd][1]);
 }
 
-void dx_ui_sound_event(int snd, int tab_changed)
+int dx_ui_sound_table(int snd, unsigned result, int tab_changed)
+{
+    if (snd == DX_SND_MOVE && !tab_changed && (result & DX_UI_ROW_MOVED)) {
+        return DX_SFX_ID_SCROLL;
+    }
+    if (snd == DX_SND_SELECT) {
+        return DX_SFX_ID_SELECT;
+    }
+    return -1;
+}
+
+void dx_ui_sound_event(int snd, unsigned result, int tab_changed)
 {
     if (DX_UI_SOUND && sound_full && !sound_blocked) {
-        if (snd == DX_SND_MOVE && !tab_changed && dx_sfx_play(DX_SFX_ID_SCROLL)) {
-            return;
-        }
-        if (snd == DX_SND_SELECT && dx_sfx_play(DX_SFX_ID_SELECT)) {
+        int id = dx_ui_sound_table(snd, result, tab_changed);
+
+        if (id >= 0 && dx_sfx_play(id)) {
             return;
         }
     }

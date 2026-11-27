@@ -88,6 +88,9 @@ int dx_ui_translate(const dx_event_t *ev, dx_ui_event_t *out);
 /* Set with DX_UI_HANDLED when the event opened or closed a nested view.
  * The shell then swallows the repeats of that key: see ui/latch.h. */
 #define DX_UI_LEVEL   4u
+/* Set with DX_UI_HANDLED when the highlighted row of a list moved. With
+ * UI sounds on FULL the shell then plays the scroll table. */
+#define DX_UI_ROW_MOVED 8u
 
 /* ---- Tick arithmetic ---------------------------------------------------- */
 
@@ -160,11 +163,14 @@ int dx_ui_sound_enabled(void);
 
 /*
  * The shell's sound for an event, from dx_ui_sound_for and whether the
- * tab changed. With FULL a row move plays the scroll table and a select
- * the select table. Every other case, and a table that cannot play,
- * goes to dx_ui_sound.
+ * tab changed. With FULL a row move, MOVE with DX_UI_ROW_MOVED in
+ * `result`, plays the scroll table and a select the select table. Every
+ * other case, and a table that cannot play, goes to dx_ui_sound.
  */
-void dx_ui_sound_event(int snd, int tab_changed);
+void dx_ui_sound_event(int snd, unsigned result, int tab_changed);
+/* The table dx_ui_sound_event plays on FULL, a DX_SFX_ID_*, or -1 for
+ * the tone. */
+int dx_ui_sound_table(int snd, unsigned result, int tab_changed);
 
 /* The "UI sounds" row. The value after `level` for one press: OFF, ON,
  * FULL and round when `full` is 1, else OFF and ON. */

@@ -204,7 +204,7 @@ TEST(start_stop_and_switch)
     CHECK_INT(send(DX_UI_SELECT, 1), DX_UI_IGNORED);
     CHECK_INT(fake.seq_count, 1);
     /* Another station switches: the tune stops, the stream starts. */
-    CHECK_INT(key(DX_UI_DOWN), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_DOWN), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_ROW_MOVED);
     CHECK_STR(last_log(), "deitrix: radio row=1");
     check_hint("UP/DOWN: move  SELECT: play");
     CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY);
@@ -584,7 +584,7 @@ TEST(no_file)
     CHECK_INT(key(DX_UI_SELECT), DX_UI_IGNORED);
     CHECK_INT(key(DX_UI_LEFT), DX_UI_HANDLED | DX_UI_DIRTY);
     CHECK_INT(set->volume, 70);
-    CHECK_INT(key(DX_UI_DOWN), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_DOWN), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_ROW_MOVED);
     CHECK_INT(key(DX_UI_SELECT), DX_UI_HANDLED | DX_UI_DIRTY);
     CHECK_INT(set->ui_sound, 0);
     CHECK_INT(fake.audio_count, calls + 1); /* the volume call only */

@@ -97,7 +97,7 @@ static unsigned move(const dx_radio_t *r, int step)
     }
     sel = to;
     log_line("row=", sel);
-    return DX_UI_HANDLED | DX_UI_DIRTY;
+    return DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_ROW_MOVED;
 }
 
 /* SELECT on a station: start it, or stop it when it plays. */
