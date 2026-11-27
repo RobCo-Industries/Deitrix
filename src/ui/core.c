@@ -1,5 +1,6 @@
 #include "ui/ui.h"
 
+#include "model/util.h"
 #include "services/services.h"
 
 dx_theme_t dx_theme_from_fg(uint32_t fg)
@@ -102,6 +103,19 @@ static int sound_blocked;
 
 void dx_ui_sound_enable(int level)
 {
+    if (sound_hum && level != DX_UI_SOUND_FULL_HUM) {
+        char line[48];
+        dx_sb_t sb;
+
+        /* The hum stops now, not at its next top-up. The line gives the
+         * change's time, for the tests. */
+        dx_sb_init(&sb, line, sizeof(line));
+        dx_sb_str(&sb, "deitrix: sound left hum t_ms=");
+        dx_sb_int(&sb, (int32_t)dx_plat_ticks());
+        dx_sb_str(&sb, "\n");
+        dx_plat_log(line);
+        dx_hum_setting_left();
+    }
     sound_on = level != DX_UI_SOUND_OFF;
     sound_full = level == DX_UI_SOUND_FULL || level == DX_UI_SOUND_FULL_HUM;
     sound_hum = level == DX_UI_SOUND_FULL_HUM;

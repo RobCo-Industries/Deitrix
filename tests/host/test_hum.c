@@ -195,6 +195,29 @@ TEST(step_states)
     CHECK_INT(dx_hum_step(&h, 1, 0, 0), DX_HUM_START);
 }
 
+TEST(leave_states)
+{
+    dx_hum_t h = { 1, 0 };
+
+    /* The hum plays, either part next: one stop, then nothing. */
+    CHECK_INT(dx_hum_leave(&h, 1), DX_HUM_STOP);
+    CHECK_INT(h.running, 0);
+    CHECK_INT(dx_hum_leave(&h, 1), DX_HUM_NONE);
+    h.running = 1;
+    h.next = 1;
+    CHECK_INT(dx_hum_leave(&h, 1), DX_HUM_STOP);
+    CHECK_INT(h.running, 0);
+    CHECK_INT(h.next, 0);
+    /* Another sound holds the voice: the hum was halted, so no stop. */
+    CHECK_INT(dx_hum_leave(&h, 1), DX_HUM_NONE);
+    /* The hum ran dry: nothing to stop. */
+    h.running = 1;
+    CHECK_INT(dx_hum_leave(&h, 0), DX_HUM_NONE);
+    CHECK_INT(h.running, 0);
+    /* The setting off afterwards asks nothing more. */
+    CHECK_INT(dx_hum_step(&h, 0, 0, 1), DX_HUM_NONE);
+}
+
 /* ---- The service on the fake audio ---------------------------------------- */
 
 TEST(service_starts_after_a_period_and_alternates)
@@ -465,3 +488,84 @@ TEST(rates_radio_first_then_hum)
     dx_ui_sound_enable(DX_UI_SOUND_ON);
 }
 
+
+/* Plays after the leave: samples and queued buffers. */
+static int plays_since(int from)
+{
+    int i, n = 0;
+
+    for (i = from; i < fake.audio_count; i++) {
+        n += fake.audio[i].op == FAKE_AU_SAMPLE || fake.audio[i].op == FAKE_AU_QUEUE;
+    }
+    return n;
+}
+
+TEST(leaving_full_hum_stops_at_once)
+{
+    static const int levels[] = { DX_UI_SOUND_OFF, DX_UI_SOUND_ON, DX_UI_SOUND_FULL };
+    int i, at;
+
+    for (i = 0; i < 3; i++) {
+        /* Part one plays, then part two queued too. */
+        int queued;
+
+        for (queued = 0; queued < 2; queued++) {
+            setup(DX_UI_SOUND_FULL_HUM);
+            tick_at(1250);
+            if (queued) {
+                tick_at(1500);
+            }
+            CHECK_INT(dx_hum_running(), 1);
+            at = fake.audio_count;
+            dx_ui_sound_enable(levels[i]);
+            /* The same pass: no top-up ran. */
+            CHECK_INT(fake_audio_ops(FAKE_AU_STOP), 1);
+            CHECK_INT(dx_hum_running(), 0);
+            CHECK(strstr(fake.log, "deitrix: sound left hum t_ms=1") != NULL);
+            tick_at(1750);
+            tick_at(2000);
+            CHECK_INT(fake_audio_ops(FAKE_AU_STOP), 1);
+            CHECK_INT(plays_since(at), 0);
+        }
+    }
+}
+
+/* A head is part hum and its rest is the hum: the stop cuts both. */
+TEST(leaving_cuts_a_head_and_no_hum_part_follows)
+{
+    int at;
+
+    setup(DX_UI_SOUND_FULL_HUM);
+    tick_at(1250);
+    CHECK_INT(dx_sfx_play(DX_SFX_ID_SCROLL), 1);
+    at = fake.audio_count;
+    dx_ui_sound_enable(DX_UI_SOUND_OFF);
+    CHECK_INT(fake_audio_ops(FAKE_AU_STOP), 1);
+    CHECK_INT(fake.audio[at].op, FAKE_AU_STOP);
+    tick_at(1500);
+    tick_at(1750);
+    CHECK_INT(plays_since(at), 0);
+}
+
+/* A tone halted the hum: leaving cuts nothing. */
+TEST(leaving_spares_a_tone)
+{
+    setup(DX_UI_SOUND_FULL_HUM);
+    tick_at(1250);
+    dx_ui_sound(DX_SND_MOVE);
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
+    CHECK_INT(fake_audio_ops(FAKE_AU_STOP), 0);
+    CHECK(strstr(fake.log, "deitrix: sound left hum") != NULL);
+}
+
+/* Entering waits for the next top-up. */
+TEST(entering_full_hum_waits_for_the_top_up)
+{
+    setup(DX_UI_SOUND_FULL);
+    tick_at(1250);
+    dx_ui_sound_enable(DX_UI_SOUND_FULL_HUM);
+    CHECK_INT(fake.au_starts, 0);
+    tick_at(1500);
+    CHECK_INT(fake.au_starts, 1);
+    CHECK_INT(dx_hum_running(), 1);
+}

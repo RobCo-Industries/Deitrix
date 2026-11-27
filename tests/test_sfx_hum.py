@@ -8,10 +8,14 @@ hum's two parts, each table, and each head and rest over the hum. Each
 step waits for trace lines, never for a fixed time.
 """
 
+import re
+import time
+
 from conftest import serial_line
 from pipos_testing import no_exception, press, script
 from test_deitrix import boot_rom, wait_ready, wait_tabs
 from test_model import wait_line
+from test_radio_tab import ROW_SOUND, ROW_VOLUME, SAVE_OK, key, to_radio, walk
 from test_sfx import TABLES, inv_key, wait_for
 from test_weep import WEEP_CRC, sound_on, write_settings
 
@@ -19,6 +23,10 @@ from test_weep import WEEP_CRC, sound_on, write_settings
 AUDIO = serial_line(r"@RC stage=pipos ev=audio op=(pcm|pcm_next) (?:rate=\d+ )?len=(\d+) "
                     r".*?crc=([0-9a-fA-F]+).*?")
 TONE = serial_line(r"@RC stage=pipos ev=audio op=tone .*?")
+STOP = serial_line(r"@RC stage=pipos ev=audio op=stop .*?t_ms=(\d+).*?")
+LEFT = re.compile(r"^deitrix: sound left hum t_ms=(\d+)\r?\n", re.M)
+# One timer tick of Pip-OS.
+TICK_MS = 10
 NAMES = {v: k for k, v in TABLES.items()}
 NAMES[(5250, WEEP_CRC)] = "WEEP"
 LOADED = "deitrix: load DEITRIX.SAV ok tab=0 volume=80 sound=3 station=0"
@@ -149,4 +157,37 @@ def test_a_tape_stops_the_hum_and_its_return_brings_it_back(board, kernel_image,
         at = vm.serial.index("len=%d " % TABLES["TAPE_STOP"][0], back)
         hum = vm.serial.index("len=%d " % TABLES["HUM_1"][0], at)
         assert "op=pcm_end" in vm.serial[at:hum], vm.serial[back:]
+        no_exception(vm)
+
+
+def test_leaving_full_hum_stops_the_hum_at_once(board, kernel_image, card, tmp_path,
+                                                need_mtools):
+    """The row moves from "Full + hum" to "Off": the hum stops in the same
+    pass, not at its next top-up, and no hum part follows."""
+    with boot_hum(kernel_image, board, card, tmp_path) as vm:
+        wait_ready(vm)
+        wait_line(vm, LOADED)
+        wait_hum_start(vm, 0)
+        to_radio(vm)
+        walk(vm, 0, ROW_VOLUME)
+        key(vm, "down", f"row={ROW_SOUND}")
+        # The move's head and the hum's rest play under the row.
+        mark = len(vm.serial)
+        key(vm, "select", "sound=0")
+        wait_for(vm, "no left line", lambda: LEFT.search(vm.serial, mark))
+        left = LEFT.search(vm.serial, mark)
+        left_t = int(left[1])
+        assert vm.serial.index("deitrix: radio sound=0", mark) > left.start(), vm.serial[mark:]
+        # The stop's trace line may print late: wait for the save after the change.
+        deadline = time.monotonic() + 20
+        while not SAVE_OK.search(vm.serial, left.end()):
+            assert time.monotonic() < deadline, vm.serial[mark:]
+            time.sleep(0.05)
+        stops = [m for m in STOP.finditer(vm.serial, mark) if int(m[1]) >= left_t - TICK_MS]
+        assert stops, vm.serial[mark:]
+        stop = stops[0]
+        assert int(stop[1]) - left_t <= 2 * TICK_MS, vm.serial[mark:]
+        after = [a for a in audio(vm, stop.end())
+                 if a[1] in ("HUM_1", "HUM_2") or a[1].endswith("_REST")]
+        assert after == [], vm.serial[mark:]
         no_exception(vm)

@@ -240,6 +240,19 @@ int dx_hum_running(void);
  * the weep, the plain tables, a station and a tape call it. */
 void dx_hum_halt(void);
 
+/*
+ * The setting left "Full + hum". The hum stops at once and waits for
+ * the setting to come back. STOP only when the hum ran and a sound
+ * plays: what plays then is the hum, or a head with the hum's rest
+ * queued behind it, since every other sound halts the hum first. A
+ * head is part hum, so the stop cuts it too.
+ */
+int dx_hum_leave(dx_hum_t *h, int busy);
+
+/* dx_hum_leave on the service's state, and the stop it asks for. The
+ * setting calls it in the same pass as the change. */
+void dx_hum_setting_left(void);
+
 extern const dx_service_t dx_service_hum;
 
 /* The hum's state, for the host tests. */

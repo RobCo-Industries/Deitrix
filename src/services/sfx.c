@@ -217,6 +217,22 @@ int dx_hum_step(dx_hum_t *h, int on, int radio, int busy)
     return h->running ? DX_HUM_QUEUE : DX_HUM_NONE;
 }
 
+int dx_hum_leave(dx_hum_t *h, int busy)
+{
+    int was = h->running;
+
+    h->running = 0;
+    h->next = 0;
+    return was && busy ? DX_HUM_STOP : DX_HUM_NONE;
+}
+
+void dx_hum_setting_left(void)
+{
+    if (dx_hum_leave(&hum, dx_plat_audio_status()) == DX_HUM_STOP) {
+        dx_plat_audio_stop();
+    }
+}
+
 int dx_hum_on(void)
 {
     return dx_ui_sound_hum() && dx_sfx_full();
