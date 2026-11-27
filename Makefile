@@ -26,6 +26,7 @@
 #                             in QEMU and write build/sfx_preview.wav
 #   make sdimage              build/pipos/sd.img: the Pip-OS kernel, its sample
 #                             PIPOS.CFG, ROM1.ROM and the card tree
+#                             (CARD_NOTE=<file> adds PIPBOY/VERSIONS.TXT)
 #   make card-tree            build/card/: content/ plus the generated radio
 #                             tracks, checked; the tree that goes to the card root
 #   make check-content        tools/check_content.py on content/ and build/card/
@@ -170,7 +171,9 @@ $(CV_SOLVE): tests/tools/culvert_solve.c $(CV_DIR)/logic.c $(CV_DIR)/logic.h
 # track is its own target: a missing one is made again. The card tree is
 # copied again on every run, so an edit in content/ always reaches it,
 # even within the same second. Then the checker runs on it: a station
-# whose file is missing stops the build.
+# whose file is missing stops the build. CARD_NOTE=<file> copies that
+# file into the tree as PIPBOY/VERSIONS.TXT, so sdimage, run and bootdir
+# put it on the card; a CARD_NOTE that names no file stops the build.
 CONTENT    ?= content
 CARD_TREE  := $(BUILD)/card
 PCM_DIR    := $(BUILD)/pcm
@@ -185,11 +188,17 @@ $(PCM_DIR)/%.PCM: tools/mkpcm.py
 	$(PYTHON) tools/mkpcm.py $(PCM_DIR) --only $*
 
 .PHONY: card-tree
+# The recipe reads CARD_NOTE from the environment, so a quote or a space
+# in the path cannot break the shell command.
+export CARD_NOTE
+
 card-tree: $(PCM_FILES)
 	rm -rf $(CARD_TREE)
 	mkdir -p $(CARD_TREE)
 	cp -R $(CONTENT)/. $(CARD_TREE)/
 	cp $(PCM_FILES) $(CARD_TREE)/PIPBOY/DATA/RADIO/
+	$(if $(strip $(CARD_NOTE)),test -f "$$CARD_NOTE" || { echo "card-tree: CARD_NOTE names no file: $$CARD_NOTE" >&2; exit 1; })
+	$(if $(strip $(CARD_NOTE)),cp "$$CARD_NOTE" $(CARD_TREE)/PIPBOY/VERSIONS.TXT)
 	$(PYTHON) tools/check_content.py $(CARD_TREE)
 
 # ---- Pip-OS: kernel, card, QEMU, real card --------------------------------
