@@ -34,6 +34,9 @@ def header():
 TABLES = header()
 SCROLL = (37500,) + TABLES["SCROLL"]
 SELECT = (37500,) + TABLES["SELECT"]
+MODE = (37500,) + TABLES["MODE"]
+TAB = (37500,) + TABLES["TAB"]
+HIGHLIGHT = (37500,) + TABLES["HIGHLIGHT"]
 
 
 def plays_after(vm, at):
@@ -100,11 +103,58 @@ def test_full_plays_scroll_and_select(board, kernel_image, card, tmp_path, need_
         wait_ready(vm)
         wait_line(vm, "deitrix: load DEITRIX.SAV ok tab=0 volume=80 sound=2 station=0")
         at = move_and_select(vm)
-        wait_for(vm, "wanted two table plays", lambda: len(plays_after(vm, at)) >= 2)
+        wait_for(vm, "wanted three table plays", lambda: len(plays_after(vm, at)) >= 3)
         time.sleep(SETTLE_S)
-        assert plays_after(vm, at) == [SCROLL, SELECT], vm.serial[at:]
-        # The tab change keeps its tone.
-        assert tones_after(vm, at) == [1400], vm.serial[at:]
+        # The dial changes the tab: mode, then the row move and the select.
+        assert plays_after(vm, at) == [MODE, SCROLL, SELECT], vm.serial[at:]
+        assert tones_after(vm, at) == [], vm.serial[at:]
+        no_exception(vm)
+
+
+def step(vm, key, prefix, want):
+    """Taps a key on INV and checks the one table it plays, or none."""
+    at = len(vm.serial)
+    inv_key(vm, key, prefix)
+    if want is None:
+        wait_for(vm, f"wanted a tone after {key}", lambda: len(tones_after(vm, at)) >= 1)
+    else:
+        wait_for(vm, f"wanted a play after {key}", lambda: len(plays_after(vm, at)) >= 1)
+    time.sleep(SETTLE_S)
+    return at
+
+
+def test_full_plays_mode_tab_and_highlight(board, kernel_image, card, tmp_path, need_mtools):
+    sound_on(card, tmp_path)
+    write_settings(card, tmp_path, ui_sound=2)
+    with boot_rom(kernel_image, board, sd=card) as vm:
+        wait_ready(vm)
+        wait_line(vm, "deitrix: load DEITRIX.SAV ok tab=0 volume=80 sound=2 station=0")
+        move_and_select(vm)
+        wait_for(vm, "wanted three table plays", lambda: len(plays_after(vm, 0)) >= 3)
+        time.sleep(SETTLE_S)
+        # BACK closes the detail: highlight.
+        at = step(vm, "back", "back", HIGHLIGHT)
+        assert plays_after(vm, at) == [HIGHLIGHT], vm.serial[at:]
+        assert tones_after(vm, at) == [], vm.serial[at:]
+        # RIGHT changes the category, a sub-tab: tab, not scroll.
+        at = step(vm, "right", "cat=1", TAB)
+        assert plays_after(vm, at) == [TAB], vm.serial[at:]
+        assert tones_after(vm, at) == [], vm.serial[at:]
+        # UP at the top is denied: the 180 Hz tone and no table.
+        at = step(vm, "up", "end row=0", None)
+        assert tones_after(vm, at) == [180], vm.serial[at:]
+        assert plays_after(vm, at) == [], vm.serial[at:]
+        # LEFT back to the first category: tab again.
+        at = step(vm, "left", "cat=0", TAB)
+        assert plays_after(vm, at) == [TAB], vm.serial[at:]
+        # LEFT on the first category changes the tab: mode.
+        at = len(vm.serial)
+        press(vm, "left")
+        assert wait_tabs(vm, 2)[-1] == "STAT", vm.serial
+        wait_for(vm, "wanted the mode play", lambda: len(plays_after(vm, at)) >= 1)
+        time.sleep(SETTLE_S)
+        assert plays_after(vm, at) == [MODE], vm.serial[at:]
+        assert tones_after(vm, at) == [], vm.serial[at:]
         no_exception(vm)
 
 

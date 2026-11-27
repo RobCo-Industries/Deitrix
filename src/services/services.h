@@ -123,7 +123,14 @@ int dx_sfx_mid(uint32_t abi_version, uint32_t hw_flags);
 int dx_sfx_full(void);
 
 /* The tables of src/services/sfx_table.c that dx_sfx_play knows. */
-enum { DX_SFX_ID_SCROLL, DX_SFX_ID_SELECT, DX_SFX_COUNT };
+enum {
+    DX_SFX_ID_SCROLL,
+    DX_SFX_ID_SELECT,
+    DX_SFX_ID_MODE,
+    DX_SFX_ID_TAB,
+    DX_SFX_ID_HIGHLIGHT,
+    DX_SFX_COUNT
+};
 
 /*
  * Starts table `id` at DX_RATE_HI, then sets the rate back to the one

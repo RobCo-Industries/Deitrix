@@ -60,6 +60,9 @@ int dx_sfx_play(int id)
     } tables[DX_SFX_COUNT] = {
         [DX_SFX_ID_SCROLL] = { dx_sfx_scroll, DX_SFX_SCROLL_LEN },
         [DX_SFX_ID_SELECT] = { dx_sfx_select, DX_SFX_SELECT_LEN },
+        [DX_SFX_ID_MODE] = { dx_sfx_mode, DX_SFX_MODE_LEN },
+        [DX_SFX_ID_TAB] = { dx_sfx_tab, DX_SFX_TAB_LEN },
+        [DX_SFX_ID_HIGHLIGHT] = { dx_sfx_highlight, DX_SFX_HIGHLIGHT_LEN },
     };
 
     if (id < 0 || id >= DX_SFX_COUNT || dx_radio_state() != DX_RADIO_OFF || !dx_sfx_full()) {

@@ -91,6 +91,9 @@ int dx_ui_translate(const dx_event_t *ev, dx_ui_event_t *out);
 /* Set with DX_UI_HANDLED when the highlighted row of a list moved. With
  * UI sounds on FULL the shell then plays the scroll table. */
 #define DX_UI_ROW_MOVED 8u
+/* Set with DX_UI_HANDLED when a sub-tab moved. With UI sounds on FULL
+ * the shell then plays the tab table. */
+#define DX_UI_TAB_MOVED 16u
 
 /* ---- Tick arithmetic ---------------------------------------------------- */
 
@@ -149,8 +152,8 @@ enum { DX_SND_NONE, DX_SND_MOVE, DX_SND_SELECT, DX_SND_BACK, DX_SND_DENY };
  * owner turned UI sounds off, or the radio holds the voice. */
 void dx_ui_sound(int snd);
 
-/* The values of the "UI sounds" setting. FULL plays tables for a row
- * move and a select, on a kernel where dx_sfx_full says yes. Elsewhere
+/* The values of the "UI sounds" setting. FULL plays tables for a mode
+ * change, a sub-tab move, a row move, a select and a back, on a kernel where dx_sfx_full says yes. Elsewhere
  * it plays the tones of ON. */
 enum { DX_UI_SOUND_OFF, DX_UI_SOUND_ON, DX_UI_SOUND_FULL };
 
@@ -163,9 +166,11 @@ int dx_ui_sound_enabled(void);
 
 /*
  * The shell's sound for an event, from dx_ui_sound_for and whether the
- * tab changed. With FULL a row move, MOVE with DX_UI_ROW_MOVED in
- * `result`, plays the scroll table and a select the select table. Every
- * other case, and a table that cannot play, goes to dx_ui_sound.
+ * mode changed. With FULL a MOVE plays the mode table when the mode
+ * changed, else the tab table with DX_UI_TAB_MOVED in `result`, else
+ * the scroll table with DX_UI_ROW_MOVED. A select plays the select
+ * table and a back the highlight table. Every other case, deny
+ * included, and a table that cannot play, goes to dx_ui_sound.
  */
 void dx_ui_sound_event(int snd, unsigned result, int tab_changed);
 /* The table dx_ui_sound_event plays on FULL, a DX_SFX_ID_*, or -1 for

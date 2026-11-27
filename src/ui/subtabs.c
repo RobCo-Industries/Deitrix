@@ -27,7 +27,7 @@ unsigned dx_subtabs_event(dx_subtabs_t *st, const dx_ui_event_t *ev)
     } else {
         return DX_UI_IGNORED;
     }
-    return DX_UI_HANDLED | DX_UI_DIRTY;
+    return DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED;
 }
 
 void dx_subtabs_draw(const dx_subtabs_t *st, const dx_ctx_t *ctx, dx_rect_t area)

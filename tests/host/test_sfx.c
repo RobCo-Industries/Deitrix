@@ -270,14 +270,35 @@ TEST(ui_sound_full_plays_tables_where_it_may)
     dx_ui_sound_event(DX_SND_SELECT, 0, 0);
     CHECK_INT(fake.au_crc, DX_SFX_SELECT_CRC32);
     CHECK_INT(fake.tone_count, 0);
-    /* A tab change, back and deny keep their tones. */
+    /* A mode change, a sub-tab move and a back play their tables. */
+    {
+        static const struct {
+            int snd;
+            unsigned result;
+            int changed;
+            uint32_t crc;
+        } cases[] = {
+            { DX_SND_MOVE, DX_UI_ROW_MOVED, 1, DX_SFX_MODE_CRC32 },
+            { DX_SND_MOVE, DX_UI_TAB_MOVED | DX_UI_ROW_MOVED, 0, DX_SFX_TAB_CRC32 },
+            { DX_SND_BACK, DX_UI_HANDLED, 0, DX_SFX_HIGHLIGHT_CRC32 },
+        };
+        int i;
+
+        for (i = 0; i < 3; i++) {
+            setup();
+            dx_ui_sound_enable(DX_UI_SOUND_FULL);
+            dx_ui_sound_event(cases[i].snd, cases[i].result, cases[i].changed);
+            CHECK_INT(fake.au_crc, cases[i].crc);
+            CHECK_INT(fake.tone_count, 0);
+        }
+    }
+    /* Deny keeps its tone, flags or not. */
     setup();
     dx_ui_sound_enable(DX_UI_SOUND_FULL);
-    dx_ui_sound_event(DX_SND_MOVE, DX_UI_ROW_MOVED, 1);
-    dx_ui_sound_event(DX_SND_BACK, 0, 0);
-    dx_ui_sound_event(DX_SND_DENY, 0, 0);
+    dx_ui_sound_event(DX_SND_DENY, DX_UI_TAB_MOVED | DX_UI_ROW_MOVED, 1);
     CHECK_INT(fake_audio_ops(FAKE_AU_SAMPLE), 0);
-    CHECK_INT(fake.tone_count, 3);
+    CHECK_INT(fake.tone_count, 1);
+    CHECK_INT(fake.tones[0][0], 180);
     /* A move that is not a row move, a value change or a volume step,
      * keeps the move tone. */
     setup();
@@ -297,27 +318,51 @@ TEST(ui_sound_full_plays_tables_where_it_may)
     dx_ui_sound_enable(DX_UI_SOUND_ON);
 }
 
+/* The events of the shell, as dx_ui_sound_event gets them, and the
+ * tone each plays on ON. */
+static void play_every_event(void)
+{
+    dx_ui_sound_event(DX_SND_MOVE, DX_UI_ROW_MOVED, 0);
+    dx_ui_sound_event(DX_SND_SELECT, 0, 0);
+    dx_ui_sound_event(DX_SND_MOVE, DX_UI_IGNORED, 1);
+    dx_ui_sound_event(DX_SND_MOVE, DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_TAB_MOVED, 0);
+    dx_ui_sound_event(DX_SND_BACK, DX_UI_HANDLED, 0);
+    dx_ui_sound_event(DX_SND_DENY, DX_UI_IGNORED, 0);
+}
+
+static void check_every_tone(void)
+{
+    static const int hz[6] = { 1400, 1900, 1400, 1400, 900, 180 };
+    int i;
+
+    CHECK_INT(fake_audio_ops(FAKE_AU_SAMPLE), 0);
+    CHECK_INT(fake_audio_ops(FAKE_AU_RATE), 0);
+    CHECK_INT(fake.tone_count, 6);
+    for (i = 0; i < 6; i++) {
+        CHECK_INT(fake.tones[i][0], hz[i]);
+    }
+}
+
 TEST(ui_sound_full_without_the_bit_plays_tones)
 {
     setup();
     fake.sysinfo.hw_flags = DX_HW_AUDIO;
     dx_ui_sound_enable(DX_UI_SOUND_FULL);
     CHECK_INT(dx_ui_sound_enabled(), 1);
-    dx_ui_sound_event(DX_SND_MOVE, DX_UI_ROW_MOVED, 0);
-    dx_ui_sound_event(DX_SND_SELECT, 0, 0);
-    CHECK_INT(fake_audio_ops(FAKE_AU_SAMPLE), 0);
-    CHECK_INT(fake_audio_ops(FAKE_AU_RATE), 0);
-    CHECK_INT(fake.tone_count, 2);
-    CHECK_INT(fake.tones[0][0], 1400);
-    CHECK_INT(fake.tones[1][0], 1900);
+    play_every_event();
+    check_every_tone();
     /* ON plays tones even with the bit. */
     setup();
     dx_ui_sound_enable(DX_UI_SOUND_ON);
-    dx_ui_sound_event(DX_SND_MOVE, DX_UI_ROW_MOVED, 0);
-    dx_ui_sound_event(DX_SND_SELECT, 0, 0);
+    play_every_event();
+    check_every_tone();
+    /* OFF plays nothing. */
+    setup();
+    dx_ui_sound_enable(DX_UI_SOUND_OFF);
+    play_every_event();
     CHECK_INT(fake_audio_ops(FAKE_AU_SAMPLE), 0);
-    CHECK_INT(fake_audio_ops(FAKE_AU_RATE), 0);
-    CHECK_INT(fake.tone_count, 2);
+    CHECK_INT(fake.tone_count, 0);
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
 }
 
 TEST(ui_sound_row_values)
