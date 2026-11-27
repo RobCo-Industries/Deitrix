@@ -499,11 +499,23 @@ TEST(sfx_drain_counts_time_not_rounds)
 TEST(radio_tuned_rule)
 {
     CHECK_INT(DX_RADIO_TUNING_MS, 100);
-    CHECK_INT(dx_radio_tuned(1000, 1099), 0);
-    CHECK_INT(dx_radio_tuned(1000, 1100), 1);
-    CHECK_INT(dx_radio_tuned(1000, 1101), 1);
-    CHECK_INT(dx_radio_tuned(1000, 1000), 0);
+    CHECK_INT(DX_RADIO_TUNING_MAX_MS, 300);
+    /* The status idle at 100 ms: the station starts. */
+    CHECK_INT(dx_radio_tuned(1000, 1100, 1), 1);
+    CHECK_INT(dx_radio_tuned(1000, 1101, 1), 1);
+    /* 99 ms with the status idle: not yet. */
+    CHECK_INT(dx_radio_tuned(1000, 1099, 1), 0);
+    CHECK_INT(dx_radio_tuned(1000, 1000, 1), 0);
+    /* The status busy until 110 ms. */
+    CHECK_INT(dx_radio_tuned(1000, 1100, 0), 0);
+    CHECK_INT(dx_radio_tuned(1000, 1109, 0), 0);
+    CHECK_INT(dx_radio_tuned(1000, 1110, 1), 1);
+    /* The status never idle: the limit at 300 ms ends the wait. */
+    CHECK_INT(dx_radio_tuned(1000, 1299, 0), 0);
+    CHECK_INT(dx_radio_tuned(1000, 1300, 0), 1);
     /* Across the wrap of ticks_ms at 2^31. */
-    CHECK_INT(dx_radio_tuned(0x7fffffd0u, 0x33u), 0);
-    CHECK_INT(dx_radio_tuned(0x7fffffd0u, 0x34u), 1);
+    CHECK_INT(dx_radio_tuned(0x7fffffd0u, 0x33u, 1), 0);
+    CHECK_INT(dx_radio_tuned(0x7fffffd0u, 0x34u, 1), 1);
+    CHECK_INT(dx_radio_tuned(0x7fffffd0u, 0x34u, 0), 0);
+    CHECK_INT(dx_radio_tuned(0x7fffffd0u, 0xfcu, 0), 1);
 }

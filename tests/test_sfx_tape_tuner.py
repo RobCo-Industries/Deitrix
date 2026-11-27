@@ -10,7 +10,7 @@ import time
 from conftest import serial_line
 from pipos_testing import TIMEOUT, no_exception, press, script
 from test_deitrix import boot_rom, wait_ready, wait_tabs
-from test_model import wait_line
+from test_model import card_target, mtools, wait_line
 from test_sfx import SELECT, TABLES, plays_after, wait_for
 from test_weep import SETTLE_S, sound_on, write_settings
 
@@ -119,6 +119,10 @@ def test_tuner_before_a_station_and_after_its_stop(board, kernel_image, card, tm
                  lambda: [int(m[1]) for m in TONE_T.finditer(vm.serial, mark)] != [])
         first = [int(m[1]) for m in TONE_T.finditer(vm.serial, mark)][0]
         assert first >= tuner + 100 - TICK_MS, (tuner, first, vm.serial[mark:])
+        # The tuner ends before the station's first sound line.
+        at = vm.serial.index("len=%d " % TUNER[1], mark)
+        tone_at = next(TONE_T.finditer(vm.serial, mark)).start()
+        assert PCM_END in vm.serial[at:tone_at], vm.serial[mark:]
         assert SELECT not in plays_after(vm, mark), vm.serial[mark:]
         time.sleep(SETTLE_S)
         # SELECT again stops the station, and the tuner plays again.
@@ -129,4 +133,25 @@ def test_tuner_before_a_station_and_after_its_stop(board, kernel_image, card, tm
         time.sleep(SETTLE_S)
         assert [p for p in plays_after(vm, mark) if p in (TUNER, SELECT)] == [TUNER], \
             vm.serial[mark:]
+        no_exception(vm)
+
+
+def test_tuner_with_a_station_file_missing(board, kernel_image, card, tmp_path, need_mtools):
+    # Station 3's tune is gone: on Full the radio says so, as on On.
+    mtools("mdel", "-i", card_target(card), "::PIPBOY/DATA/RADIO/LULLABY.TUN")
+    with boot_full(kernel_image, board, card, tmp_path) as vm:
+        wait_ready(vm)
+        wait_line(vm, "deitrix: load DEITRIX.SAV ok tab=0 volume=80 sound=2 station=0")
+        time.sleep(SETTLE_S)
+        script(vm, "dial -1")
+        assert wait_tabs(vm, 1)[-1] == "RADIO", vm.serial
+        time.sleep(SETTLE_S)
+        press(vm, "down")
+        wait_line(vm, "deitrix: radio row=1")
+        press(vm, "down")
+        wait_line(vm, "deitrix: radio row=2")
+        press(vm, "select")
+        wait_line(vm, "deitrix: radio station=3")
+        wait_line(vm, "deitrix: radio cannot play")
+        wait_line(vm, "deitrix: radio shows Cannot play Lullaby")
         no_exception(vm)

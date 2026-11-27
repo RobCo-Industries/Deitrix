@@ -37,13 +37,20 @@ void dx_radio_attach(const dx_radio_t *stations);
  * Whatever played stops first. */
 int dx_radio_play(int i, uint32_t now_ms);
 void dx_radio_stop(void);
-/* A station starts this long after the tuner sound starts, or later, so
- * the station does not cut the sound at once. */
+/* A station starts at least this long after the tuner sound was asked
+ * for, and once the audio status reads idle, so it does not cut the
+ * sound. */
 #define DX_RADIO_TUNING_MS 100u
-/* 1 when a station that waits since start_ms may start at now_ms. */
-int dx_radio_tuned(uint32_t start_ms, uint32_t now_ms);
-/* As dx_radio_play, but station index i starts DX_RADIO_TUNING_MS after
- * now_ms, from the service's tick. Until then the state is
+/* This long after the request the station starts whatever the status
+ * says, so a stuck status cannot keep the radio silent. */
+#define DX_RADIO_TUNING_MAX_MS 300u
+/* While tuning the tick checks the status this often. */
+#define DX_RADIO_TUNING_POLL_MS 10u
+/* 1 when a station that waits since start_ms may start at now_ms. idle
+ * is 1 when the audio status reads idle. */
+int dx_radio_tuned(uint32_t start_ms, uint32_t now_ms, int idle);
+/* As dx_radio_play, but station index i starts later, as
+ * dx_radio_tuned says, from the service's tick. Until then the state is
  * DX_RADIO_TUNING, the station counts as current and UI sounds stay
  * blocked. 0, or -1 when it cannot play. */
 int dx_radio_tune(int i, uint32_t now_ms);

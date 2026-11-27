@@ -785,6 +785,72 @@ TEST(tuner_stop_while_tuning)
     dx_ui_sound_enable(DX_UI_SOUND_ON);
 }
 
+TEST(tuner_waits_for_the_sound_to_end)
+{
+    unsigned flags = 0;
+    uint32_t t0;
+
+    load_level(DX_UI_SOUND_FULL);
+    t0 = fake.ticks;
+    select_as_shell();
+    /* At 100 ms the tuner still plays: the station waits for idle. */
+    fake.ticks = t0 + 50;
+    dx_plat_audio_stop();
+    clear_sounds();
+    CHECK_INT(dx_plat_play_seq((const dx_note_t[]){ { 440, 200 } }, 1), 0);
+    fake.ticks = t0 + 100;
+    CHECK_INT(dx_service_radio.tick(fake.ticks, &flags), t0 + 100 + DX_RADIO_TUNING_POLL_MS);
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNING);
+    /* A status that stays busy: the limit starts the station. */
+    fake.ticks = t0 + DX_RADIO_TUNING_MAX_MS;
+    CHECK(dx_service_radio.tick(fake.ticks, &flags) != 0);
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNE);
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
+}
+
+/* The file goes between the tuner and the start: the same line and the
+ * same end as a failed immediate start. */
+TEST(tuner_failed_delayed_start)
+{
+    unsigned flags = 0;
+    uint32_t t0;
+
+    load_level(DX_UI_SOUND_FULL);
+    key(DX_UI_DOWN);
+    t0 = fake.ticks;
+    select_as_shell();
+    CHECK_INT(dx_radio_state(), DX_RADIO_TUNING);
+    fake_remove_file("/PIPBOY/DATA/RADIO/HEARTH.PCM");
+    fake.log[0] = '\0';
+    fake.ticks = t0 + DX_RADIO_TUNING_MAX_MS;
+    CHECK_INT(dx_service_radio.tick(fake.ticks, &flags), 0);
+    CHECK_STR(fake.log, "deitrix: radio cannot play\n");
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    CHECK_INT(dx_radio_current(), -1);
+    CHECK_INT(dx_radio_failed(), 1);
+    CHECK(flags & DX_UI_DIRTY);
+    draw();
+    CHECK_STR(last_log(), "deitrix: radio shows Cannot play Hearth");
+    check_hint("UP/DOWN: move  SELECT: play");
+    /* UI sounds play again. */
+    clear_sounds();
+    dx_ui_sound(DX_SND_MOVE);
+    CHECK(fake.tone_count + fake.audio_count > 0);
+    /* The immediate start of the same station ends the same way. */
+    load_level(DX_UI_SOUND_ON);
+    key(DX_UI_DOWN);
+    fake_remove_file("/PIPBOY/DATA/RADIO/HEARTH.PCM");
+    fake.log[0] = '\0';
+    key(DX_UI_SELECT);
+    CHECK_STR(fake.log, "deitrix: radio station=2\ndeitrix: radio cannot play\n");
+    CHECK_INT(dx_radio_state(), DX_RADIO_OFF);
+    CHECK_INT(dx_radio_current(), -1);
+    CHECK_INT(dx_radio_failed(), 1);
+    draw();
+    CHECK_STR(last_log(), "deitrix: radio shows Cannot play Hearth");
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
+}
+
 TEST(station_sounds_on_and_off_keep_today)
 {
     uint32_t len = 0;

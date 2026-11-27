@@ -5,7 +5,8 @@
  * service tops the queue up every DX_RADIO_POLL_MS. Every chunk but the
  * last of a track that does not loop is DX_RADIO_CHUNK bytes long.
  * With the tuner sound a station waits in DX_RADIO_TUNING first, and
- * the tick starts it DX_RADIO_TUNING_MS after the sound's start.
+ * the tick starts it once the tuner sound has ended, as dx_radio_tuned
+ * says.
  */
 #include "services/services.h"
 
@@ -236,9 +237,11 @@ int dx_radio_play(int i, uint32_t now_ms)
     return can_play(i) ? start(i) : -1;
 }
 
-int dx_radio_tuned(uint32_t start_ms, uint32_t now_ms)
+int dx_radio_tuned(uint32_t start_ms, uint32_t now_ms, int idle)
 {
-    return dx_ticks_since(start_ms, now_ms) >= DX_RADIO_TUNING_MS;
+    uint32_t since = dx_ticks_since(start_ms, now_ms);
+
+    return since >= DX_RADIO_TUNING_MAX_MS || (since >= DX_RADIO_TUNING_MS && idle);
 }
 
 int dx_radio_tune(int i, uint32_t now_ms)
@@ -260,12 +263,18 @@ static uint32_t step(uint32_t now_ms)
 
     switch (state) {
     case DX_RADIO_TUNING:
-        if (!dx_radio_tuned(tuned_at, now_ms)) {
-            return dx_ticks_add(tuned_at, DX_RADIO_TUNING_MS);
+        if (!dx_radio_tuned(tuned_at, now_ms, !dx_plat_audio_status())) {
+            if (dx_ticks_since(tuned_at, now_ms) < DX_RADIO_TUNING_MS) {
+                return dx_ticks_add(tuned_at, DX_RADIO_TUNING_MS);
+            }
+            return dx_ticks_add(now_ms, DX_RADIO_TUNING_POLL_MS);
         }
-        /* The tuner sound has had its time: no stop, the play replaces it. */
+        /* The tuner sound has ended, or the limit passed: no stop, the
+         * play replaces it. A failure logs the line of a failed
+         * immediate start. */
         state = DX_RADIO_OFF;
         if (start(current) != 0) {
+            dx_plat_log("deitrix: radio cannot play\n");
             return 0;
         }
         return dx_ticks_add(now_ms, state == DX_RADIO_PCM ? DX_RADIO_POLL_MS
