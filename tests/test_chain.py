@@ -8,18 +8,29 @@ Pip-OS at its head. A nightly run in another repository picks it with
 """
 
 import re
+import time
 
 from conftest import serial_line
-from pipos_testing import no_exception, screenshot, script
+from pipos_testing import TIMEOUT, no_exception, screenshot, script
 from test_culvert import ended, key, launch, quit_from_play
 from test_data import to_tapes
 from test_deitrix import boot_rom, golden, rom_running, tabs, wait_ready, wait_tabs
 from test_model import TAB_LINE, load_lines, select, wait_line
-from test_stat import count, wait_count
 
 KERNEL_LOAD = serial_line(r"@RC stage=pipos ev=load [^\n]*?")
 HOLO_START = serial_line(r"@RC stage=pipos ev=holo_start name=(\S+)[^\n]*?")
 DEITRIX_SAVED = serial_line(r"deitrix: save DEITRIX\.SAV ok")
+
+
+def wait_saved_after(vm, line):
+    """Waits for a save logged after `line`, so the file holds that change."""
+    deadline = time.monotonic() + TIMEOUT
+    while True:
+        at = vm.serial.rfind(line)
+        if at >= 0 and DEITRIX_SAVED.search(vm.serial, at):
+            return
+        assert time.monotonic() < deadline, f"no save after {line}\n{vm.serial}"
+        time.sleep(0.05)
 
 
 def test_whole_chain_pipboy(board, kernel_image, card, tmp_path, need_mtools):
@@ -55,13 +66,13 @@ def test_whole_chain_pipboy(board, kernel_image, card, tmp_path, need_mtools):
         assert "ev=holo_kill" not in vm.serial, vm.serial
         assert "culvert: solved" not in vm.serial, vm.serial
 
-        # A save: station 1 on RADIO, then the autosave. The launch
-        # wrote DEITRIX.SAV already, so wait for one more save.
-        saves = count(vm, DEITRIX_SAVED)
+        # A save: station 1 on RADIO, then the autosave. The launch and
+        # the tab change can each write DEITRIX.SAV before the station
+        # changes, so wait for a save logged after the station line.
         script(vm, "dial 2")
         assert wait_tabs(vm, 7)[-1] == "RADIO", vm.serial
         select(vm, "deitrix: radio station=1")
-        wait_count(vm, DEITRIX_SAVED, saves + 1)
+        wait_saved_after(vm, "deitrix: radio station=1")
         no_exception(vm)
 
     # A restart on the same card: it opens on RADIO with station 1.
