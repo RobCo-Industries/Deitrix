@@ -10,7 +10,10 @@
 #   make holotapes            build/holo/CULVERT.HTP, the Culvert holotape
 #   make gallery              build/gallery/: the widget gallery ROM and its
 #                             card, for the QEMU tests only
-#   make check-pins           CI pins and doc links match the submodules
+#   make check-pins           CI pins and doc links match the submodules,
+#                             after check-workflows
+#   make check-workflows      the workflows put no ${{ }} in a script and
+#                             pin every action and reusable workflow by commit
 #   make weep-table           write src/services/weep_table.c and .h again
 #   make weep-table-check     fail when the committed weep table is stale
 #   make sfx-table            write src/services/sfx_table.c and .h again
@@ -302,11 +305,18 @@ sfx-preview: sdimage venv
 # ---- Checks and tests ------------------------------------------------------
 
 .PHONY: test test-target check-pins check-pins-test pbm2c-test sdimage-test venv
-.PHONY: check-content tools-test check-format
+.PHONY: check-content tools-test check-format check-workflows
+
+# RobCo-Core's tools/check_workflow_exprs.py on every workflow file. It
+# fails on a ${{ }} that could reach a script and on a uses: not pinned by
+# a full commit. With no workflow file, it fails. check-pins runs it, so
+# CI runs it with test-host.
+check-workflows:
+	$(PYTHON) -I $(ROBCO_CORE)/tools/check_workflow_exprs.py $(wildcard .github/workflows/*.yml .github/workflows/*.yaml)
 
 # RobCo-Core's scripts: the CI pins, then the doc links once per pinned
 # repository, Pip-OS and the RobCo-Core inside it.
-check-pins:
+check-pins: check-workflows
 	$(ROBCO_CORE)/tools/check_pins.sh .github/workflows/ci.yml
 	$(ROBCO_CORE)/tools/check_doc_links.sh --repo RobCo-Industries/Pip-OS . $(PIP_OS)
 	$(ROBCO_CORE)/tools/check_doc_links.sh . $(ROBCO_CORE)

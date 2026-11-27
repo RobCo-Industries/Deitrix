@@ -5,10 +5,10 @@
 | Layer | Command | What it covers |
 |---|---|---|
 | Host unit tests | `make test-host` | Pure code in `src/model/`, `src/ui/`, `src/screens/`, `src/services/`, the content loader and the app shell, against a fake platform; `tools/pbm2c.py` |
-| Pin checks | `make check-pins`, part of `test-host` | The CI workflow pins and the commit links in the docs |
+| Pin checks | `make check-pins`, part of `test-host` | The workflow guard of `make check-workflows`, the CI workflow pins and the commit links in the docs |
 | Environment guard | `tests/test_env_hygiene.py`, part of `test-target` | No test or tool copies `os.environ` |
 | Content check | `make check-content`, part of `test-host` | `build/card/` follows [CONTENT.md](CONTENT.md) |
-| Tool tests | `make tools-test`, part of `test-host` | `tools/check_content.py`, `tools/tun2notes.py`, `tools/mkpcm.py`, `tools/mkweep.py` and the sound effect tables: `--check --full`, `sfx_check.py` on the dumped tables, and the stale check on the paths of `make`, `make sdimage` and `make run` |
+| Tool tests | `make tools-test`, part of `test-host` | `tools/check_content.py`, `tools/tun2notes.py`, `tools/mkpcm.py`, `tools/mkweep.py`, the workflow guard and the sound effect tables: `--check --full`, `sfx_check.py` on the dumped tables, and the stale check on the paths of `make`, `make sdimage` and `make run` |
 | Weep table check | `make weep-table-check`, part of `all` and `test-host` | `src/services/weep_table.c` and `.h` match what `tools/mkweep.py` writes |
 | Sound table check | `build/gen/sfx_table.ok`, before the table's object and the host tests | `src/services/sfx_table.c` and `.h` match `assets/sfx/sfx_models.json` and the tool's revision |
 | Card check | `make sdimage-test`, part of `test-host` | The card holds the ROM, the kernel, `PIPOS.CFG` and every file of `build/card/` with the same bytes; `build/card/` holds every file of `content/` and both PCM tracks |

@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Changed
 
+- `make check-workflows` runs RobCo-Core's workflow guard on `.github/workflows/`. `check-pins` runs it first, so CI runs it too.
 - Pip-OS moves to `084590e`, with RobCo-Core `300e5a3` inside it. The sound table generator takes `--bed` for sounds over a loop. The CI workflow pins RobCo-Core `300e5a3`. The docs link the new commits.
 - `make boot-sound` renders the log with RobCo-Core's `tools/audio_preview.py`, since Pip-OS removed its `tools/boot_sound.py`. The WAV keeps the same bytes.
 - Pip-OS moves to `693e457`, with RobCo-Core `c0bee99` inside it. The library now holds the audio preview tool and adds `loop=1` to the trace of a looped play. Deitrix's radio refills a queue and never starts a looped play, so no test or doc changes. The CI workflow pins RobCo-Core `c0bee99`. The docs link the new commits.
