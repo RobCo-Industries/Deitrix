@@ -107,6 +107,14 @@ With UI sounds on `Full`, these actions play a sound of their own in place of th
 
 When one key does two of these, the first row of the table wins, except that a station or a holotape plays its own sound and not `select`. A station starts once the `tuner` sound ends. A holotape starts once `tape_start` ends, half a second at most after SELECT. A key that does nothing keeps its low tone. A count change, a volume step, a text scroll and a new map place keep the move tone. `Full` needs `system_sound = yes` in `PIPOS.CFG`. Without it RADIO offers only `On` and `Off`, and a saved `Full` shows `On` and plays the tones.
 
+### The hum
+
+With UI sounds on `Full + hum`, a quiet hum runs under the sounds of `Full`. It starts a quarter of a second after the first screen, once the chirp has ended. Each sound of the table above plays over it, and the hum goes on after the sound with no gap. The hum is a loop of 2.3 s. Its level swells and falls once per loop.
+
+A station stops the hum. The `tuner` sound then plays alone, and the hum comes back a quarter of a second at most after the `tuner` sound of the stop. A holotape stops it too. It comes back after the tape returns and `tape_stop` has played. A key tone also stops it for a moment, then it comes back.
+
+The hum is very quiet. At a volume under 50 it turns to grit. `Full + hum` needs `system_sound = yes`, as `Full` does. Without it a saved `Full + hum` shows `On` and plays the tones.
+
 ### In QEMU
 
 Type the keys in the terminal that runs `make run`. The arrow keys are UP, DOWN, LEFT and RIGHT. Enter is SELECT. Backspace, or Escape alone, is BACK. The terminal has no dial key, so LEFT and RIGHT change the tab.
@@ -418,7 +426,7 @@ RADIO plays music. It lists the stations, says what plays and holds two settings
 |---|---|
 | Stations | One row per station. The one that plays shows `ON AIR`. A dim station has a missing or broken file. |
 | Now playing | `Playing` and the station's name, then `tune` or `recording`. When nothing plays, `Radio off.`. |
-| Settings | `Volume` with a bar and the level from 0 to 100, and `UI sounds` with `Off`, `On` or `Full` |
+| Settings | `Volume` with a bar and the level from 0 to 100, and `UI sounds` with `Off`, `On`, `Full` or `Full + hum` |
 
 UP and DOWN move one cursor through the stations, then Volume, then UI sounds. The selected row is inverse, the Volume bar too.
 
@@ -429,7 +437,7 @@ UP and DOWN move one cursor through the stations, then Volume, then UI sounds. T
 | A station | SELECT | Starts it. On the station that plays, stops it. |
 | A station | LEFT, RIGHT | Change the tab |
 | Volume | LEFT, RIGHT | Volume down or up to the next step of 10. Hold to repeat. At 0 or 100 the low tone plays. |
-| UI sounds | SELECT, LEFT, RIGHT | Steps through `Off`, `On` and `Full`. `Full` shows only with the system sound on. |
+| UI sounds | SELECT, LEFT, RIGHT | Steps through `Off`, `On`, `Full` and `Full + hum`. `Full` and `Full + hum` show only with the system sound on. |
 
 The radio keeps playing on the other tabs. At power-on it does not start: the cursor waits on the last station you played. Running a holotape stops it. The volume and UI sounds are saved on the card.
 
@@ -444,7 +452,7 @@ Deitrix saves two files in `/PIPBOY/SAVE/` on the card:
 
 | File | What it holds |
 |---|---|
-| `DEITRIX.SAV` | The last tab, the volume, UI sounds off, on or full, and the last station |
+| `DEITRIX.SAV` | The last tab, the volume, UI sounds off, on, full or full with the hum, and the last station |
 | `INV.SAV` | The count and the mark of every item |
 
 You never save by hand. Deitrix writes a file 2 seconds after the last change, and at most 10 seconds after the first one. It writes only when a value changed. Before a holotape runs, it writes at once.

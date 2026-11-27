@@ -399,13 +399,15 @@ All sounds are original synthesis from the parameters in `assets/sfx/sfx_models.
 
 RobCo-Core's `tools/sfx_table.py` turns the model into `src/services/sfx_table.c` and `.h`, with the prefix `dx_sfx_`. Both files are committed. Each table is unsigned 8-bit at 37500 Hz, 128 is silence. The header gives each table's length and CRC-32, and each sound's peak.
 
-Today the ROM plays five of them, with "UI sounds" on `Full`: `mode` for a tab change, `tab` for a sub-tab move, `scroll` for a list row move, `select` for a select and `highlight` for a back. The linker drops the tables nothing plays, so `tuner`, `tape_start`, `tape_stop` and `hum` cost no ROM space yet.
+The ROM plays all nine. With "UI sounds" on `Full`: `mode` for a tab change, `tab` for a sub-tab move, `scroll` for a list row move, `select` for a select, `highlight` for a back, `tuner` for a station, and `tape_start` and `tape_stop` around a holotape. With `Full + hum` the hum runs under them too, see [ARCHITECTURE.md](ARCHITECTURE.md#the-hum). The hum's two parts add 86 651 bytes to the ROM.
+
+The generator runs with `--bed hum`. The header then also gives, for each of the eight other sounds, the length and CRC-32 of its head, the sound mixed with the hum's first bytes, and of its rest, the remainder of the hum's first part. `DX_SFX_BED_HEAD_MAX` is the longest head. The C file holds the same tables as without the option: the ROM mixes the heads into RAM at start.
 
 | Command | What it does |
 |---|---|
 | `make sfx-table` | Writes `src/services/sfx_table.c` and `.h` again from the model. Commit all three files together. |
 | `sfx_table.py MODEL --check --full` | Renders every sound again and compares the bytes. The tool tests run it. |
-| `sfx_table.py MODEL --dump DIR` | Writes each table as `DIR/<name>.u8`. RobCo-Core's `tools/sfx_check.py MODEL DIR` then checks that they match the model. |
+| `sfx_table.py MODEL --dump DIR` | Writes each table as `DIR/<name>.u8`. RobCo-Core's `tools/sfx_check.py MODEL DIR` then checks that they match the model. With `--bed hum` it also writes each `<name>_head.u8` and `<name>_rest.u8`. |
 
 ## Tools
 
