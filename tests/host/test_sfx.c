@@ -382,3 +382,77 @@ TEST(ui_sound_row_values)
     CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_ON, 0), "On");
     CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_FULL, 0), "On");
 }
+
+/* ---- The wait before a tape -------------------------------------------- */
+
+TEST(sfx_wait_more_rule)
+{
+    /* The status turns 0: the wait ends at once. */
+    CHECK_INT(dx_sfx_wait_more(1, 1, 0), 1);
+    CHECK_INT(dx_sfx_wait_more(1, 0, 0), 0);
+    CHECK_INT(dx_sfx_wait_more(1, 0, 120), 0);
+    /* The limit: 499 ms waits on, 500 ms ends it. */
+    CHECK_INT(dx_sfx_wait_more(1, 1, DX_SFX_DRAIN_MS - 1), 1);
+    CHECK_INT(dx_sfx_wait_more(1, 1, DX_SFX_DRAIN_MS), 0);
+    CHECK_INT(dx_sfx_wait_more(1, 1, DX_SFX_DRAIN_MS + 1), 0);
+    /* No sound at all: no wait, busy or not. */
+    CHECK_INT(dx_sfx_wait_more(0, 1, 0), 0);
+    CHECK_INT(dx_sfx_wait_more(0, 0, 0), 0);
+    CHECK_INT(DX_SFX_DRAIN_MS, 500);
+}
+
+TEST(sfx_drain_waits_for_the_end)
+{
+    uint32_t t0;
+
+    setup();
+    dx_ui_sound_enable(DX_UI_SOUND_FULL);
+    fake.tick_step = 10;
+    t0 = fake.ticks;
+    CHECK_INT(dx_ui_sound_play(DX_SFX_ID_TAPE_START), 1);
+    CHECK_INT(fake.au_crc, DX_SFX_TAPE_START_CRC32);
+    dx_sfx_drain(1);
+    /* 16269 bytes at 37500 Hz: 433 ms, then the wait ends. */
+    CHECK_INT(dx_plat_audio_status(), 0);
+    CHECK(fake.ticks - t0 >= DX_SFX_TAPE_START_LEN * 1000u / 37500u);
+    CHECK(fake.ticks - t0 < DX_SFX_DRAIN_MS);
+    CHECK(fake.waits > 0);
+    /* Every wait is short, so the end is close. */
+    CHECK(fake.last_timeout <= 10);
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
+}
+
+TEST(sfx_drain_stops_at_the_limit_and_without_a_sound)
+{
+    static const dx_note_t long_note[] = { { 440, 2000 } };
+    uint32_t t0;
+
+    /* A sound longer than the limit: the wait gives up at 500 ms. */
+    setup();
+    fake.tick_step = 10;
+    t0 = fake.ticks;
+    CHECK_INT(dx_plat_play_seq(long_note, 1), 0);
+    dx_sfx_drain(1);
+    CHECK_INT(dx_plat_audio_status(), 1);
+    CHECK_INT(fake.ticks - t0, DX_SFX_DRAIN_MS);
+    /* No sound started: no wait at all, even with the voice busy. */
+    setup();
+    fake.tick_step = 10;
+    CHECK_INT(dx_plat_play_seq(long_note, 1), 0);
+    dx_sfx_drain(0);
+    CHECK_INT(fake.waits, 0);
+}
+
+/* ---- The tuning state ---------------------------------------------------- */
+
+TEST(radio_tuned_rule)
+{
+    CHECK_INT(DX_RADIO_TUNING_MS, 100);
+    CHECK_INT(dx_radio_tuned(1000, 1099), 0);
+    CHECK_INT(dx_radio_tuned(1000, 1100), 1);
+    CHECK_INT(dx_radio_tuned(1000, 1101), 1);
+    CHECK_INT(dx_radio_tuned(1000, 1000), 0);
+    /* Across the wrap of ticks_ms at 2^31. */
+    CHECK_INT(dx_radio_tuned(0x7fffffd0u, 0x33u), 0);
+    CHECK_INT(dx_radio_tuned(0x7fffffd0u, 0x34u), 1);
+}

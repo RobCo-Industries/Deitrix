@@ -16,7 +16,8 @@
 
 /* ---- Radio ------------------------------------------------------------- */
 
-enum { DX_RADIO_OFF, DX_RADIO_TUNE, DX_RADIO_PCM };
+/* DX_RADIO_TUNING: the tuner sound plays and a station waits to start. */
+enum { DX_RADIO_OFF, DX_RADIO_TUNE, DX_RADIO_PCM, DX_RADIO_TUNING };
 
 /* A PCM track streams in chunks of 8000 bytes: 1000 ms each at 8000 Hz. */
 #define DX_RADIO_CHUNK    8000u
@@ -36,6 +37,16 @@ void dx_radio_attach(const dx_radio_t *stations);
  * Whatever played stops first. */
 int dx_radio_play(int i, uint32_t now_ms);
 void dx_radio_stop(void);
+/* A station starts this long after the tuner sound starts, or later, so
+ * the station does not cut the sound at once. */
+#define DX_RADIO_TUNING_MS 100u
+/* 1 when a station that waits since start_ms may start at now_ms. */
+int dx_radio_tuned(uint32_t start_ms, uint32_t now_ms);
+/* As dx_radio_play, but station index i starts DX_RADIO_TUNING_MS after
+ * now_ms, from the service's tick. Until then the state is
+ * DX_RADIO_TUNING, the station counts as current and UI sounds stay
+ * blocked. 0, or -1 when it cannot play. */
+int dx_radio_tune(int i, uint32_t now_ms);
 /* The station index that plays, or -1. */
 int dx_radio_current(void);
 int dx_radio_state(void);
@@ -129,6 +140,9 @@ enum {
     DX_SFX_ID_MODE,
     DX_SFX_ID_TAB,
     DX_SFX_ID_HIGHLIGHT,
+    DX_SFX_ID_TUNER,
+    DX_SFX_ID_TAPE_START,
+    DX_SFX_ID_TAPE_STOP,
     DX_SFX_COUNT
 };
 
@@ -139,6 +153,19 @@ enum {
  * Returns 1 when the play started, else 0.
  */
 int dx_sfx_play(int id);
+
+/* The longest wait for a sound to end before a tape starts. */
+#define DX_SFX_DRAIN_MS 500u
+
+/* 1 while the wait before a tape goes on: a sound was started, the
+ * audio is still busy, and less than DX_SFX_DRAIN_MS went by. */
+int dx_sfx_wait_more(int played, int busy, uint32_t waited_ms);
+
+/* Waits while dx_sfx_wait_more says so, through dx_plat_wait as the main
+ * loop does, so the kernel keeps its services running. An event that
+ * comes in the wait is dropped: Pip-OS empties the queue at a tape's
+ * start anyway. */
+void dx_sfx_drain(int played);
 
 /* ---- Tape slot ---------------------------------------------------------- */
 
