@@ -109,7 +109,8 @@ weep-table-check:
 SFX_TOOL   := $(ROBCO_CORE)/tools/sfx_table.py
 SFX_MODEL  := assets/sfx/sfx_models.json
 SFX_OUT    := src/services/sfx_table.c src/services/sfx_table.h
-SFX_ARGS   := $(SFX_MODEL) --c src/services/sfx_table.c --h src/services/sfx_table.h --prefix dx_sfx_
+SFX_BED    := hum
+SFX_ARGS   := $(SFX_MODEL) --c src/services/sfx_table.c --h src/services/sfx_table.h --prefix dx_sfx_ --bed $(SFX_BED)
 SFX_STAMP  := $(BUILD)/gen/sfx_table.ok
 .PHONY: sfx-table
 sfx-table:
