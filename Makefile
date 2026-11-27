@@ -11,6 +11,8 @@
 #   make gallery              build/gallery/: the widget gallery ROM and its
 #                             card, for the QEMU tests only
 #   make check-pins           CI pins and doc links match the submodules
+#   make weep-table           write src/services/weep_table.c and .h again
+#   make weep-table-check     fail when the committed weep table is stale
 #   make sdimage              build/pipos/sd.img: the Pip-OS kernel, its sample
 #                             PIPOS.CFG, ROM1.ROM and the card tree
 #   make card-tree            build/card/: content/ plus the generated radio
@@ -75,6 +77,20 @@ holotapes:
 
 all: holotapes
 
+# ---- The weep's table ---------------------------------------------------
+
+# src/services/weep_table.c and .h come from tools/weep_params.json and
+# are committed. `make weep-table` writes them again. The check runs
+# before the ROM and the host tests build, so a stale table stops both.
+.PHONY: weep-table weep-table-check
+all: weep-table-check
+$(call pip_obj,src/services/weep_table.c): | weep-table-check
+weep-table:
+	$(PYTHON) -I tools/mkweep.py
+
+weep-table-check:
+	$(PYTHON) -I tools/mkweep.py --check
+
 $(ICONS_C): tools/pbm2c.py $(ICONS)
 	$(PYTHON) tools/pbm2c.py $@ $(ICONS)
 
@@ -96,6 +112,8 @@ HOST_SRCS     := $(PURE_SRCS) $(ICONS_C) $(CV_PURE_SRCS) tests/host/fake_platfor
 HOST_INCLUDES := src $(BUILD)/gen $(CV_DIR)
 HOST_DEFINES  := DX_VERSION=$(VERSION)
 include $(ROBCO_CORE)/mk/host.mk
+
+$(HOST_TESTS): | weep-table-check
 
 # host.mk only sees the headers at the top of src/.
 $(HOST_TESTS): $(wildcard src/*/*.h) $(wildcard $(CV_DIR)/*.h) tests/host/fake_platform.h tests/host/tfmt.h $(EXPECT_H) $(wildcard tests/host/*.inc)
@@ -225,7 +243,7 @@ tools-test:
 	$(PYTHON) -m unittest discover -s tests/tools -p 'test_*.py'
 
 # The C host tests come from host.mk's test-host; these run first.
-test-host: check-format check-pins check-pins-test pbm2c-test check-content tools-test sdimage-test
+test-host: weep-table-check check-format check-pins check-pins-test pbm2c-test check-content tools-test sdimage-test
 
 VENV := .venv
 venv: $(VENV)/.installed

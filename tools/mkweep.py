@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+"""Writes the weep, the chirp Deitrix plays under its first frame.
+
+    tools/mkweep.py               write src/services/weep_table.c and .h
+    tools/mkweep.py --check       exit 1 when the committed files differ
+    tools/mkweep.py --dump DIR    the table as DIR/weep.u8, raw bytes
+
+The weep is a sum of glides from tools/weep_params.json. Each glide
+moves its pitch from start_hz to end_hz by a constant ratio, has linear
+edges in and out, and may carry partials at a whole multiple of its
+pitch. Samples are unsigned 8-bit at rate_hz, 128 is silence, and the
+first and last bytes are 128.
+
+The same parameters give the same bytes on every system and Python 3.
+The maths uses only add, subtract, multiply, divide and comparisons. It
+takes its logarithm, exponential and sine from Pip-OS's
+tools/sound_table.py, loaded by its path, so both tools round alike.
+"""
+
+import argparse
+import importlib.util
+import json
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PARAMS = os.path.join(ROOT, "tools", "weep_params.json")
+OUT_C = os.path.join(ROOT, "src", "services", "weep_table.c")
+OUT_H = os.path.join(ROOT, "src", "services", "weep_table.h")
+SOUND_TABLE = os.path.join(ROOT, "external", "pip-os", "tools", "sound_table.py")
+
+# The largest peak a byte can take around 128.
+MAX_STEPS = 127
+
+
+class ParamError(Exception):
+    pass
+
+
+def _load_sound_table():
+    """Pip-OS's tools/sound_table.py by its path: python -I leaves its
+    folder off sys.path. Loading it only defines functions."""
+    name = "pipos_sound_table"
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, SOUND_TABLE)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        sys.modules[name] = mod
+    return sys.modules[name]
+
+
+st = _load_sound_table()
+
+
+def samples_of_ms(ms, rate):
+    """Whole samples in ms, which must land on a sample."""
+    n = ms * rate
+    if n % 1000 != 0:
+        raise ParamError("%s ms is not a whole number of samples at %d Hz" % (ms, rate))
+    return n // 1000
+
+
+def check_params(p):
+    rate = p["rate_hz"]
+    n = p["samples"]
+    if not isinstance(rate, int) or not 8000 <= rate <= 37500:
+        raise ParamError("rate_hz must be an integer from 8000 to 37500")
+    if not isinstance(n, int) or not 2 <= n <= 65536:
+        raise ParamError("samples must be an integer from 2 to 65536")
+    total = 0.0
+    for g in p["glides"]:
+        start = samples_of_ms(g["start_ms"], rate)
+        length = samples_of_ms(g["duration_ms"], rate)
+        if start < 0 or length < 2 or start + length > n:
+            raise ParamError("a glide runs outside the %d samples" % n)
+        if (g["fade_in_ms"] + g["fade_out_ms"]) * rate > length * 1000:
+            raise ParamError("a glide's edges are longer than the glide")
+        top = g["start_hz"] if g["start_hz"] > g["end_hz"] else g["end_hz"]
+        if not g["start_hz"] > 0 or not g["end_hz"] > 0:
+            raise ParamError("a glide's pitch must be above 0 Hz")
+        total = total + g["peak_steps"]
+        for pt in g["partials"]:
+            h = pt["harmonic"]
+            if not isinstance(h, int) or h < 2:
+                raise ParamError("a partial's harmonic must be an integer from 2")
+            if not top * h * 2 < rate:
+                raise ParamError("a partial reaches half the rate")
+            total = total + pt["peak_steps"]
+    if not total <= p["ceiling_steps"] <= MAX_STEPS:
+        raise ParamError("the peaks add to %s steps, above ceiling_steps or %d"
+                         % (total, MAX_STEPS))
+
+
+def add_glide(acc, g, rate):
+    """Adds one glide and its partials into acc, a list of floats."""
+    start = samples_of_ms(g["start_ms"], rate)
+    n = samples_of_ms(g["duration_ms"], rate)
+    # The edges in samples, which need not be whole.
+    fade_in = g["fade_in_ms"] * rate / 1000.0
+    fade_out = g["fade_out_ms"] * rate / 1000.0
+    f0 = float(g["start_hz"])
+    lr = st.ln(g["end_hz"] / f0)
+    parts = [(1, g["peak_steps"])] + [(pt["harmonic"], pt["peak_steps"]) for pt in g["partials"]]
+    phase = 0.0                         # cycles of the fundamental, 0 to 1
+    for i in range(n):
+        v = 0.0
+        for h, peak in parts:
+            v = v + peak * st.sine_cycle(st.frac(phase * h))
+        if i < fade_in:
+            v = v * (i / fade_in)
+        left = n - 1 - i
+        if left < fade_out:
+            v = v * (left / fade_out)
+        acc[start + i] = acc[start + i] + v
+        # The pitch at sample i: the first sample is start_hz, the last end_hz.
+        hz = f0 * st.exp(lr * i / (n - 1))
+        phase = st.frac(phase + hz / rate)
+
+
+def build(p):
+    check_params(p)
+    acc = [0.0] * p["samples"]
+    for g in p["glides"]:
+        add_glide(acc, g, p["rate_hz"])
+    return st.to_u8(acc)
+
+
+HEADER_LINE = "/* Generated by tools/mkweep.py from tools/weep_params.json. Do not edit. */\n"
+
+
+def render(p, data):
+    h = (HEADER_LINE +
+         "#ifndef DX_SERVICES_WEEP_TABLE_H\n"
+         "#define DX_SERVICES_WEEP_TABLE_H\n\n"
+         "#include <stdint.h>\n\n"
+         "/* Unsigned 8-bit samples, 128 is silence, at DX_WEEP_RATE. */\n"
+         "#define DX_WEEP_RATE %du\n"
+         "#define DX_WEEP_LEN  %du\n\n"
+         "extern const uint8_t dx_weep[DX_WEEP_LEN];\n\n"
+         "#endif\n" % (p["rate_hz"], len(data)))
+    rows = []
+    for k in range(0, len(data), 16):
+        rows.append("    " + " ".join("%d," % b for b in data[k:k + 16]))
+    c = (HEADER_LINE +
+         '#include "services/weep_table.h"\n\n'
+         "const uint8_t dx_weep[DX_WEEP_LEN] = {\n" + "\n".join(rows) + "\n};\n")
+    return c, h
+
+
+def read_text(path):
+    try:
+        with open(path, "r", encoding="utf-8", newline="") as f:
+            return f.read()
+    except FileNotFoundError:
+        return None
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Write the weep's table.")
+    ap.add_argument("--params", default=PARAMS)
+    ap.add_argument("--out-c", default=OUT_C)
+    ap.add_argument("--out-h", default=OUT_H)
+    ap.add_argument("--check", action="store_true",
+                    help="exit 1 when the C files differ from what the tool writes")
+    ap.add_argument("--dump", metavar="DIR", help="write the table as DIR/weep.u8")
+    a = ap.parse_args(argv)
+
+    with open(a.params, "r", encoding="utf-8") as f:
+        p = json.load(f)
+    try:
+        data = build(p)
+    except (ParamError, KeyError, TypeError, ValueError) as e:
+        print("mkweep.py: bad parameters: %s" % e, file=sys.stderr)
+        return 2
+    c_text, h_text = render(p, data)
+
+    if a.dump:
+        os.makedirs(a.dump, exist_ok=True)
+        with open(os.path.join(a.dump, "weep.u8"), "wb") as f:
+            f.write(data)
+    if a.check:
+        stale = [path for path, text in ((a.out_c, c_text), (a.out_h, h_text))
+                 if read_text(path) != text]
+        for path in stale:
+            print("mkweep.py: %s is stale: run make weep-table, then commit it"
+                  % os.path.relpath(path, ROOT),
+                  file=sys.stderr)
+        return 1 if stale else 0
+    if not a.dump:
+        for path, text in ((a.out_c, c_text), (a.out_h, h_text)):
+            with open(path, "w", encoding="utf-8", newline="\n") as f:
+                f.write(text)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
