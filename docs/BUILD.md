@@ -177,6 +177,7 @@ The firmware comes from the network. `FIRMWARE=0` leaves it out, so the command 
 | `make sfx-table` | Writes `src/services/sfx_table.c` and `.h` again from `assets/sfx/sfx_models.json` with RobCo-Core's `tools/sfx_table.py`. Commit them. A stamp in `build/gen/` runs the tool's `--check` before the table builds, so `make`, `make sdimage`, `make run` and `make test-host` stop on a stale table |
 | `make weep-table-check` | Fails when the committed weep table is stale. `make` and `make test-host` run it first |
 | `make boot-sound` | Boots the card in QEMU with the system sound on and writes `build/boot_sound.wav`, the whole boot and the weep. See [TESTING.md](TESTING.md#the-boot-sound-preview) |
+| `make sfx-preview` | Boots the card in QEMU with "UI sounds" on Full, drives a session and writes `build/sfx_preview.wav`. See [TESTING.md](TESTING.md#the-session-sound-preview) |
 | `make check-format` | No unchecked C library string writer in `src/` or `tests/host/` |
 | `make tools-test` | The tests in `tests/tools/`, with Python's `unittest` |
 | `make test-host` | The C host unit tests, `weep-table-check`, `check-format`, `check-pins`, the `check-pins` wiring test, the `pbm2c.py` test, `check-content`, `tools-test` and the card check |
