@@ -108,9 +108,12 @@ This writes `build/pipos/sd.img`, a 64 MiB FAT32 image for QEMU:
 | `PIPBOY/PIPOS.CFG` | Pip-OS's sample settings, green scheme |
 | `PIPBOY/ROM1.ROM` | `build/ROM1.ROM` |
 | `PIPBOY/HOLO/CULVERT.HTP` | `build/holo/CULVERT.HTP`, through Pip-OS's `TAPE=` list |
+| `PIPBOY/VERSIONS.TXT` | The file `CARD_NOTE` names, only when it is set |
 | everything else | `build/card/`, copied to the card root |
 
 `build/card/` is `content/` plus `PIPBOY/DATA/RADIO/HEARTH.PCM` and `DRIFT.PCM`. `tools/mkpcm.py` generates the two tracks into `build/pcm/`, 250 KiB each, so git does not hold them. `tools/mkpcm.py --list` names them, and each one is its own make target. A track is made again when it is missing or when `tools/mkpcm.py` changes. The copy of `content/` runs every time. `tools/check_content.py` then checks `build/card/`, so a station whose file is missing stops `sdimage`, `run` and `bootdir`.
+
+`make sdimage CARD_NOTE=<file>` copies that file into `build/card/` as `PIPBOY/VERSIONS.TXT`, so it reaches the card. `run` and `bootdir` take it too. Without `CARD_NOTE` the card holds no such file. A `CARD_NOTE` that names no file stops the build. The ROM and the kernel never list `PIPBOY/` itself, only folders under it such as `PIPBOY/DATA`, `PIPBOY/HOLO` and `PIPBOY/SAVE`, so the file changes nothing on screen.
 
 To put a file on the card, add it under `content/` at the path it should have. [CONTENT.md](CONTENT.md) lists the files Deitrix reads and their formats.
 
@@ -203,6 +206,7 @@ The firmware comes from the network. `FIRMWARE=0` leaves it out, so the command 
 | `CI` | unset | `CI=1` turns compiler warnings into errors |
 | `PYTHON` | `python3` | Python 3.9 or later, for the SDK and the content tools. They use the standard library only. |
 | `CONTENT` | `content` | The content tree `card-tree` copies and `check-content` checks |
+| `CARD_NOTE` | unset | A file `card-tree` copies to `PIPBOY/VERSIONS.TXT`, so `sdimage`, `run` and `bootdir` put it on the card |
 
 ## How the targets reuse Pip-OS
 
