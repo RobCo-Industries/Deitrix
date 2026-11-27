@@ -13,6 +13,9 @@
 #   make check-pins           CI pins and doc links match the submodules
 #   make weep-table           write src/services/weep_table.c and .h again
 #   make weep-table-check     fail when the committed weep table is stale
+#   make boot-sound           boot a card with the system sound on in QEMU and
+#                             write build/boot_sound.wav, the whole boot and
+#                             the weep, what the audio pin would play
 #   make sdimage              build/pipos/sd.img: the Pip-OS kernel, its sample
 #                             PIPOS.CFG, ROM1.ROM and the card tree
 #   make card-tree            build/card/: content/ plus the generated radio
@@ -207,6 +210,30 @@ gallery:
 gallery-card: all card-tree
 	$(if $(filter 1,$(GALLERY)),,$(error run make gallery))
 	$(PIPOS_MAKE) sdimage $(CARD_VARS)
+
+# ---- Boot sound preview -----------------------------------------------
+
+# QEMU has no sound. `make boot-sound` boots the card of make sdimage on
+# one board, raspi0 unless BOARD names one, with the system sound on and
+# the stock typing pace. It saves the serial log until 3 s after the weep
+# and renders it with Pip-OS's tools/boot_sound.py. The kernel's sound
+# buffers and the weep come as .u8 files in two --pcm folders.
+# See docs/TESTING.md.
+BOOT_SOUND_BOARD = $(if $(filter all,$(BOARD)),raspi0,$(BOARD))
+BOOT_SOUND_DIR   := $(BUILD)/boot_sound
+.PHONY: boot-sound
+boot-sound: sdimage venv
+	@mkdir -p $(BOOT_SOUND_DIR)
+	@rm -f $(BOOT_SOUND_DIR)/serial.log $(BUILD)/boot_sound.wav
+	$(VENV)/bin/pytest tests/test_boot_sound_log.py -q --tb=short --board $(BOOT_SOUND_BOARD) \
+		--build-dir $(BUILD) --boot-sound-log $(BOOT_SOUND_DIR)/serial.log
+	@test -s $(BOOT_SOUND_DIR)/serial.log || { \
+		echo "boot-sound: the boot did not run, so there is no log. Check that QEMU and mtools are installed." >&2; \
+		exit 1; }
+	$(PYTHON) -I $(PIP_OS)/tools/sound_table.py --dump $(BOOT_SOUND_DIR)/pcm
+	$(PYTHON) -I tools/mkweep.py --dump $(BOOT_SOUND_DIR)/weep
+	$(PYTHON) -I $(PIP_OS)/tools/boot_sound.py $(BOOT_SOUND_DIR)/serial.log $(BUILD)/boot_sound.wav \
+		--pcm $(BOOT_SOUND_DIR)/pcm --pcm $(BOOT_SOUND_DIR)/weep
 
 # ---- Checks and tests ------------------------------------------------------
 
