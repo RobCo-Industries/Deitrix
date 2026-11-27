@@ -172,7 +172,8 @@ The firmware comes from the network. `FIRMWARE=0` leaves it out, so the command 
 | `make kernel` | Builds the Pip-OS kernel into `build/pipos/pipos.img` |
 | `make card-tree` | `build/card/`: a fresh copy of `content/` plus the PCM tracks from `tools/mkpcm.py`, kept in `build/pcm/`. Then `tools/check_content.py` checks it, and any problem stops the build. `sdimage`, `run`, `bootdir` and `check-content` run it first. |
 | `make check-content` | `tools/check_content.py` on `content/`, where the generated tracks may be missing, and on `build/card/`, where they must be there |
-| `make check-pins` | The CI pins and the commit links in the docs match the submodules |
+| `make check-pins` | The CI pins and the commit links in the docs match the submodules, after `check-workflows` |
+| `make check-workflows` | RobCo-Core's `tools/check_workflow_exprs.py` on every workflow file: no `${{ }}` in a script, every action and reusable workflow pinned by a full commit |
 | `make weep-table` | Writes `src/services/weep_table.c` and `.h` again from `tools/weep_params.json`. Commit them |
 | `make sfx-table` | Writes `src/services/sfx_table.c` and `.h` again from `assets/sfx/sfx_models.json` with RobCo-Core's `tools/sfx_table.py`. Commit them. A stamp in `build/gen/` runs the tool's `--check` before the table builds, so `make`, `make sdimage`, `make run` and `make test-host` stop on a stale table |
 | `make weep-table-check` | Fails when the committed weep table is stale. `make` and `make test-host` run it first |
