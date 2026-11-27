@@ -359,7 +359,7 @@ The settings. `magic` is `DXST`. `count` is 1: one 8-byte record. Total size 20 
 |---|---|---|---|---|
 | 12 | 1 | `last_tab` | 0 STAT, 1 INV, 2 DATA, 3 MAP, 4 RADIO | 0 |
 | 13 | 1 | `volume` | 0 to 100, the level for `volume` | The level Pip-OS had at ROM start |
-| 14 | 1 | `ui_sound` | 0 off, 1 on | 1 |
+| 14 | 1 | `ui_sound` | 0 off, 1 on, 2 full. A Deitrix before full reads 2 as out of range and keeps its default. | 1 |
 | 15 | 1 | `last_station` | 1 to 6, the station number, or 0 for none. The RADIO tab starts from it. The radio does not play at start. | 0 |
 | 16 | 4 | `reserved` | 0 | 0 |
 
@@ -392,6 +392,20 @@ The ROM never crashes on a save. It reads at most one byte more than the maximum
 | Two records with the same id | The first wins |
 
 A save is 1036 bytes at most, well below the 64 KiB limit of Pip-OS. The ROM writes a save only when a value changes, not on every key. It writes 2 seconds after the last change, and at most 10 seconds after the first one, so a burst of changes writes once. A failed write is tried again 5 seconds later, at most 3 times.
+
+## Sound effects
+
+All sounds are original synthesis from the parameters in `assets/sfx/sfx_models.json`. The file holds numbers and key names only, in the format of RobCo-Core's `docs/spec/SFX_MODEL.md`. It holds nine sounds: `scroll`, `select`, `mode`, `tab`, `highlight`, `tuner`, `tape_start`, `tape_stop` and the loop `hum`, in two parts.
+
+RobCo-Core's `tools/sfx_table.py` turns the model into `src/services/sfx_table.c` and `.h`, with the prefix `dx_sfx_`. Both files are committed. Each table is unsigned 8-bit at 37500 Hz, 128 is silence. The header gives each table's length and CRC-32, and each sound's peak.
+
+Today the ROM plays two of them, with "UI sounds" on `Full`: `scroll` for a list row move only and `select` for a select. The linker drops the tables nothing plays, so they cost no ROM space yet.
+
+| Command | What it does |
+|---|---|
+| `make sfx-table` | Writes `src/services/sfx_table.c` and `.h` again from the model. Commit all three files together. |
+| `sfx_table.py MODEL --check --full` | Renders every sound again and compares the bytes. The tool tests run it. |
+| `sfx_table.py MODEL --dump DIR` | Writes each table as `DIR/<name>.u8`. RobCo-Core's `tools/sfx_check.py MODEL DIR` then checks that they match the model. |
 
 ## Tools
 

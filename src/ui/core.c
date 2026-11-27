@@ -1,5 +1,7 @@
 #include "ui/ui.h"
 
+#include "services/services.h"
+
 dx_theme_t dx_theme_from_fg(uint32_t fg)
 {
     dx_theme_t t;
@@ -94,11 +96,13 @@ int dx_ui_sound_for(const dx_ui_event_t *ev, unsigned result, int tab_changed)
 
 /* The owner's setting, and the radio's claim on the one voice. */
 static int sound_on = 1;
+static int sound_full;
 static int sound_blocked;
 
-void dx_ui_sound_enable(int on)
+void dx_ui_sound_enable(int level)
 {
-    sound_on = on != 0;
+    sound_on = level != DX_UI_SOUND_OFF;
+    sound_full = level == DX_UI_SOUND_FULL;
 }
 
 int dx_ui_sound_enabled(void)
@@ -122,6 +126,45 @@ void dx_ui_sound(int snd)
         return;
     }
     dx_plat_tone(tones[snd][0], tones[snd][1]);
+}
+
+int dx_ui_sound_table(int snd, unsigned result, int tab_changed)
+{
+    if (snd == DX_SND_MOVE && !tab_changed && (result & DX_UI_ROW_MOVED)) {
+        return DX_SFX_ID_SCROLL;
+    }
+    if (snd == DX_SND_SELECT) {
+        return DX_SFX_ID_SELECT;
+    }
+    return -1;
+}
+
+void dx_ui_sound_event(int snd, unsigned result, int tab_changed)
+{
+    if (DX_UI_SOUND && sound_full && !sound_blocked) {
+        int id = dx_ui_sound_table(snd, result, tab_changed);
+
+        if (id >= 0 && dx_sfx_play(id)) {
+            return;
+        }
+    }
+    dx_ui_sound(snd);
+}
+
+int dx_ui_sound_next(int level, int full)
+{
+    if (!full) {
+        return level == DX_UI_SOUND_OFF ? DX_UI_SOUND_ON : DX_UI_SOUND_OFF;
+    }
+    return level >= DX_UI_SOUND_FULL ? DX_UI_SOUND_OFF : level + 1;
+}
+
+const char *dx_ui_sound_label(int level, int full)
+{
+    if (level == DX_UI_SOUND_OFF) {
+        return "Off";
+    }
+    return level == DX_UI_SOUND_FULL && full ? "Full" : "On";
 }
 
 int dx_strlen(const char *s)

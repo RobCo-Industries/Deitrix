@@ -58,7 +58,7 @@ unsigned dx_list_event(dx_list_t *l, const dx_ui_event_t *ev)
         return DX_UI_IGNORED;
     }
     dx_list_select(l, l->sel + step);
-    return DX_UI_HANDLED | DX_UI_DIRTY;
+    return DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_ROW_MOVED;
 }
 
 static void draw_row(const dx_ctx_t *ctx, const dx_row_t *row, int x, int y, int w, int selected)

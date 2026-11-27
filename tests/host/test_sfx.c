@@ -1,4 +1,5 @@
-/* The weep: when it plays, and the order of its calls on the fake audio. */
+/* The weep and the tables: when they play, and the order of their calls
+ * on the fake audio. */
 #include "rc_test.h"
 
 #include <string.h>
@@ -9,6 +10,7 @@
 #include "fake_platform.h"
 #include "screens/screens.h"
 #include "services/services.h"
+#include "services/sfx_table.h"
 #include "services/weep_table.h"
 #include "ui/ui.h"
 
@@ -168,4 +170,170 @@ TEST(no_weep_on_the_default_fake)
     dx_app_init(&app, dx_rom_screens, dx_rom_screen_count);
     dx_app_step(&app);
     CHECK_INT(fake.audio_count, 0);
+}
+
+/* ---- The tables of src/services/sfx_table.c ------------------------------ */
+
+TEST(sfx_header_matches_the_tables)
+{
+    static const struct {
+        const uint8_t *data;
+        uint32_t len;
+        uint32_t crc;
+    } t[] = {
+        { dx_sfx_scroll, DX_SFX_SCROLL_LEN, DX_SFX_SCROLL_CRC32 },
+        { dx_sfx_select, DX_SFX_SELECT_LEN, DX_SFX_SELECT_CRC32 },
+        { dx_sfx_mode, DX_SFX_MODE_LEN, DX_SFX_MODE_CRC32 },
+        { dx_sfx_tab, DX_SFX_TAB_LEN, DX_SFX_TAB_CRC32 },
+        { dx_sfx_highlight, DX_SFX_HIGHLIGHT_LEN, DX_SFX_HIGHLIGHT_CRC32 },
+        { dx_sfx_tuner, DX_SFX_TUNER_LEN, DX_SFX_TUNER_CRC32 },
+        { dx_sfx_tape_start, DX_SFX_TAPE_START_LEN, DX_SFX_TAPE_START_CRC32 },
+        { dx_sfx_tape_stop, DX_SFX_TAPE_STOP_LEN, DX_SFX_TAPE_STOP_CRC32 },
+        { dx_sfx_hum_1, DX_SFX_HUM_1_LEN, DX_SFX_HUM_1_CRC32 },
+        { dx_sfx_hum_2, DX_SFX_HUM_2_LEN, DX_SFX_HUM_2_CRC32 },
+    };
+    size_t i;
+
+    CHECK_INT(DX_SFX_RATE_HZ, DX_RATE_HI);
+    for (i = 0; i < sizeof(t) / sizeof(t[0]); i++) {
+        CHECK(t[i].len >= 2 && t[i].len <= DX_SAMPLE_MAX);
+        CHECK_INT(crc32(t[i].data, t[i].len), t[i].crc);
+    }
+}
+
+TEST(sfx_loudest_one_shot_over_the_loop_fits)
+{
+    static const unsigned shots[] = {
+        DX_SFX_SCROLL_PEAK, DX_SFX_SELECT_PEAK, DX_SFX_MODE_PEAK, DX_SFX_TAB_PEAK,
+        DX_SFX_HIGHLIGHT_PEAK, DX_SFX_TUNER_PEAK, DX_SFX_TAPE_START_PEAK, DX_SFX_TAPE_STOP_PEAK,
+    };
+    unsigned top = 0;
+    size_t i;
+
+    for (i = 0; i < sizeof(shots) / sizeof(shots[0]); i++) {
+        top = shots[i] > top ? shots[i] : top;
+    }
+    CHECK_INT(DX_SFX_HUM_LOOP, 1);
+    CHECK(top + DX_SFX_HUM_PEAK <= 127);
+}
+
+TEST(sfx_play_sets_the_rate_plays_and_restores)
+{
+    setup();
+    CHECK_INT(dx_sfx_play(DX_SFX_ID_SCROLL), 1);
+    CHECK_INT(fake.audio_count, 3);
+    CHECK_INT(fake.audio[0].op, FAKE_AU_RATE);
+    CHECK_INT(fake.audio[0].n, 37500);
+    CHECK_INT(fake.audio[1].op, FAKE_AU_SAMPLE);
+    CHECK_INT(fake.audio[1].n, DX_SFX_SCROLL_LEN);
+    CHECK_INT(fake.audio[2].op, FAKE_AU_RATE);
+    CHECK_INT(fake.audio[2].n, 8000);
+    CHECK_INT(fake.au_rate, 37500);
+    CHECK_INT(fake.rate, 8000);
+    CHECK_INT(fake.au_crc, DX_SFX_SCROLL_CRC32);
+    setup();
+    CHECK_INT(dx_sfx_play(DX_SFX_ID_SELECT), 1);
+    CHECK_INT(fake.au_crc, DX_SFX_SELECT_CRC32);
+    CHECK_INT(fake.rate, 8000);
+}
+
+TEST(sfx_play_silent_cases)
+{
+    setup();
+    CHECK_INT(dx_sfx_play(-1), 0);
+    CHECK_INT(dx_sfx_play(DX_SFX_COUNT), 0);
+    CHECK_INT(fake.audio_count, 0);
+    setup();
+    fake.sysinfo.abi_version = DX_ABI_1_4;
+    CHECK_INT(dx_sfx_play(DX_SFX_ID_SCROLL), 0);
+    setup();
+    fake.sysinfo.hw_flags = DX_HW_AUDIO;
+    CHECK_INT(dx_sfx_play(DX_SFX_ID_SCROLL), 0);
+    CHECK_INT(dx_sfx_full(), 0);
+    CHECK_INT(fake.audio_count, 0);
+    setup();
+    fake.rate_result = DX_EINVAL;
+    CHECK_INT(dx_sfx_play(DX_SFX_ID_SCROLL), 0);
+    CHECK_INT(fake_audio_ops(FAKE_AU_SAMPLE), 0);
+}
+
+TEST(ui_sound_full_plays_tables_where_it_may)
+{
+    setup();
+    dx_ui_sound_enable(DX_UI_SOUND_FULL);
+    /* A row move and a select play their tables. */
+    dx_ui_sound_event(DX_SND_MOVE, DX_UI_ROW_MOVED, 0);
+    CHECK_INT(fake.au_crc, DX_SFX_SCROLL_CRC32);
+    CHECK_INT(fake.tone_count, 0);
+    setup();
+    dx_ui_sound_enable(DX_UI_SOUND_FULL);
+    dx_ui_sound_event(DX_SND_SELECT, 0, 0);
+    CHECK_INT(fake.au_crc, DX_SFX_SELECT_CRC32);
+    CHECK_INT(fake.tone_count, 0);
+    /* A tab change, back and deny keep their tones. */
+    setup();
+    dx_ui_sound_enable(DX_UI_SOUND_FULL);
+    dx_ui_sound_event(DX_SND_MOVE, DX_UI_ROW_MOVED, 1);
+    dx_ui_sound_event(DX_SND_BACK, 0, 0);
+    dx_ui_sound_event(DX_SND_DENY, 0, 0);
+    CHECK_INT(fake_audio_ops(FAKE_AU_SAMPLE), 0);
+    CHECK_INT(fake.tone_count, 3);
+    /* A move that is not a row move, a value change or a volume step,
+     * keeps the move tone. */
+    setup();
+    dx_ui_sound_enable(DX_UI_SOUND_FULL);
+    dx_ui_sound_event(DX_SND_MOVE, DX_UI_HANDLED | DX_UI_DIRTY, 0);
+    CHECK_INT(fake_audio_ops(FAKE_AU_SAMPLE), 0);
+    CHECK_INT(fake.tone_count, 1);
+    CHECK_INT(fake.tones[0][0], 1400);
+    /* Blocked by the radio: nothing. */
+    setup();
+    dx_ui_sound_enable(DX_UI_SOUND_FULL);
+    dx_ui_sound_block(1);
+    dx_ui_sound_event(DX_SND_MOVE, DX_UI_ROW_MOVED, 0);
+    CHECK_INT(fake.audio_count, 0);
+    CHECK_INT(fake.tone_count, 0);
+    dx_ui_sound_block(0);
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
+}
+
+TEST(ui_sound_full_without_the_bit_plays_tones)
+{
+    setup();
+    fake.sysinfo.hw_flags = DX_HW_AUDIO;
+    dx_ui_sound_enable(DX_UI_SOUND_FULL);
+    CHECK_INT(dx_ui_sound_enabled(), 1);
+    dx_ui_sound_event(DX_SND_MOVE, DX_UI_ROW_MOVED, 0);
+    dx_ui_sound_event(DX_SND_SELECT, 0, 0);
+    CHECK_INT(fake_audio_ops(FAKE_AU_SAMPLE), 0);
+    CHECK_INT(fake_audio_ops(FAKE_AU_RATE), 0);
+    CHECK_INT(fake.tone_count, 2);
+    CHECK_INT(fake.tones[0][0], 1400);
+    CHECK_INT(fake.tones[1][0], 1900);
+    /* ON plays tones even with the bit. */
+    setup();
+    dx_ui_sound_enable(DX_UI_SOUND_ON);
+    dx_ui_sound_event(DX_SND_MOVE, DX_UI_ROW_MOVED, 0);
+    dx_ui_sound_event(DX_SND_SELECT, 0, 0);
+    CHECK_INT(fake_audio_ops(FAKE_AU_SAMPLE), 0);
+    CHECK_INT(fake_audio_ops(FAKE_AU_RATE), 0);
+    CHECK_INT(fake.tone_count, 2);
+}
+
+TEST(ui_sound_row_values)
+{
+    /* With the bit: Off, On, Full and round. */
+    CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_OFF, 1), DX_UI_SOUND_ON);
+    CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_ON, 1), DX_UI_SOUND_FULL);
+    CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_FULL, 1), DX_UI_SOUND_OFF);
+    CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_OFF, 1), "Off");
+    CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_ON, 1), "On");
+    CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_FULL, 1), "Full");
+    /* Without it: Off and On. A saved Full reads On and turns Off. */
+    CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_OFF, 0), DX_UI_SOUND_ON);
+    CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_ON, 0), DX_UI_SOUND_OFF);
+    CHECK_INT(dx_ui_sound_next(DX_UI_SOUND_FULL, 0), DX_UI_SOUND_OFF);
+    CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_OFF, 0), "Off");
+    CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_ON, 0), "On");
+    CHECK_STR(dx_ui_sound_label(DX_UI_SOUND_FULL, 0), "On");
 }

@@ -142,6 +142,8 @@ The weep is a short rising chirp under the first frame. The shell calls `dx_sfx_
 
 The table is two glides summed. The bright one runs from 2344 to 4500 Hz by a constant ratio over 140 ms, with a peak of 66.9 steps and its second harmonic 10 dB under, 21.1 steps. The lower one starts 10 ms in and runs from 700 to 2300 Hz over 130 ms, also by a constant ratio, with a peak of 17.6 steps. Each fades in over 10 ms and out over 15 ms. The first and last bytes are 128. `tools/mkweep.py` writes `src/services/weep_table.c` and `.h` from `tools/weep_params.json`, with the exact arithmetic of Pip-OS's `tools/sound_table.py`, so the bytes are the same on every machine. The files are committed. `make weep-table` writes them again, and `make weep-table-check` stops the ROM and host test builds when they are stale.
 
+The table sounds come from `src/services/sfx_table.c`, see [CONTENT.md](CONTENT.md#sound-effects). The "UI sounds" setting has three values: 0 off, 1 on, 2 full. The shell calls `dx_ui_sound_event()` with the sound and whether the tab changed. With full, a row move with no tab change plays `scroll` and a select plays `select` through `dx_sfx_play()`. Every other sound, and a table that cannot play, falls back to the tone. `dx_sfx_play()` follows the weep's rules: ABI 1.5 or later, both audio flags, and no radio. It sets the rate to 37500 Hz, starts the table with `sample` and sets the rate before back at once. It never waits for the play. RADIO offers full only when `dx_sfx_full()` says the kernel set both flags.
+
 ### Layout
 
 `ui.h` holds the bands of the screen. The skeleton's positions stay, so its goldens still match:

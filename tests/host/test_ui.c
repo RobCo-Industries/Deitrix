@@ -2,7 +2,9 @@
 #include "rc_test.h"
 
 #include "fake_platform.h"
+#include "services/services.h"
 #include "ui/latch.h"
+#include "ui/list.h"
 #include "ui/ui.h"
 
 #define CHECK_INT(a, b) CHECK_EQ((int64_t)(a), (int64_t)(b))
@@ -140,6 +142,39 @@ TEST(sound_for_outcome)
     CHECK_INT(snd(DX_UI_BACK, 0, DX_UI_IGNORED, 0), DX_SND_DENY);
     CHECK_INT(snd(DX_UI_DOWN, 1, DX_UI_IGNORED, 0), DX_SND_NONE);
     CHECK_INT(snd(DX_UI_LEFT, 0, DX_UI_IGNORED, 0), DX_SND_NONE);
+}
+
+static void no_row(void *user, int index, dx_row_t *out)
+{
+    (void)user;
+    (void)index;
+    (void)out;
+}
+
+TEST(row_move_plays_scroll_on_full)
+{
+    dx_ui_event_t down = { DX_UI_DOWN, 0, 0 };
+    dx_ui_event_t up = { DX_UI_UP, 0, 0 };
+    const unsigned hd = DX_UI_HANDLED | DX_UI_DIRTY;
+    dx_list_t l;
+    unsigned r;
+
+    dx_list_init(&l, 2, 2, no_row, NULL, 0);
+    /* A row move sets the flag and maps to the scroll table. */
+    r = dx_list_event(&l, &down);
+    CHECK_INT(r, hd | DX_UI_ROW_MOVED);
+    CHECK_INT(dx_ui_sound_table(dx_ui_sound_for(&down, r, 0), r, 0), DX_SFX_ID_SCROLL);
+    /* The end of the list changes nothing: no flag, a deny tone. */
+    r = dx_list_event(&l, &down);
+    CHECK_INT(r & DX_UI_ROW_MOVED, 0);
+    CHECK_INT(dx_ui_sound_for(&down, r, 0), DX_SND_DENY);
+    CHECK_INT(dx_ui_sound_table(DX_SND_DENY, r, 0), -1);
+    /* A value change or a volume step keeps the move tone. */
+    CHECK_INT(dx_ui_sound_for(&up, hd, 0), DX_SND_MOVE);
+    CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd, 0), -1);
+    /* A tab change keeps the move tone, flag or not. */
+    CHECK_INT(dx_ui_sound_table(DX_SND_MOVE, hd | DX_UI_ROW_MOVED, 1), -1);
+    CHECK_INT(dx_ui_sound_table(DX_SND_SELECT, DX_UI_HANDLED, 0), DX_SFX_ID_SELECT);
 }
 
 TEST(sound_plays_tone)

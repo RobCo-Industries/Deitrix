@@ -43,13 +43,13 @@ TEST(selection_and_ends)
     /* UP at the top: ignored, nothing moves. */
     CHECK_INT(key(&l, DX_UI_UP, 0), DX_UI_IGNORED);
     CHECK_INT(l.sel, 0);
-    CHECK_INT(key(&l, DX_UI_DOWN, 0), DX_UI_HANDLED | DX_UI_DIRTY);
-    CHECK_INT(key(&l, DX_UI_DOWN, 1), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(&l, DX_UI_DOWN, 0), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_ROW_MOVED);
+    CHECK_INT(key(&l, DX_UI_DOWN, 1), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_ROW_MOVED);
     CHECK_INT(l.sel, 2);
     /* DOWN at the bottom: ignored, no wrap. */
     CHECK_INT(key(&l, DX_UI_DOWN, 1), DX_UI_IGNORED);
     CHECK_INT(l.sel, 2);
-    CHECK_INT(key(&l, DX_UI_UP, 0), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(&l, DX_UI_UP, 0), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_ROW_MOVED);
     CHECK_INT(l.sel, 1);
     /* LEFT, RIGHT and SELECT are not the list's. */
     CHECK_INT(key(&l, DX_UI_LEFT, 0), DX_UI_IGNORED);

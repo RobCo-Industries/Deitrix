@@ -190,7 +190,7 @@ TEST(list_moves_and_ends)
     load(SMALL);
     CHECK_INT(key(DX_UI_UP), DX_UI_IGNORED);
     CHECK_STR(last_log(), "deitrix: inv end row=0");
-    CHECK_INT(key(DX_UI_DOWN), DX_UI_HANDLED | DX_UI_DIRTY);
+    CHECK_INT(key(DX_UI_DOWN), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_ROW_MOVED);
     CHECK_STR(last_log(), "deitrix: inv cat=0 row=1");
     CHECK_INT(send(DX_UI_DOWN, 1), DX_UI_IGNORED);
     CHECK_STR(last_log(), "deitrix: inv end row=1");
@@ -412,7 +412,7 @@ TEST(limits_stay_inside_the_body)
     /* Down to the end of 60 rows, then refused. */
     for (i = 1; i < 60; i++) {
         fake.log[0] = '\0';
-        CHECK_INT(send(DX_UI_DOWN, 1), DX_UI_HANDLED | DX_UI_DIRTY);
+        CHECK_INT(send(DX_UI_DOWN, 1), DX_UI_HANDLED | DX_UI_DIRTY | DX_UI_ROW_MOVED);
     }
     CHECK_STR(last_log(), "deitrix: inv cat=0 row=59");
     CHECK_INT(key(DX_UI_DOWN), DX_UI_IGNORED);
