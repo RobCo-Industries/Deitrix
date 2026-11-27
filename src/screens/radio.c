@@ -122,6 +122,9 @@ static unsigned station_select(const dx_radio_t *r)
     log_line("station=", s->number);
     dx_settings_set_station(dx_content_settings(), s->number);
     dx_radio_stop();
+    /* A station stops the hum: the tuner sound plays plain, so the
+     * tuning state still sees its end. */
+    dx_hum_halt();
     if (dx_ui_sound_play(DX_SFX_ID_TUNER)) {
         sounded = DX_UI_SOUNDED;
         rc = dx_radio_tune(sel, dx_plat_ticks());

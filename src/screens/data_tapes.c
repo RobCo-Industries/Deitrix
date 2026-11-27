@@ -243,6 +243,10 @@ static unsigned launch(void)
     tapes.armed = 0;
     /* Pip-OS stops the sound when a tape starts: the radio must know. */
     dx_radio_stop();
+    /* Pip-OS stops the hum too. The tape sounds play plain, so the wait
+     * below ends with the start sound, and the hum comes back after the
+     * stop sound. */
+    dx_hum_halt();
     /* With UI sounds on Full the tape start sound plays out first, since
      * Pip-OS would cut it at the launch. */
     if (dx_ui_sound_play(DX_SFX_ID_TAPE_START)) {

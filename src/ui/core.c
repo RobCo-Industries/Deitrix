@@ -97,12 +97,19 @@ int dx_ui_sound_for(const dx_ui_event_t *ev, unsigned result, int tab_changed)
 /* The owner's setting, and the radio's claim on the one voice. */
 static int sound_on = 1;
 static int sound_full;
+static int sound_hum;
 static int sound_blocked;
 
 void dx_ui_sound_enable(int level)
 {
     sound_on = level != DX_UI_SOUND_OFF;
-    sound_full = level == DX_UI_SOUND_FULL;
+    sound_full = level == DX_UI_SOUND_FULL || level == DX_UI_SOUND_FULL_HUM;
+    sound_hum = level == DX_UI_SOUND_FULL_HUM;
+}
+
+int dx_ui_sound_hum(void)
+{
+    return DX_UI_SOUND && sound_hum;
 }
 
 int dx_ui_sound_enabled(void)
@@ -126,6 +133,7 @@ void dx_ui_sound(int snd)
         return;
     }
     dx_plat_tone(tones[snd][0], tones[snd][1]);
+    dx_hum_halt(); /* the tone took the voice */
 }
 
 int dx_ui_sound_table(int snd, unsigned result, int tab_changed)
@@ -177,7 +185,7 @@ int dx_ui_sound_next(int level, int full)
     if (!full) {
         return level == DX_UI_SOUND_OFF ? DX_UI_SOUND_ON : DX_UI_SOUND_OFF;
     }
-    return level >= DX_UI_SOUND_FULL ? DX_UI_SOUND_OFF : level + 1;
+    return level >= DX_UI_SOUND_FULL_HUM ? DX_UI_SOUND_OFF : level + 1;
 }
 
 const char *dx_ui_sound_label(int level, int full)
@@ -185,7 +193,10 @@ const char *dx_ui_sound_label(int level, int full)
     if (level == DX_UI_SOUND_OFF) {
         return "Off";
     }
-    return level == DX_UI_SOUND_FULL && full ? "Full" : "On";
+    if (!full || level < DX_UI_SOUND_FULL) {
+        return "On";
+    }
+    return level == DX_UI_SOUND_FULL_HUM ? "Full + hum" : "Full";
 }
 
 int dx_strlen(const char *s)

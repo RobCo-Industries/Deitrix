@@ -157,8 +157,9 @@ void dx_ui_sound(int snd);
 
 /* The values of the "UI sounds" setting. FULL plays tables for a mode
  * change, a sub-tab move, a row move, a select and a back, on a kernel where dx_sfx_full says yes. Elsewhere
- * it plays the tones of ON. */
-enum { DX_UI_SOUND_OFF, DX_UI_SOUND_ON, DX_UI_SOUND_FULL };
+ * it plays the tones of ON. FULL_HUM plays as FULL, with the hum under
+ * the tables while the radio is off and no tape runs. */
+enum { DX_UI_SOUND_OFF, DX_UI_SOUND_ON, DX_UI_SOUND_FULL, DX_UI_SOUND_FULL_HUM };
 
 /* The setting, a DX_UI_SOUND_*: OFF turns UI sounds off. ON at
  * start. Another value counts as ON. */
@@ -166,6 +167,9 @@ void dx_ui_sound_enable(int level);
 
 /* 1 when UI sounds are on: DX_UI_SOUND and the owner's setting. */
 int dx_ui_sound_enabled(void);
+
+/* 1 when the setting is FULL_HUM. */
+int dx_ui_sound_hum(void);
 
 /*
  * The shell's sound for an event, from dx_ui_sound_for and whether the
@@ -186,9 +190,10 @@ int dx_ui_sound_table(int snd, unsigned result, int tab_changed);
 int dx_ui_sound_play(int id);
 
 /* The "UI sounds" row. The value after `level` for one press: OFF, ON,
- * FULL and round when `full` is 1, else OFF and ON. */
+ * FULL, FULL_HUM and round when `full` is 1, else OFF and ON. */
 int dx_ui_sound_next(int level, int full);
-/* The word the row shows. A saved FULL reads "On" when `full` is 0. */
+/* The word the row shows. A saved FULL or FULL_HUM reads "On" when
+ * `full` is 0. */
 const char *dx_ui_sound_label(int level, int full);
 
 /*
