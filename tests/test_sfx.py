@@ -73,12 +73,22 @@ def radio_key(vm, name):
     return RADIO_KEY.findall(vm.serial)[before]
 
 
+def sounds_after(vm, at):
+    return len(tones_after(vm, at)) + len(plays_after(vm, at))
+
+
 def move_and_select(vm):
-    """STAT to INV, one row down, SELECT. Returns the serial mark before."""
+    """STAT to INV, one row down, SELECT. Returns the serial mark before.
+
+    Each step waits for its sound before the next input. The kernel
+    starts a sound on its next tick, and a request made before that tick
+    replaces the one waiting, so two quick inputs give one sound."""
     mark = len(vm.serial)
     script(vm, "dial 1")
     assert wait_tabs(vm, 1)[-1] == "INV", vm.serial
+    wait_for(vm, "no sound after dial", lambda: sounds_after(vm, mark) >= 1)
     inv_key(vm, "down", "cat=0 row=1")
+    wait_for(vm, "no sound after down", lambda: sounds_after(vm, mark) >= 2)
     inv_key(vm, "select", "open=")
     return mark
 
