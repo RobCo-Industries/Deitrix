@@ -13,6 +13,8 @@ _Static_assert(DX_EV_BUTTON == PIP_EV_BUTTON && DX_EV_DIAL == PIP_EV_DIAL, "even
 _Static_assert(DX_EV_TAPE == PIP_EV_TAPE, "event types");
 _Static_assert(DX_HW_RTC == PIP_HW_RTC && DX_HW_AUDIO == PIP_HW_AUDIO && DX_HW_TAPE == PIP_HW_TAPE,
                "hw_flags");
+_Static_assert(DX_HW_AUDIO_MID == PIP_HW_AUDIO_MID, "hw_flags");
+_Static_assert(DX_RATE_LO == PIP_SAMPLE_RATE && DX_RATE_HI == PIP_SAMPLE_RATE_HI, "rates");
 _Static_assert(DX_HOLO_EV_INSERTED == PIP_HOLO_EV_INSERTED &&
                    DX_HOLO_EV_REMOVED == PIP_HOLO_EV_REMOVED && DX_HOLO_EV_BAD == PIP_HOLO_EV_BAD,
                "slot bits");
@@ -209,6 +211,11 @@ int32_t dx_plat_volume(uint32_t level)
     int32_t prev = pip_volume(level);
 
     return prev < 0 ? -1 : prev;
+}
+
+int32_t dx_plat_sample_rate(uint32_t hz)
+{
+    return pip_sample_rate(hz);
 }
 
 /* ---- System information ----------------------------------------------------- */

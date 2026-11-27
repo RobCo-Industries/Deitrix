@@ -15,6 +15,7 @@ Deitrix has booted on one real board, a Pi Zero W 1.1, with no screen and no spe
 | The tunes | `content/PIPBOY/DATA/RADIO/*.TUN` | Written for Deitrix in the `.TUN` format | MIT |
 | The PCM tracks | Generated into `build/pcm/` | `tools/mkpcm.py`, by synthesis | MIT |
 | The UI tones | `src/ui/core.c` | Four tones as numbers in the code | MIT |
+| The weep | `src/services/weep_table.c` | `tools/mkweep.py`, by synthesis from `tools/weep_params.json` | MIT |
 | The tape slot notices and the `SLOT` mark | `src/services/services.h`, `src/screens/data_tapes.c` | Written for Deitrix | MIT |
 | Culvert's icon | `holotapes/culvert/icon.pbm` | Drawn for Culvert as a PBM file | MIT |
 | Culvert's pipe pieces and screens | `holotapes/culvert/draw.c` | Drawn as code with Pip-OS's drawing calls | MIT |
@@ -30,7 +31,7 @@ Deitrix's own files are under the MIT licence in [LICENSE](../LICENSE), copyrigh
 
 Deitrix draws all normal text through Pip-OS's `text` call. It ships no font of its own. The kernel draws an 8 by 16 font from RobCo-Core, the library inside Pip-OS.
 
-RobCo-Core holds two font tables. Its [FONTS.md](https://github.com/RobCo-Industries/RobCo-Core/blob/712db81c9c804d4a8ede1f866ea764c0c6299844/docs/FONTS.md) describes both:
+RobCo-Core holds two font tables. Its [FONTS.md](https://github.com/RobCo-Industries/RobCo-Core/blob/9a11561b63068156cce77ff14af45e34e11da37f/docs/FONTS.md) describes both:
 
 | Font | Table | Source | Licence |
 |---|---|---|---|

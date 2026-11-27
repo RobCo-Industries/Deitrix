@@ -1,0 +1,29 @@
+{
+  "rate_hz": 37500,
+  "samples": 5250,
+  "ceiling_steps": 110,
+  "glides": [
+    {
+      "start_ms": 0,
+      "duration_ms": 140,
+      "start_hz": 2344,
+      "end_hz": 4500,
+      "peak_steps": 66.9,
+      "fade_in_ms": 10,
+      "fade_out_ms": 15,
+      "partials": [
+        { "harmonic": 2, "peak_steps": 21.1 }
+      ]
+    },
+    {
+      "start_ms": 10,
+      "duration_ms": 130,
+      "start_hz": 700,
+      "end_hz": 2300,
+      "peak_steps": 17.6,
+      "fade_in_ms": 10,
+      "fade_out_ms": 15,
+      "partials": []
+    }
+  ]
+}

@@ -140,6 +140,15 @@ int dx_plat_audio_status(void);
 /* Sets the level, 0 to 100. Returns the previous one, or -1. */
 int32_t dx_plat_volume(uint32_t level);
 
+/* The rates of dx_plat_sample_rate, in Hz. Every image starts at 8000. */
+#define DX_RATE_LO 8000u
+#define DX_RATE_HI 37500u
+/* Sets the rate of the plays that start after it: DX_RATE_LO or
+ * DX_RATE_HI. A play keeps the rate it started with. Returns the rate
+ * before, or a negative error: DX_EINVAL for another rate. Call it only
+ * on ABI 1.5 or later: an older Pip-OS has no such call. */
+int32_t dx_plat_sample_rate(uint32_t hz);
+
 /* ---- System information, for the STAT tab ---------------------------------- */
 
 typedef struct dx_sysinfo {
@@ -156,11 +165,15 @@ typedef struct dx_sysinfo {
 /* ABI versions the ROM checks for, (major << 16) | minor. */
 #define DX_ABI_1_3 0x00010003u /* hw_flags in sys_info */
 #define DX_ABI_1_4 0x00010004u /* the holotape slot */
+#define DX_ABI_1_5 0x00010005u /* sample_rate, DX_HW_AUDIO_MID */
 
 /* hw_flags bits, as PIP_HW_* in Pip-OS's ABI. */
 #define DX_HW_RTC   (1u << 0)
 #define DX_HW_AUDIO (1u << 2)
 #define DX_HW_TAPE  (1u << 3) /* a holotape slot exists, since ABI 1.4 */
+/* The audio output rests at its midpoint, since ABI 1.5. With the bit
+ * clear it rests low, and a sample starts and ends with a thump. */
+#define DX_HW_AUDIO_MID (1u << 4)
 
 /* Fills *out. 0, or -1 with *out zeroed. */
 int dx_plat_sysinfo(dx_sysinfo_t *out);

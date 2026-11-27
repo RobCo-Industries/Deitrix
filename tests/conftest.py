@@ -32,6 +32,16 @@ def serial_line(body):
 def pytest_addoption(parser):
     parser.addoption("--build-dir", default="build",
                      help="build directory, as BUILD in the Makefile")
+    parser.addoption("--boot-sound-log", default=None,
+                     help="test_boot_sound_log.py: where to save the serial log of the boot")
+
+
+def pytest_ignore_collect(collection_path, config):
+    """test_boot_sound_log.py runs only when it is given a log path, for
+    make boot-sound, so the suite neither skips it nor boots it."""
+    if collection_path.name == "test_boot_sound_log.py" and not config.getoption("--boot-sound-log"):
+        return True
+    return None
 
 
 def _built(request, *parts):

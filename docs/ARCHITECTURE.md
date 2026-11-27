@@ -74,7 +74,7 @@ The navigation rule:
 
 A screen that keeps a depth tests `dx_ui_is_back()`. It is true for `DX_UI_BACK` and for LEFT, repeats too. So a device with a Back button and the QEMU console behave the same. On the console, Backspace or a lone Escape is Back, and LEFT works too.
 
-The SDK seals the ROM for ABI 1.4, the version its headers implement, since Deitrix calls `holo_eject_event` as 1.4 defines it. The loader checks only the major version, so the ROM still runs on a 1.0 to 1.3 Pip-OS. A 1.0 or 1.1 Pip-OS never sends button 6, and LEFT is the only way back there. Deitrix reads `abi_version` from `sys_info` before it trusts a newer field: `hw_flags` only from 1.3, the slot only from 1.4. On an older Pip-OS it has no slot and behaves as before.
+The SDK seals the ROM for ABI 1.5, the version its headers implement, since Deitrix calls `holo_eject_event` as 1.4 defines it and `sample_rate`, new in 1.5. The loader checks only the major version, so the ROM still runs on a 1.0 to 1.3 Pip-OS. A 1.0 or 1.1 Pip-OS never sends button 6, and LEFT is the only way back there. Deitrix reads `abi_version` from `sys_info` before it trusts a newer field: `hw_flags` only from 1.3, the slot only from 1.4, `sample_rate` and `PIP_HW_AUDIO_MID` only from 1.5. On an older Pip-OS it has no slot and behaves as before.
 
 A `PIP_EV_TAPE` event, new in 1.4, is not a key. The shell does not route it: it only wakes the services, and the tape slot service asks Pip-OS what changed.
 
@@ -131,6 +131,16 @@ The footer names the keys that do something in the current state. Every hint fol
 ### Sounds
 
 `dx_ui_sound()` plays a short tone through the platform: MOVE, SELECT, BACK or DENY. It plays nothing when the owner turned UI sounds off in the settings, or while the radio plays. `dx_ui_sound_for()` picks it: MOVE for a tab change or a handled key that changed the screen, SELECT or BACK when the screen handled one, and DENY for UP, DOWN, SELECT or BACK that the screen ignored on a fresh press. Repeats never deny. `DX_UI_SOUND` in `ui.h` turns every tone off when set to 0.
+
+The weep is a short rising chirp under the first frame. The shell calls `dx_sfx_weep()` of `src/services/sfx.c` once, right after the first `present` and the `deitrix: ready` line. It sets the sample rate to 37500 Hz, plays the 5250 bytes of `dx_weep` with `sample` and sets the rate before back at once. The play keeps its rate, so later samples, such as the radio's, play at 8000 Hz again. `dx_sfx_weep_allowed()` makes the choice, from plain values so the host tests cover every case. The weep stays silent when:
+
+- UI sounds are off in the settings.
+- The radio plays.
+- `abi_version` is below 1.5, or `sys_info` fails. An older Pip-OS has no `sample_rate`.
+- `hw_flags` lacks `PIP_HW_AUDIO`: no audio driver.
+- `hw_flags` lacks `PIP_HW_AUDIO_MID`: the output rests low, so a sample would start and end with a thump. Pip-OS sets this bit only with `[audio] system_sound` on, so a stock card plays no weep.
+
+The table is two glides summed. The bright one runs from 2344 to 4500 Hz by a constant ratio over 140 ms, with a peak of 66.9 steps and its second harmonic 10 dB under, 21.1 steps. The lower one starts 10 ms in and runs from 700 to 2300 Hz over 130 ms, also by a constant ratio, with a peak of 17.6 steps. Each fades in over 10 ms and out over 15 ms. The first and last bytes are 128. `tools/mkweep.py` writes `src/services/weep_table.c` and `.h` from `tools/weep_params.json`, with the exact arithmetic of Pip-OS's `tools/sound_table.py`, so the bytes are the same on every machine. The files are committed. `make weep-table` writes them again, and `make weep-table-check` stops the ROM and host test builds when they are stale.
 
 ### Layout
 

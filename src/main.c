@@ -197,6 +197,8 @@ static void draw(dx_app_t *app, int32_t minute)
     /* Logged after present, so a test that sees the line sees the frame. */
     if (first) {
         dx_plat_log("deitrix: ready\n");
+        /* The weep sounds under the first frame, once. */
+        dx_sfx_weep();
     } else if (tab_changed) {
         log_tab(s->name);
     }

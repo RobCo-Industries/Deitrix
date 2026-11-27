@@ -96,6 +96,24 @@ uint32_t dx_uptime_s(uint32_t now_ms, uint32_t *ms_in_s);
 /* Starts the count again at now_ms with no wrap, for the host tests. */
 void dx_uptime_reset(uint32_t now_ms);
 
+/* ---- Sound effects ------------------------------------------------------ */
+
+/*
+ * 1 when the weep may play: UI sounds on, the radio not holding the
+ * voice, ABI 1.5 or later for sample_rate, and hw_flags with DX_HW_AUDIO
+ * and DX_HW_AUDIO_MID. With the output resting low a sample starts and
+ * ends with a thump, so the weep stays silent there.
+ */
+int dx_sfx_weep_allowed(int ui_sound_on, int radio_on, uint32_t abi_version, uint32_t hw_flags);
+
+/*
+ * Plays the weep, a short rising chirp, at DX_RATE_HI, then sets the
+ * rate back to the one before. Does nothing when dx_sfx_weep_allowed
+ * says no. Returns 1 when it started the weep, else 0. The shell calls
+ * it once, after the first frame.
+ */
+int dx_sfx_weep(void);
+
 /* ---- Tape slot ---------------------------------------------------------- */
 
 /* The footer notices of the slot changes. */

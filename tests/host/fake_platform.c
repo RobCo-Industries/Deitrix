@@ -67,6 +67,7 @@ void fake_reset(void)
     fake.theme = dx_theme_from_fg(fake.fg);
     fake.ticks = 1000;
     fake.volume = 100;
+    fake.rate = DX_RATE_LO;
     for (int i = 0; i < FAKE_HANDLES; i++) {
         fake.handle_file[i] = -1;
     }
@@ -872,8 +873,9 @@ int32_t dx_plat_sample(const uint8_t *data, uint32_t length)
     }
     audio_log(FAKE_AU_SAMPLE, length, data[0]);
     fake.au_starts++;
+    fake.au_rate = fake.rate;
     take_bytes(data, length);
-    audio_start(length / 8);
+    audio_start(length * 1000u / fake.rate);
     return 0;
 }
 
@@ -922,6 +924,21 @@ int32_t dx_plat_volume(uint32_t level)
     }
     audio_log(FAKE_AU_VOLUME, level, 0);
     fake.volume = level;
+    return (int32_t)prev;
+}
+
+int32_t dx_plat_sample_rate(uint32_t hz)
+{
+    uint32_t prev = fake.rate;
+
+    audio_log(FAKE_AU_RATE, hz, 0);
+    if (fake.rate_result != 0) {
+        return fake.rate_result;
+    }
+    if (hz != DX_RATE_LO && hz != DX_RATE_HI) {
+        return DX_EINVAL;
+    }
+    fake.rate = hz;
     return (int32_t)prev;
 }
 

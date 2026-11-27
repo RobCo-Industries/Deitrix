@@ -101,6 +101,11 @@ void dx_ui_sound_enable(int on)
     sound_on = on != 0;
 }
 
+int dx_ui_sound_enabled(void)
+{
+    return DX_UI_SOUND && sound_on;
+}
+
 void dx_ui_sound_block(int blocked)
 {
     sound_blocked = blocked != 0;
