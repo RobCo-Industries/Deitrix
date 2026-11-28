@@ -36,15 +36,22 @@ def pytest_addoption(parser):
                      help="test_boot_sound_log.py: where to save the serial log of the boot")
     parser.addoption("--sfx-preview-log", default=None,
                      help="test_sfx_preview_log.py: where to save the serial log of the session")
+    parser.addoption("--levels-preview-log", default=None,
+                     help="test_levels_preview_log.py: where to save the serial log of the session")
+    parser.addoption("--levels-preview", default=None,
+                     help="test_levels_preview_log.py: the levels of the session, such as default")
 
 
 def pytest_ignore_collect(collection_path, config):
-    """test_boot_sound_log.py and test_sfx_preview_log.py run only when
-    they are given a log path, for make boot-sound and make sfx-preview,
-    so the suite neither skips them nor boots them."""
+    """test_boot_sound_log.py, test_sfx_preview_log.py and
+    test_levels_preview_log.py run only when they are given a log path,
+    for make boot-sound, make sfx-preview and make levels-preview, so the
+    suite neither skips them nor boots them."""
     if collection_path.name == "test_boot_sound_log.py" and not config.getoption("--boot-sound-log"):
         return True
     if collection_path.name == "test_sfx_preview_log.py" and not config.getoption("--sfx-preview-log"):
+        return True
+    if collection_path.name == "test_levels_preview_log.py" and not config.getoption("--levels-preview-log"):
         return True
     return None
 
