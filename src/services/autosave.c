@@ -1,17 +1,20 @@
 /*
  * The autosave service: it watches the change counters of the settings
  * and the items, and writes a save once the changes stop for
- * DX_SAVE_QUIET_MS, or DX_SAVE_MAX_MS after the first one.
+ * DX_SAVE_QUIET_MS, or DX_SAVE_MAX_MS after the first one. From ABI
+ * 1.6 it also stores the device's sound levels by the same rules, with
+ * dx_plat_levels_store, once dx_autosave_note_levels counted a change.
  */
 #include "services/services.h"
 
 #include "platform/platform.h"
 
-enum { SAVE_SETTINGS = 1, SAVE_INV = 2 };
+enum { SAVE_SETTINGS = 1, SAVE_INV = 2, SAVE_LEVELS = 4 };
 
 static dx_settings_t *settings;
 static dx_items_t *items;
 static uint32_t seen_settings, seen_items;
+static uint32_t level_changes, seen_levels; /* changes of the device's levels */
 static unsigned dirty;     /* SAVE_* bits: not on the card */
 static unsigned stalled;   /* dirty bits the retries gave up on */
 static uint32_t first_ms;  /* the first change since the last write */
@@ -26,6 +29,16 @@ void dx_autosave_attach(dx_settings_t *s, dx_items_t *it)
 {
     settings = s;
     items = it;
+}
+
+void dx_autosave_note_levels(void)
+{
+    dx_sysinfo_t si;
+
+    if (dx_plat_sysinfo(&si) != 0 || si.abi_version < DX_ABI_1_6) {
+        return; /* no stored levels before ABI 1.6 */
+    }
+    level_changes++;
 }
 
 int dx_autosave_pending(void)
@@ -54,6 +67,10 @@ static void note_changes(uint32_t now_ms)
     if (items != NULL && items->changes != seen_items) {
         seen_items = items->changes;
         found |= SAVE_INV;
+    }
+    if (level_changes != seen_levels) {
+        seen_levels = level_changes;
+        found |= SAVE_LEVELS;
     }
     if (found == 0) {
         return;
@@ -98,6 +115,24 @@ static void write_dirty(unsigned which)
             dirty &= ~(unsigned)SAVE_INV;
             stalled &= ~(unsigned)SAVE_INV;
         }
+    }
+    if (dirty & which & SAVE_LEVELS) {
+        int32_t rc = dx_plat_levels_store();
+        char line[48];
+        dx_sb_t sb;
+
+        dx_sb_init(&sb, line, sizeof(line));
+        dx_sb_str(&sb, "deitrix: save PIPOS.SET ");
+        if (rc == 0) {
+            dx_sb_str(&sb, "ok");
+            dirty &= ~(unsigned)SAVE_LEVELS;
+            stalled &= ~(unsigned)SAVE_LEVELS;
+        } else {
+            dx_sb_str(&sb, "failed rc=");
+            dx_sb_int(&sb, rc);
+        }
+        dx_sb_char(&sb, '\n');
+        dx_plat_log(line);
     }
 }
 
@@ -191,6 +226,7 @@ static void init(uint32_t now_ms)
     (void)now_ms;
     seen_settings = settings != NULL ? settings->changes : 0;
     seen_items = items != NULL ? items->changes : 0;
+    seen_levels = level_changes;
     dirty = 0;
     stalled = 0;
     failures = 0;

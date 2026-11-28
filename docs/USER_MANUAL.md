@@ -437,14 +437,38 @@ UP and DOWN move one cursor through the stations, then Volume, then UI sounds. T
 | A station | SELECT | Starts it. On the station that plays, stops it. |
 | A station | LEFT, RIGHT | Change the tab |
 | Volume | LEFT, RIGHT | Volume down or up to the next step of 10. Hold to repeat. At 0 or 100 the low tone plays. |
+| Volume | SELECT | Opens the [sound levels](#sound-levels). An older Pip-OS has none, and SELECT does nothing there. |
 | UI sounds | SELECT, LEFT, RIGHT | Steps through `Off`, `On`, `Full` and `Full + hum`. `Full` and `Full + hum` show only with the system sound on. |
 
-The radio keeps playing on the other tabs. At power-on it does not start: the cursor waits on the last station you played. Running a holotape stops it. The volume and UI sounds are saved on the card.
+The radio keeps playing on the other tabs. At power-on it does not start: the cursor waits on the last station you played. Running a holotape stops it. The volume and UI sounds are saved on the card, and so are the sound levels.
 
 | Message | Meaning |
 |---|---|
 | `No stations on the card.` | `RADIO.INI` is missing or broken. The line under it gives the reason, such as `RADIO.INI missing`. The settings still work. |
 | `Station has nothing to play.` | The station could not start or stopped on an error. The line under it gives the reason, such as `LULLABY.TUN missing`. |
+
+### Sound levels
+
+The volume sets every sound. Four sound levels set each kind of sound under it. On the Volume row, SELECT opens them. SELECT again, the dial push or BACK closes them. A turn of the dial changes the tab and closes them too. The values stay.
+
+![The sound levels](../tests/golden/radio_levels.png)
+
+| Row | What it sets |
+|---|---|
+| `Radio tunes` | Stations that play a tune |
+| `Effects` | Key tones, the tables of `Full`, the hum, the tape sounds, the tuner and the sounds of the boot |
+| `Recordings` | Recorded stations, and tapes that play a recording |
+| `Games` | Holotape games such as Culvert |
+
+| Key | What it does |
+|---|---|
+| UP, DOWN | Move to another row. The line under the rows says what the row covers. |
+| LEFT, RIGHT | The level down or up to the next step of 5, from 0 to 100. Hold to repeat. At 0 or 100 the low tone plays. |
+| SELECT, BACK | Close the levels |
+
+A step applies at once, to the sound that plays too. With UI sounds on and the radio off, the step plays a short tone at the new level, so you hear it. A level is steeper than the volume: 50 gives about a quarter of the sound, not a half. A tune on a device with the system sound off follows a change at its next note.
+
+Pip-OS keeps the levels. Deitrix asks it to store them on the card with the volume, as for a save. An older Pip-OS has no sound levels: SELECT on the Volume row does nothing and only the volume works.
 
 ## Saving
 
@@ -455,9 +479,11 @@ Deitrix saves two files in `/PIPBOY/SAVE/` on the card:
 | `DEITRIX.SAV` | The last tab, the volume, UI sounds off, on, full or full with the hum, and the last station |
 | `INV.SAV` | The count and the mark of every item |
 
+On a Pip-OS with sound levels, Pip-OS also writes `/PIPBOY/PIPOS.SET` when Deitrix asks. It holds the volume and the four [sound levels](#sound-levels), and Pip-OS reads it at the next power-on. Deitrix asks after a change of the volume or of a level. It also asks once at power-on when the volume in `DEITRIX.SAV` differs from the one Pip-OS started at.
+
 You never save by hand. Deitrix writes a file 2 seconds after the last change, and at most 10 seconds after the first one. It writes only when a value changed. Before a holotape runs, it writes at once.
 
-When the card cannot be written, Deitrix tries again 5 seconds later, up to 3 times, then waits for the next change. Your changes stay on screen but are not on the card, and the header shows the [unsaved mark](#the-unsaved-mark). They are lost at power-off. On TAPES, starting a tape then shows `Save failed. SELECT again runs it.`.
+When the card cannot be written, Deitrix tries again 5 seconds later, up to 3 times, then waits for the next change. This holds for `PIPOS.SET` too, on a missing, locked or full card. Your changes stay on screen and in force but are not on the card, and the header shows the [unsaved mark](#the-unsaved-mark). They are lost at power-off. On TAPES, starting a tape then shows `Save failed. SELECT again runs it.`.
 
 Pip-OS writes each save through two work files with the same name, one that starts with `~` and one that starts with `#`, such as `~INV.SAV` and `#INV.SAV`. After an interrupted save, it uses them to finish the save or bring back the old one. In normal use, leave these files in place.
 
@@ -521,5 +547,6 @@ Everything Deitrix shows comes from text files in `/PIPBOY/DATA/` on the card. E
 | A dim station, or `Station has nothing to play.` | The station's file is missing or broken | Put the file named on the second line in `/PIPBOY/DATA/RADIO/` |
 | No key tones | The radio plays, or UI sounds are off | Stop the radio, or turn UI sounds on, on RADIO |
 | No sound at all | The volume is at 0 | Raise it on RADIO |
+| No sound of one kind, such as the radio | Its sound level is at 0 | Raise it in the sound levels: RADIO, Volume, SELECT |
 | BACK does nothing | You are on a top-level view, and BACK never changes the tab | Use the dial, LEFT or RIGHT |
 | A held key stops acting | It opened or closed a view, or changed the tab | Let go and press again |

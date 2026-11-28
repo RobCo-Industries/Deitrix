@@ -154,6 +154,9 @@ enum { DX_SND_NONE, DX_SND_MOVE, DX_SND_SELECT, DX_SND_BACK, DX_SND_DENY };
 /* Plays a short tone for a DX_SND_*, unless DX_UI_SOUND is 0, the
  * owner turned UI sounds off, or the radio holds the voice. */
 void dx_ui_sound(int snd);
+/* The same tone as a play of `kind`, a DX_SOUND_* value, under the same
+ * gates. dx_ui_sound plays it as DX_SOUND_SFX. */
+void dx_ui_sound_as(int snd, uint32_t kind);
 
 /* The values of the "UI sounds" setting. FULL plays tables for a mode
  * change, a sub-tab move, a row move, a select and a back, on a kernel where dx_sfx_full says yes. Elsewhere

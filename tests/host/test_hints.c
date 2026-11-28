@@ -41,6 +41,8 @@ static const char *const table[] = {
     "UP/DOWN: move  SELECT: stop",
     "UP/DOWN: move  LEFT/RIGHT: volume",
     "UP/DOWN: move  SELECT: sound on/off",
+    "LEFT/RIGHT: volume  SELECT: levels",
+    "LEFT/RIGHT: level  SELECT: done",
     DX_FRAME_HINT,
 };
 #define TABLE_N ((int)(sizeof(table) / sizeof(table[0])))
@@ -202,6 +204,33 @@ static int radio_on_air(void)
     return ok;
 }
 
+/* On a Pip-OS of ABI 1.6 the Volume row opens the levels view. The
+ * walks run on the default fake, older than 1.6: this sees both hints
+ * of the view, from an empty card where the cursor starts on that row. */
+static int radio_levels(void)
+{
+    dx_app_t app;
+    dx_ui_event_t ev = { DX_UI_SELECT, 0, 0 };
+    int ok;
+
+    fake_reset();
+    fake.sysinfo.abi_version = DX_ABI_1_6;
+    dx_content_load();
+    dx_radio_attach(dx_content_radio());
+    reset_screens();
+    if (dx_app_init(&app, dx_rom_screens, dx_rom_screen_count) != 0) {
+        return 0;
+    }
+    dx_app_set_tab(&app, dx_rom_screen_count - 1);
+    fake_clear_draws();
+    dx_app_step(&app);
+    ok = check_hint(&app);
+    dx_app_route(&app, &ev);
+    ok = ok && dx_radio_levels_is_open() && check_hint(&app);
+    reset_screens();
+    return ok;
+}
+
 static const char ITEMS_EMPTY_CAT[] =
     "version = 1\n[categories]\ntools = TOOLS\nspare = SPARE\n"
     "[item.knife]\nname = Folding knife\ncat = tools\n";
@@ -236,6 +265,11 @@ TEST(every_hint_follows_the_style)
     fake_add_text("/PIPBOY/DATA/MAP.INI", MAP_NO_PLACES);
     fake_add_text("/PIPBOY/DATA/NOTES/A.TXT", "Alpha\nShort.\n");
     CHECK(walk(3u, 4000));
+    CHECK_STR(unknown, "");
+    /* The walks saw the Volume row's hint of a Pip-OS before 1.6. */
+    CHECK(seen[14]);
+    CHECK(!seen[16] && !seen[17]);
+    CHECK(radio_levels());
     CHECK_STR(unknown, "");
     for (i = 0; i < TABLE_N; i++) {
         if (!seen[i]) {

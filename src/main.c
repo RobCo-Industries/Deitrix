@@ -356,6 +356,13 @@ int32_t dx_start_volume(void)
     return level >= 0 ? level : dx_plat_volume(100);
 }
 
+void dx_start_levels(int32_t start_master)
+{
+    if (start_master >= 0 && start_master != (int32_t)dx_content_settings()->volume) {
+        dx_autosave_note_levels();
+    }
+}
+
 void dx_main(void)
 {
     static dx_app_t app;
@@ -378,6 +385,7 @@ void dx_main(void)
     dx_autosave_attach(dx_content_settings(), dx_content_items());
     dx_app_start_services(&app, rom_services,
                           (int)(sizeof(rom_services) / sizeof(rom_services[0])));
+    dx_start_levels(volume);
     dx_app_set_tab(&app, dx_content_settings()->last_tab);
     app.tab_changed = remember_tab;
     for (;;) {

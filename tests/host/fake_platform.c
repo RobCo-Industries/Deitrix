@@ -68,6 +68,9 @@ void fake_reset(void)
     fake.theme = dx_theme_from_fg(fake.fg);
     fake.ticks = 1000;
     fake.volume = 100;
+    for (int i = 0; i < 4; i++) {
+        fake.levels[i] = 100;
+    }
     fake.rate = DX_RATE_LO;
     for (int i = 0; i < FAKE_HANDLES; i++) {
         fake.handle_file[i] = -1;
@@ -960,6 +963,71 @@ int32_t dx_plat_volume(uint32_t level)
 int32_t dx_plat_master(void)
 {
     return fake.sysinfo.abi_version >= DX_ABI_1_6 ? (int32_t)fake.volume : -1;
+}
+
+/* The level calls answer by the fake kernel's ABI and log no audio. */
+static uint32_t *level_of(uint32_t which)
+{
+    return which == DX_LEVEL_MASTER ? &fake.volume : &fake.levels[which];
+}
+
+int32_t dx_plat_level(uint32_t which)
+{
+    fake.level_calls++;
+    if (fake.sysinfo.abi_version < DX_ABI_1_6) {
+        return DX_ENOSYS;
+    }
+    if (which > DX_LEVEL_MASTER) {
+        return DX_EINVAL;
+    }
+    if (fake.level_rc != 0) {
+        return fake.level_rc;
+    }
+    return (int32_t)*level_of(which);
+}
+
+int32_t dx_plat_level_set(uint32_t which, uint32_t level)
+{
+    uint32_t prev;
+
+    fake.level_calls++;
+    if (fake.sysinfo.abi_version < DX_ABI_1_6) {
+        return DX_ENOSYS;
+    }
+    if (which > DX_LEVEL_MASTER || level > 100) {
+        return DX_EINVAL;
+    }
+    if (fake.level_rc != 0) {
+        return fake.level_rc;
+    }
+    prev = *level_of(which);
+    *level_of(which) = level;
+    if (fake.level_set_count < FAKE_MAX_LEVEL_SETS) {
+        fake_level_set_t *e = &fake.level_sets[fake.level_set_count++];
+
+        e->which = which;
+        e->level = level;
+        e->audio_at = fake.audio_count;
+    }
+    return (int32_t)prev;
+}
+
+int32_t dx_plat_levels_store(void)
+{
+    fake.level_calls++;
+    if (fake.sysinfo.abi_version < DX_ABI_1_6) {
+        return DX_ENOSYS;
+    }
+    if (fake.store_fail > 0) {
+        fake.store_fail--;
+        return fake.store_rc;
+    }
+    for (int i = 0; i < 4; i++) {
+        fake.stored[i] = fake.levels[i];
+    }
+    fake.stored[4] = fake.volume;
+    fake.store_count++;
+    return 0;
 }
 
 int32_t dx_plat_sample_rate(uint32_t hz)

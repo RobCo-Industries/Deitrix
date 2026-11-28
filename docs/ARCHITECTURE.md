@@ -32,7 +32,7 @@ The UI framework: the core types in `ui.h`, the frame every tab shares, and the 
 
 ### `src/screens/`
 
-One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. `table.c` lists them in tab order. Every tab is built, see [Screens](#screens). `stat_draw.c` draws STAT's name and gauges. DATA keeps TAPES in `data_tapes.c` and CLOCK in `data_clock.c`.
+One file per tab, each defining one `dx_screen_t`: `stat.c`, `inv.c`, `data.c`, `map.c` and `radio.c`. RADIO keeps its sound levels view in `radio_levels.c`. `table.c` lists them in tab order. Every tab is built, see [Screens](#screens). `stat_draw.c` draws STAT's name and gauges. DATA keeps TAPES in `data_tapes.c` and CLOCK in `data_clock.c`.
 
 ### `holotapes/`
 
@@ -57,6 +57,8 @@ The sample content of the card: `PIPBOY/DATA/` with the profile, items, notes, m
 `platform.h` declares `dx_gfx_t`, a table of drawing functions: `clear`, `line`, `rect`, `text`, `polyline`, `arc`, `blit1`, `clip` and `present`. Each call takes its own colour, so no drawing state carries over between calls. `platform.c` maps each one to the Pip-OS call that does it: it sets the colour with `set_color`, then draws. `blit1` fills a background rectangle first when one is given, because `blit_1bpp` draws set bits only. Arguments outside the kernel's limits draw nothing. `DX_COLOR_NONE` is a transparent text background.
 
 Every platform call that starts a sound takes its kind first: `DX_SOUND_RADIO`, `DX_SOUND_SFX`, `DX_SOUND_RECORDINGS` or `DX_SOUND_GAMES`, the values of Pip-OS's `PIP_SND_*`. These are `dx_plat_tone`, `dx_plat_play_seq`, `dx_plat_sample` and `dx_plat_sample_queue`. So no sound starts without a kind. `pip_main()` reads `abi_version` once. On 1.6 or later each of the four calls sets the kind with `sound_kind`, starts the sound, and sets the kind before back when the first call returned 0 or more. A play keeps the kind it started with, so the kind in force is sfx again whenever a platform call returns. No code above `platform.c` holds a kind. On an older Pip-OS the calls only start the sound. A failed kind call never stops the sound. A queued sample that joins a play keeps that play's kind. `dx_plat_master()` reads the master level with `sound_level` and sets nothing. Before 1.6 it returns a negative value.
+
+Three calls reach the levels of ABI 1.6. `which` is a kind or `DX_LEVEL_MASTER`, 4, the value of `PIP_LEVEL_MASTER`. `dx_plat_level(which)` reads a level with `sound_level(which, PIP_LEVEL_ASK)`. `dx_plat_level_set(which, level)` sets one and returns the level before. `dx_plat_levels_store()` calls `sound_store`, which writes the master and the four levels to `/PIPBOY/PIPOS.SET`. Each passes the kernel's error code on, such as `DX_EIO` or `DX_ENOSPC`. Before 1.6 each returns `DX_ENOSYS` and calls nothing.
 
 The host fake gives a recorder instead. Each call becomes one line of a draw list, for example `text 8 4 "STAT" fg none s1`. Colours that match the theme print as `fg`, `dim`, `faint` or `bg`.
 
@@ -127,12 +129,14 @@ The footer names the keys that do something in the current state. Every hint fol
 | MAP | Detail | `BACK: map` |
 | RADIO | Station | `UP/DOWN: move  SELECT: play` |
 | RADIO | Station on air | `UP/DOWN: move  SELECT: stop` |
-| RADIO | Volume | `UP/DOWN: move  LEFT/RIGHT: volume` |
+| RADIO | Volume, Pip-OS before 1.6 | `UP/DOWN: move  LEFT/RIGHT: volume` |
+| RADIO | Volume, Pip-OS 1.6 or later | `LEFT/RIGHT: volume  SELECT: levels` |
+| RADIO | Sound levels | `LEFT/RIGHT: level  SELECT: done` |
 | RADIO | UI sounds | `UP/DOWN: move  SELECT: sound on/off` |
 
 ### Sounds
 
-Every sound in this section is sfx: the key tones, the weep, the tables and the hum. Pip-OS plays it at its sfx level.
+Every sound in this section is sfx: the key tones, the weep, the tables and the hum. Pip-OS plays it at its sfx level. One tone is not: a step in RADIO's sound levels plays the MOVE tone as the kind of its row, with `dx_ui_sound_as()`. It takes the same gates as `dx_ui_sound()`, which calls it with sfx.
 
 `dx_ui_sound()` plays a short tone through the platform: MOVE, SELECT, BACK or DENY. It plays nothing when the owner turned UI sounds off in the settings, or while the radio plays. `dx_ui_sound_for()` picks it: MOVE for a tab change or a handled key that changed the screen, SELECT or BACK when the screen handled one, and DENY for UP, DOWN, SELECT or BACK that the screen ignored on a fresh press. Repeats never deny. `DX_UI_SOUND` in `ui.h` turns every tone off when set to 0.
 
@@ -313,7 +317,8 @@ deitrix: load DEITRIX.SAV ok tab=4 volume=80 sound=1 station=1
 2. The content, as above.
 3. The saves, on top of the content. The volume default is the level Pip-OS had at start. `dx_start_volume()` reads it. On ABI 1.6 it reads the master with `sound_level` and sets nothing. Before 1.6 it reads it with `volume(100)`, the only way there. The volume and the UI sound setting apply at once.
 4. The services: the radio, the hum, the autosave, the uptime and the tape slot.
-5. The tab from the settings. Then the first frame and `deitrix: ready`.
+5. The master rule, `dx_start_levels()`. On ABI 1.6, when the master Pip-OS started at differs from the volume in `DEITRIX.SAV`, Deitrix has applied its own and counts one change of the levels, so the autosave stores them once. It runs after the services, because the autosave's `init` forgets earlier changes.
+6. The tab from the settings. Then the first frame and `deitrix: ready`.
 
 ## Services
 
@@ -343,7 +348,9 @@ Before a holotape starts on `Full`, TAPES plays `tape_start` and waits for `audi
 
 The autosave writes DEITRIX.SAV and INV.SAV when their counters change. It writes 2 s after the last change, and at most 10 s after the first one, so a burst of changes writes once. It writes only the saves that changed. Each write logs `deitrix: save DEITRIX.SAV ok` or `failed`. A failed write is tried again 5 s later. After 3 failed retries it gives up and logs `deitrix: save gave up` once. 
 
-The unsaved mark tells the owner that changes are not on the card. It is a `!` in the normal colour, just left of the clock. It does not blink. It shows once a change has waited 12 s without reaching the card, `DX_SAVE_MARK_MS`: the longest wait of a healthy save, 10 s, plus 2 s. So a card that works never shows it. It stays while the changes are not saved, also after the autosave gave up. It goes as soon as every change is on the card, after the next change or a holotape's save. The service's tick turns it on and off, asks for a redraw and logs `deitrix: unsaved mark on` or `off`. It then stops its retries, so a broken card is not hit again and again. The changes stay marked as not saved. A new change to that save starts a fresh round of retries. `dx_autosave_flush()` writes at once. It tries every save that is not on the card once, even after a give-up. It returns 0 only when every save is on the card. The service's `stop` calls it. `dx_autosave_unsaved()` returns 1 while a change is not on the card. `dx_autosave_pending()` returns 1 only while the service plans a write, so it is 0 after a give-up. A write in QEMU takes 20 to 120 ms, and the UI waits only that long. No screen shows the saves, so the autosave never asks for a redraw.
+The unsaved mark tells the owner that changes are not on the card. It is a `!` in the normal colour, just left of the clock. It does not blink. It shows once a change has waited 12 s without reaching the card, `DX_SAVE_MARK_MS`: the longest wait of a healthy save, 10 s, plus 2 s. So a card that works never shows it. It stays while the changes are not saved, also after the autosave gave up. It goes as soon as every change is on the card, after the next change or a holotape's save. The service's tick turns it on and off, asks for a redraw and logs `deitrix: unsaved mark on` or `off`. It then stops its retries, so a broken card is not hit again and again. The changes stay marked as not saved. A new change to that save starts a fresh round of retries. `dx_autosave_flush()` writes at once. It tries every save that is not on the card once, even after a give-up. It returns 0 only when every save is on the card. The service's `stop` calls it. `dx_autosave_unsaved()` returns 1 while a change is not on the card. `dx_autosave_pending()` returns 1 only while the service plans a write, so it is 0 after a give-up. A write in QEMU takes 20 to 120 ms, and the UI waits only that long.
+
+From ABI 1.6 the autosave also stores the sound levels. `dx_autosave_note_levels()` counts one change: RADIO calls it after a change of the volume and after each step in the sound levels. It does nothing before 1.6. The store follows every rule of a save: the quiet time, the 10 s bound, the retries, the give-up, the flush, the unsaved mark, `dx_autosave_pending()` and `dx_autosave_unsaved()`. It runs after the two saves, with `dx_plat_levels_store()`, and logs `deitrix: save PIPOS.SET ok` or `deitrix: save PIPOS.SET failed rc=-5` with the kernel's code. A tab change, a station or the UI sounds setting never asks for a store. No screen shows the saves, so the autosave never asks for a redraw.
 
 ### The tape slot
 
@@ -524,6 +531,7 @@ UP and DOWN move one cursor through the stations, then Volume, then UI sounds. T
 | Station | SELECT | Starts it, or stops it when it plays. Starting one stops the station before |
 | Station | LEFT, RIGHT | Not handled: the shell changes the tab |
 | Volume | LEFT, RIGHT | The level goes to the next multiple of 10 down or up, within 0 to 100. Repeats too. At a limit a press plays the deny tone and the tab stays |
+| Volume | SELECT | On ABI 1.6 or later, opens the sound levels. Before, does nothing |
 | UI sounds | SELECT, LEFT, RIGHT | Turns UI sounds on or off. A repeat does nothing and the tab stays |
 
 BACK does nothing on any row. The service plays on whatever tab is shown, so leaving the tab does not stop the radio. The cursor stays while the ROM runs.
@@ -537,6 +545,18 @@ When the service changes what plays, such as at the end of a track played once, 
 Without RADIO.INI, or with a file the loader ignored, the list area says "No stations on the card." and the reason in dim text, such as `RADIO.INI missing`. The settings still work.
 
 The footer hints are in [Footer hints](#footer-hints).
+
+**The sound levels.** `src/screens/radio_levels.c` is a nested level of the tab, not a sub-tab. It exists when `sys_info` reports ABI 1.6 or later. A fresh SELECT on Volume opens it: it reads the four levels with `dx_plat_level` and starts on the first row. A failed read leaves it closed. It fills the body: `SOUND LEVELS` in the band, a faint rule, then four gauge rows, `Radio tunes`, `Effects`, `Recordings` and `Games`, drawn by `dx_radio_gauge_row()` as the Volume row is. Under them a dim line says what the selected row covers. Deitrix keeps no copy of the levels outside the open view: Pip-OS holds them.
+
+| Key | Does |
+|---|---|
+| UP, DOWN | Move one row. At an end the key is ignored, so a press plays the deny tone |
+| LEFT, RIGHT | The row's level to the next multiple of 5, within 0 to 100. Repeats too. One `dx_plat_level_set` per step, then the MOVE tone as the row's kind. The key returns `DX_UI_SOUNDED`, so the shell plays nothing more. At a limit, or when the set fails, a press plays the deny tone. They never close the view or change the tab |
+| SELECT, BACK | Close the view on a fresh press. A repeat does nothing. The test is `DX_UI_BACK`, not `dx_ui_is_back()`, since LEFT lowers a level here |
+
+A dial turn changes the tab. The tab's `leave` closes the view, and `dx_radio_screen_reset()` does too. The values stay. After a close the cursor is on Volume.
+
+Each key in the view logs one line: `deitrix: radio levels radio=40 sfx=100 recordings=50 games=30` at the open, `level row=2`, `level end row=3`, `level radio=45`, `level refused games=0`, `level failed sfx rc=-5`, `levels closed`, and `idle` for a key that changes nothing.
 
 Each key the tab takes logs one serial line before the redraw: `deitrix: radio row=3`, `end row=0`, `station=4`, `off`, `volume=70`, `refused volume=100`, `sound=0`, and `idle` for a key that changes nothing. A start that fails adds `deitrix: radio cannot play`. A frame that shows another state logs `deitrix: radio shows Playing Hearth`, `shows Off` or `shows Cannot play Lullaby`, just before the present.
 
