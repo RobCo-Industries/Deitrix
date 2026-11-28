@@ -440,14 +440,14 @@ TEST(sfx_drain_stops_at_the_limit_and_without_a_sound)
     setup();
     fake.tick_step = 10;
     t0 = fake.ticks;
-    CHECK_INT(dx_plat_play_seq(long_note, 1), 0);
+    CHECK_INT(dx_plat_play_seq(DX_SOUND_RADIO, long_note, 1), 0);
     dx_sfx_drain(1);
     CHECK_INT(dx_plat_audio_status(), 1);
     CHECK_INT(fake.ticks - t0, DX_SFX_DRAIN_MS);
     /* No sound started: no wait at all, even with the voice busy. */
     setup();
     fake.tick_step = 10;
-    CHECK_INT(dx_plat_play_seq(long_note, 1), 0);
+    CHECK_INT(dx_plat_play_seq(DX_SOUND_RADIO, long_note, 1), 0);
     dx_sfx_drain(0);
     CHECK_INT(fake.waits, 0);
 }
@@ -466,7 +466,7 @@ TEST(sfx_drain_counts_time_not_rounds)
         fake_push(DX_EV_BUTTON, DX_BTN_UP, DX_PRESS_DOWN);
     }
     t0 = fake.ticks;
-    CHECK_INT(dx_plat_play_seq(long_note, 1), 0);
+    CHECK_INT(dx_plat_play_seq(DX_SOUND_RADIO, long_note, 1), 0);
     dx_sfx_drain(1);
     CHECK_INT(fake.ticks - t0, DX_SFX_DRAIN_MS);
     CHECK_INT(fake.waits, DX_SFX_DRAIN_MS);
@@ -488,13 +488,13 @@ TEST(sfx_drain_counts_time_not_rounds)
     fake.tick_step = 10;
     fake.ticks = 0xFFFFFF00u;
     t0 = fake.ticks;
-    CHECK_INT(dx_plat_play_seq(long_note, 1), 0);
+    CHECK_INT(dx_plat_play_seq(DX_SOUND_RADIO, long_note, 1), 0);
     dx_sfx_drain(1);
     CHECK_INT(fake.ticks - t0, DX_SFX_DRAIN_MS);
     /* A clock that stands still: the round cap ends the wait. */
     setup();
     fake.tick_step = 0;
-    CHECK_INT(dx_plat_play_seq(long_note, 1), 0);
+    CHECK_INT(dx_plat_play_seq(DX_SOUND_RADIO, long_note, 1), 0);
     dx_sfx_drain(1);
     CHECK_INT(fake.waits, DX_SFX_DRAIN_ROUNDS);
 }

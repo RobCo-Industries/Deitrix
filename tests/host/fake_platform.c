@@ -15,6 +15,7 @@
 fake_platform_t fake;
 
 static void audio_log(int op, uint32_t n, uint32_t first);
+static void audio_log_kind(int op, uint32_t n, uint32_t first, uint32_t kind);
 static void audio_start(uint32_t ms);
 
 static int live_blocks;
@@ -355,9 +356,13 @@ void dx_plat_log(const char *text)
     tfmt(fake.log + strlen(fake.log), sizeof(fake.log) - strlen(fake.log), "%s", text);
 }
 
-void dx_plat_tone(uint32_t freq_hz, uint32_t duration_ms)
+void dx_plat_tone(uint32_t kind, uint32_t freq_hz, uint32_t duration_ms)
 {
-    audio_log(FAKE_AU_TONE, freq_hz, duration_ms);
+    if (kind > DX_SOUND_GAMES) {
+        return;
+    }
+    audio_log_kind(FAKE_AU_TONE, freq_hz, duration_ms, kind);
+    fake.au_kind = kind;
     audio_start(duration_ms);
     if (fake.tone_count < FAKE_MAX_TONES) {
         fake.tones[fake.tone_count][0] = freq_hz;
@@ -713,7 +718,7 @@ int32_t dx_plat_save_delete(const char *name)
 
 /* ---- Audio: one voice against fake.ticks -------------------------------- */
 
-static void audio_log(int op, uint32_t n, uint32_t first)
+static void audio_log_kind(int op, uint32_t n, uint32_t first, uint32_t kind)
 {
     if (fake.audio_count < FAKE_MAX_AUDIO) {
         fake_audio_t *a = &fake.audio[fake.audio_count++];
@@ -723,7 +728,13 @@ static void audio_log(int op, uint32_t n, uint32_t first)
         a->first = first;
         a->at = fake.ticks;
         a->rate = fake.rate;
+        a->kind = kind;
     }
+}
+
+static void audio_log(int op, uint32_t n, uint32_t first)
+{
+    audio_log_kind(op, n, first, FAKE_KIND_NONE);
 }
 
 int fake_audio_ops(int op)
@@ -849,30 +860,32 @@ static void take_bytes(const uint8_t *data, uint32_t length)
     fake.au_bytes += length;
 }
 
-int32_t dx_plat_play_seq(const dx_note_t *notes, uint32_t count)
+int32_t dx_plat_play_seq(uint32_t kind, const dx_note_t *notes, uint32_t count)
 {
     uint32_t ms = 0;
     uint32_t i;
 
-    if (count < 1 || count > 256) {
-        return -22;
+    if (kind > DX_SOUND_GAMES || count < 1 || count > 256) {
+        return DX_EINVAL;
     }
     for (i = 0; i < count; i++) {
         ms += notes[i].duration_ms;
     }
-    audio_log(FAKE_AU_SEQ, count, notes[0].freq_hz);
+    audio_log_kind(FAKE_AU_SEQ, count, notes[0].freq_hz, kind);
+    fake.au_kind = kind;
     fake.seq_count++;
     fake.seq_ms = ms;
     audio_start(ms);
     return 0;
 }
 
-int32_t dx_plat_sample(const uint8_t *data, uint32_t length)
+int32_t dx_plat_sample(uint32_t kind, const uint8_t *data, uint32_t length)
 {
-    if (length < 1 || length > DX_SAMPLE_MAX) {
-        return -22;
+    if (kind > DX_SOUND_GAMES || length < 1 || length > DX_SAMPLE_MAX) {
+        return DX_EINVAL;
     }
-    audio_log(FAKE_AU_SAMPLE, length, data[0]);
+    audio_log_kind(FAKE_AU_SAMPLE, length, data[0], kind);
+    fake.au_kind = kind;
     fake.au_starts++;
     fake.au_rate = fake.rate;
     take_bytes(data, length);
@@ -880,14 +893,16 @@ int32_t dx_plat_sample(const uint8_t *data, uint32_t length)
     return 0;
 }
 
-int32_t dx_plat_sample_queue(const uint8_t *data, uint32_t length)
+int32_t dx_plat_sample_queue(uint32_t kind, const uint8_t *data, uint32_t length)
 {
-    if (length < 1 || length > DX_SAMPLE_MAX) {
-        return -22;
+    if (kind > DX_SOUND_GAMES || length < 1 || length > DX_SAMPLE_MAX) {
+        return DX_EINVAL;
     }
     audio_update();
     if (!fake.au_on) {
-        audio_log(FAKE_AU_QUEUE, length, data[0]);
+        /* Nothing plays: it starts a play of the kind passed. */
+        audio_log_kind(FAKE_AU_QUEUE, length, data[0], kind);
+        fake.au_kind = kind;
         fake.au_starts++;
         fake.au_rate = fake.rate;
         take_bytes(data, length);
@@ -905,7 +920,8 @@ int32_t dx_plat_sample_queue(const uint8_t *data, uint32_t length)
         uint32_t rate = fake.au_rate != 0 ? fake.au_rate : DX_RATE_LO;
         uint32_t ms = length * 1000u / rate;
 
-        audio_log(FAKE_AU_QUEUE, length, data[0]);
+        /* It joins the play and keeps that play's kind. */
+        audio_log_kind(FAKE_AU_QUEUE, length, data[0], fake.au_kind);
         if (fake.audio_count > before) {
             fake.audio[before].rate = rate;
         }

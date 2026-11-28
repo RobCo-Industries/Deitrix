@@ -15,6 +15,11 @@
 
 #define PATH_MAX_LEN 48
 
+/* The kinds of sound the stations play: a tune is radio, a recorded
+ * track a recording. Pip-OS plays each kind at its own level. */
+#define TUNE_SOUND DX_SOUND_RADIO
+#define PCM_SOUND  DX_SOUND_RECORDINGS
+
 static const dx_radio_t *table;
 static int state = DX_RADIO_OFF;
 static int current = -1;
@@ -172,7 +177,8 @@ static void feed(void)
             underruns++;
             dx_plat_log("deitrix: radio underrun\n");
         }
-        rc = started ? dx_plat_sample_queue(chunk, pending) : dx_plat_sample(chunk, pending);
+        rc = started ? dx_plat_sample_queue(PCM_SOUND, chunk, pending)
+                     : dx_plat_sample(PCM_SOUND, chunk, pending);
         if (rc == DX_EBUSY) {
             return;
         }
@@ -208,7 +214,7 @@ static int start(int i)
     at_end = 0;
     pending = 0;
     if (s->kind == DX_KIND_TUNE) {
-        if (dx_plat_play_seq(s->notes, (uint32_t)s->note_count) != 0) {
+        if (dx_plat_play_seq(TUNE_SOUND, s->notes, (uint32_t)s->note_count) != 0) {
             off();
             failed = i;
             return -1;
@@ -285,7 +291,7 @@ static uint32_t step(uint32_t now_ms)
             return dx_ticks_add(now_ms, DX_RADIO_TUNE_POLL_MS);
         }
         /* The tune ended: it plays again from its start. */
-        if (dx_plat_play_seq(s->notes, (uint32_t)s->note_count) != 0) {
+        if (dx_plat_play_seq(TUNE_SOUND, s->notes, (uint32_t)s->note_count) != 0) {
             failed = current;
             off();
             return 0;
