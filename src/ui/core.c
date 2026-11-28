@@ -146,7 +146,7 @@ void dx_ui_sound(int snd)
     if (!DX_UI_SOUND || !sound_on || sound_blocked || snd <= DX_SND_NONE || snd > DX_SND_DENY) {
         return;
     }
-    dx_plat_tone(tones[snd][0], tones[snd][1]);
+    dx_plat_tone(DX_SOUND_SFX, tones[snd][0], tones[snd][1]);
     dx_hum_halt(); /* the tone took the voice */
 }
 

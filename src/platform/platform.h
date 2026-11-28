@@ -73,8 +73,19 @@ int dx_plat_wait(dx_event_t *ev, uint32_t timeout_ms);
 /* Writes text to the serial log as it is. */
 void dx_plat_log(const char *text);
 
-/* Starts a square-wave tone. It plays in the background. */
-void dx_plat_tone(uint32_t freq_hz, uint32_t duration_ms);
+/*
+ * The kind of a sound, as PIP_SND_* in Pip-OS's ABI. Every call that
+ * starts a sound takes one. From ABI 1.6 Pip-OS plays each kind at its
+ * own level. The kind in force is sfx again when the call returns. An
+ * older Pip-OS has one level, and the kind changes nothing there.
+ */
+#define DX_SOUND_RADIO      0u
+#define DX_SOUND_SFX        1u
+#define DX_SOUND_RECORDINGS 2u
+#define DX_SOUND_GAMES      3u
+
+/* Starts a square-wave tone of `kind`. It plays in the background. */
+void dx_plat_tone(uint32_t kind, uint32_t freq_hz, uint32_t duration_ms);
 
 /* ---- Files: read only, on the card --------------------------------------- */
 
@@ -129,16 +140,20 @@ typedef struct dx_note {
 
 #define DX_SAMPLE_MAX 65536 /* bytes per sample call */
 
-/* Each returns 0 or a negative error. sample_queue returns DX_EBUSY when
- * a sample already waits. */
-int32_t dx_plat_play_seq(const dx_note_t *notes, uint32_t count);
-int32_t dx_plat_sample(const uint8_t *data, uint32_t length);
-int32_t dx_plat_sample_queue(const uint8_t *data, uint32_t length);
+/* Each starts a play of `kind`, a DX_SOUND_* value, and returns 0 or a
+ * negative error. sample_queue returns DX_EBUSY when a sample already
+ * waits. A queued sample that joins a play keeps that play's kind. */
+int32_t dx_plat_play_seq(uint32_t kind, const dx_note_t *notes, uint32_t count);
+int32_t dx_plat_sample(uint32_t kind, const uint8_t *data, uint32_t length);
+int32_t dx_plat_sample_queue(uint32_t kind, const uint8_t *data, uint32_t length);
 void dx_plat_audio_stop(void);
 /* 1 while a sound plays or a queued sample waits, else 0. */
 int dx_plat_audio_status(void);
 /* Sets the level, 0 to 100. Returns the previous one, or -1. */
 int32_t dx_plat_volume(uint32_t level);
+/* Reads the master level, 0 to 100, and sets nothing. A negative value
+ * before ABI 1.6, where only dx_plat_volume reaches the level. */
+int32_t dx_plat_master(void);
 
 /* The rates of dx_plat_sample_rate, in Hz. Every image starts at 8000. */
 #define DX_RATE_LO 8000u
@@ -166,6 +181,7 @@ typedef struct dx_sysinfo {
 #define DX_ABI_1_3 0x00010003u /* hw_flags in sys_info */
 #define DX_ABI_1_4 0x00010004u /* the holotape slot */
 #define DX_ABI_1_5 0x00010005u /* sample_rate, DX_HW_AUDIO_MID */
+#define DX_ABI_1_6 0x00010006u /* sound kinds and levels */
 
 /* hw_flags bits, as PIP_HW_* in Pip-OS's ABI. */
 #define DX_HW_RTC   (1u << 0)

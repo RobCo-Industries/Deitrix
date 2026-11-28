@@ -30,6 +30,32 @@ _Static_assert(sizeof(dx_note_t) == sizeof(pip_note_t), "note layout");
 _Static_assert(DX_EBUSY == -PIP_EBUSY, "busy");
 _Static_assert(DX_NAME83_SIZE == PIP_NAME83_SIZE, "8.3 name");
 _Static_assert(DX_SAMPLE_MAX == PIP_SAMPLE_MAX, "sample size");
+_Static_assert(DX_SOUND_RADIO == PIP_SND_RADIO && DX_SOUND_SFX == PIP_SND_SFX &&
+                   DX_SOUND_RECORDINGS == PIP_SND_RECORDINGS && DX_SOUND_GAMES == PIP_SND_GAMES,
+               "sound kinds");
+
+/* 1 when Pip-OS has ABI 1.6 or later, so sound_kind and sound_level
+ * exist. Set once in pip_main. */
+static int has_levels;
+
+/*
+ * Sets the kind of the next play and returns the kind before, or a
+ * negative value when nothing was set: before ABI 1.6, or when the call
+ * failed. A play keeps the kind it started with, so kind_back() can set
+ * the old kind right after the start. A failed kind call never stops the
+ * sound: the sound then plays as the kind in force.
+ */
+static int32_t kind_set(uint32_t kind)
+{
+    return has_levels ? pip_sound_kind(kind) : -1;
+}
+
+static void kind_back(int32_t prev)
+{
+    if (prev >= 0) {
+        pip_sound_kind((uint32_t)prev);
+    }
+}
 
 uint32_t dx_plat_fg(void)
 {
@@ -69,9 +95,12 @@ void dx_plat_log(const char *text)
     pip_log(text);
 }
 
-void dx_plat_tone(uint32_t freq_hz, uint32_t duration_ms)
+void dx_plat_tone(uint32_t kind, uint32_t freq_hz, uint32_t duration_ms)
 {
+    int32_t prev = kind_set(kind);
+
     pip_tone(freq_hz, duration_ms);
+    kind_back(prev);
 }
 
 /* ---- Files ---------------------------------------------------------------- */
@@ -181,19 +210,31 @@ int32_t dx_plat_save_delete(const char *name)
 
 /* ---- Audio ---------------------------------------------------------------- */
 
-int32_t dx_plat_play_seq(const dx_note_t *notes, uint32_t count)
+int32_t dx_plat_play_seq(uint32_t kind, const dx_note_t *notes, uint32_t count)
 {
-    return pip_play_seq((const pip_note_t *)(const void *)notes, count);
+    int32_t prev = kind_set(kind);
+    int32_t rc = pip_play_seq((const pip_note_t *)(const void *)notes, count);
+
+    kind_back(prev);
+    return rc;
 }
 
-int32_t dx_plat_sample(const uint8_t *data, uint32_t length)
+int32_t dx_plat_sample(uint32_t kind, const uint8_t *data, uint32_t length)
 {
-    return pip_sample(data, length);
+    int32_t prev = kind_set(kind);
+    int32_t rc = pip_sample(data, length);
+
+    kind_back(prev);
+    return rc;
 }
 
-int32_t dx_plat_sample_queue(const uint8_t *data, uint32_t length)
+int32_t dx_plat_sample_queue(uint32_t kind, const uint8_t *data, uint32_t length)
 {
-    return pip_sample_queue(data, length);
+    int32_t prev = kind_set(kind);
+    int32_t rc = pip_sample_queue(data, length);
+
+    kind_back(prev);
+    return rc;
 }
 
 void dx_plat_audio_stop(void)
@@ -211,6 +252,11 @@ int32_t dx_plat_volume(uint32_t level)
     int32_t prev = pip_volume(level);
 
     return prev < 0 ? -1 : prev;
+}
+
+int32_t dx_plat_master(void)
+{
+    return has_levels ? pip_sound_level(PIP_LEVEL_MASTER, PIP_LEVEL_ASK) : -1;
 }
 
 int32_t dx_plat_sample_rate(uint32_t hz)
@@ -438,6 +484,6 @@ const dx_gfx_t *dx_plat_gfx(void)
 
 int pip_main(const pipos_startup_t *startup)
 {
-    (void)startup;
+    has_levels = startup->abi_version >= DX_ABI_1_6;
     dx_main();
 }

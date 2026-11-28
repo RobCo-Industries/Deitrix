@@ -55,7 +55,12 @@ typedef struct fake_audio {
     uint32_t at;   /* fake.ticks at the call */
     uint32_t rate; /* the rate the bytes play at: the rate in force, or
                     * the rate of the play a queued sample joins */
+    uint32_t kind; /* the DX_SOUND_* kind of the play: the kind passed, or
+                    * the kind of the play a queued sample joins.
+                    * FAKE_KIND_NONE for a call that starts nothing. */
 } fake_audio_t;
+
+#define FAKE_KIND_NONE 0xFFu
 
 typedef struct fake_text {
     int32_t x, y;
@@ -130,6 +135,7 @@ typedef struct fake_platform {
     uint32_t rate;       /* the rate of the next sample play, 8000 at reset */
     int32_t rate_result; /* while not 0, sample_rate returns it and sets nothing */
     uint32_t au_rate;    /* the rate of the last sample play */
+    uint32_t au_kind;    /* the kind of the last play */
     int au_on;           /* a sound started and not stopped */
     uint32_t au_end;     /* tick when the playing sound ends */
     uint32_t au_wait;    /* ms of the waiting sample, 0 for none */

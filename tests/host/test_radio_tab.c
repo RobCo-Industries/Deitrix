@@ -797,7 +797,7 @@ TEST(tuner_waits_for_the_sound_to_end)
     fake.ticks = t0 + 50;
     dx_plat_audio_stop();
     clear_sounds();
-    CHECK_INT(dx_plat_play_seq((const dx_note_t[]){ { 440, 200 } }, 1), 0);
+    CHECK_INT(dx_plat_play_seq(DX_SOUND_RADIO, (const dx_note_t[]){ { 440, 200 } }, 1), 0);
     fake.ticks = t0 + 100;
     CHECK_INT(dx_service_radio.tick(fake.ticks, &flags), t0 + 100 + DX_RADIO_TUNING_POLL_MS);
     CHECK_INT(dx_radio_state(), DX_RADIO_TUNING);

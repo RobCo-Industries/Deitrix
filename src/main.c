@@ -349,6 +349,13 @@ static void remember_tab(int tab)
     dx_settings_set_tab(dx_content_settings(), tab);
 }
 
+int32_t dx_start_volume(void)
+{
+    int32_t level = dx_plat_master();
+
+    return level >= 0 ? level : dx_plat_volume(100);
+}
+
 void dx_main(void)
 {
     static dx_app_t app;
@@ -365,7 +372,7 @@ void dx_main(void)
         }
     }
     dx_content_load();
-    volume = dx_plat_volume(100);
+    volume = dx_start_volume();
     dx_content_load_saves(volume < 0 ? 100 : (uint8_t)volume);
     dx_radio_attach(dx_content_radio());
     dx_autosave_attach(dx_content_settings(), dx_content_items());

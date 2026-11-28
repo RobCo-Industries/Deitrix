@@ -127,9 +127,10 @@ static int play_hi(const uint8_t *data, uint32_t len, const uint8_t *rest, uint3
     if (prev < 0) {
         return 0;
     }
-    rc = queue ? dx_plat_sample_queue(data, len) : dx_plat_sample(data, len);
+    rc = queue ? dx_plat_sample_queue(DX_SOUND_SFX, data, len)
+               : dx_plat_sample(DX_SOUND_SFX, data, len);
     if (rc == 0 && rest != NULL) {
-        dx_plat_sample_queue(rest, rest_len); /* nothing waits: it never says busy */
+        dx_plat_sample_queue(DX_SOUND_SFX, rest, rest_len); /* nothing waits: it never says busy */
     }
     dx_plat_sample_rate((uint32_t)prev);
     return rc == 0;
