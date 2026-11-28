@@ -35,6 +35,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Added
 
+- `make levels-preview` writes seven WAV files from QEMU sessions at set sound levels, to choose the default levels by ear. `tools/mkpcm.py --chunks` cuts the radio tracks into the buffers the preview tool needs.
 - `make sdimage CARD_NOTE=<file>` and `make bootdir` put that file on the card as `PIPBOY/VERSIONS.TXT`.
 - `tests/test_chain.py` takes one card through boot, the five tabs, Culvert, a save and a restart in a single QEMU test, `test_whole_chain_pipboy`.
 - "UI sounds" gains a fourth value, `Full + hum`, offered when `Full` is. A hum service plays the hum while the radio is off and no tape runs: its two parts take turns in the kernel's queue, topped up every 250 ms. Each table then plays as a head, mixed with the hum's first bytes into RAM at start-up, with the rest of the hum's first part queued behind it. The heads take 56 732 bytes of BSS. A station and a tape stop the hum, and it comes back after their last sound. Leaving `Full + hum` stops the hum in the same pass, not at the next top-up. The value sits in the same byte of DEITRIX.SAV. A saved 3 without the midpoint flag plays the tones and shows `On`. `make sfx-table` passes `--bed hum`, so the header also gives each head's and rest's length and CRC-32. `make sfx-preview` saves `Full + hum`. The ROM grows from 138 272 to 225 880 bytes, mostly the hum's tables. Host tests in `test_hum.c` and `test_saves.c`, QEMU tests in `test_sfx_hum.py`.

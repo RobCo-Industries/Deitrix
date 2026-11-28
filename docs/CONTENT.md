@@ -416,7 +416,7 @@ The generator runs with `--bed hum`. The header then also gives, for each of the
 | `tools/check_content.py <dir>` | Checks the tree at `<dir>`, which holds `PIPBOY/DATA`. Prints `<path>:<line>: <message>` per problem, line 0 for the whole file, and exits 1. Exits 0 with no output when the tree is valid. |
 | `make check-content` | Runs the checker on `content/` and on `build/card/`. `make test-host` runs it. `make card-tree` checks `build/card/` too. |
 | `tools/tun2notes.py <file.TUN>` | Prints the notes the ROM sends to `play_seq`, one `freq_hz duration_ms` per line. `--wav <out.wav>` renders them with a square wave. |
-| `tools/mkpcm.py <dir>` | Writes `HEARTH.PCM` and `DRIFT.PCM` into `<dir>`. `--wav` also writes WAV files. `--only <NAME>` writes one track. `--list` prints the file names. |
+| `tools/mkpcm.py <dir>` | Writes `HEARTH.PCM` and `DRIFT.PCM` into `<dir>`. `--wav` also writes WAV files. `--only <NAME>` writes one track. `--list` prints the file names. `--chunks <src>` makes no track: it cuts each `.PCM` of `<src>` into files of 8000 bytes, `HEARTH_00.u8` and on, the buffers Deitrix hands Pip-OS, for `make levels-preview`. A track whose length is not a multiple of 8000 fails it. |
 
 Run the checker on `content/` alone and it reports the two PCM files as missing, since `tools/mkpcm.py` generates them. `--generated <NAME.PCM>` allows one such file to be missing: `make check-content` passes each name from `tools/mkpcm.py --list`. On `build/card/` no file may be missing.
 
