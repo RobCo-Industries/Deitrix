@@ -138,6 +138,11 @@ void dx_ui_sound_block(int blocked)
 
 void dx_ui_sound(int snd)
 {
+    dx_ui_sound_as(snd, DX_SOUND_SFX);
+}
+
+void dx_ui_sound_as(int snd, uint32_t kind)
+{
     /* Hz and ms per DX_SND_*. */
     static const uint16_t tones[][2] = {
         { 0, 0 }, { 1400, 12 }, { 1900, 30 }, { 900, 30 }, { 180, 70 },
@@ -146,7 +151,7 @@ void dx_ui_sound(int snd)
     if (!DX_UI_SOUND || !sound_on || sound_blocked || snd <= DX_SND_NONE || snd > DX_SND_DENY) {
         return;
     }
-    dx_plat_tone(DX_SOUND_SFX, tones[snd][0], tones[snd][1]);
+    dx_plat_tone(kind, tones[snd][0], tones[snd][1]);
     dx_hum_halt(); /* the tone took the voice */
 }
 

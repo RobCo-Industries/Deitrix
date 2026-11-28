@@ -37,6 +37,7 @@ void dx_radio_screen_reset(void)
 {
     sel = -1;
     shown = -1;
+    dx_radio_levels_close();
 }
 
 static int station_count(const dx_radio_t *r)
@@ -191,11 +192,19 @@ static unsigned event(void *st, const dx_ui_event_t *ev)
     (void)st;
     logged = 0;
     sync(r);
+    if (dx_radio_levels_is_open()) {
+        return dx_radio_levels_event(ev); /* it logs its own lines */
+    }
     if (ev->type == DX_UI_UP || ev->type == DX_UI_DOWN) {
         res = move(r, ev->type == DX_UI_UP ? -1 : 1);
     } else if (sel == row_volume(r)) {
         if (lr) {
             res = volume_key(ev);
+        } else if (ev->type == DX_UI_SELECT && !ev->repeat) {
+            res = dx_radio_levels_open();
+            if (res != DX_UI_IGNORED) {
+                return res; /* the view logged its open line */
+            }
         }
     } else if (sel == row_sound(r)) {
         if (lr || (ev->type == DX_UI_SELECT)) {
@@ -308,13 +317,14 @@ static void setting_row(const dx_ctx_t *ctx, dx_rect_t area, int y, const char *
     ctx->gfx->text(right - dx_text_width(value, 1), y, value, fg, bg, 1);
 }
 
-/* The Volume row: the gauge widget, its bar from BAR_X, three digits at
+/* A gauge row: the gauge widget, its bar from BAR_X, three digits at
  * the right, inverse when selected. */
-static void volume_row(const dx_ctx_t *ctx, dx_rect_t area, int y, int volume, int selected)
+void dx_radio_gauge_row(const dx_ctx_t *ctx, dx_rect_t area, int y, const char *label, int value,
+                        int selected)
 {
     dx_gauge_t g;
 
-    dx_gauge_init(&g, "Volume", volume, DX_VOLUME_MAX);
+    dx_gauge_init(&g, label, value, DX_VOLUME_MAX);
     g.selected = selected;
     g.value_only = 1;
     g.pad = PAD_L;
@@ -343,6 +353,10 @@ static void draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
 
     (void)st;
     sync(r);
+    if (dx_radio_levels_is_open()) {
+        dx_radio_levels_draw(ctx, area);
+        return;
+    }
     if (station_count(r) == 0) {
         draw_empty(r, ctx, area);
     } else {
@@ -358,7 +372,7 @@ static void draw(void *st, const dx_ctx_t *ctx, dx_rect_t area)
     y = area.y + DX_RADIO_RULE2_DY;
     ctx->gfx->line(area.x, y, area.x + area.w - 1, y, ctx->theme.faint);
     y = area.y + DX_RADIO_SET_DY;
-    volume_row(ctx, area, y, set->volume, sel == row_volume(r));
+    dx_radio_gauge_row(ctx, area, y, "Volume", set->volume, sel == row_volume(r));
     setting_row(ctx, area, y + DX_ROW_H, "UI sounds", dx_ui_sound_label(set->ui_sound, dx_sfx_full()),
                 sel == row_sound(r));
 }
@@ -369,8 +383,12 @@ static const char *hint(void *st)
 
     (void)st;
     sync(r);
+    if (dx_radio_levels_is_open()) {
+        return "LEFT/RIGHT: level  SELECT: done";
+    }
     if (sel == row_volume(r)) {
-        return "UP/DOWN: move  LEFT/RIGHT: volume";
+        return dx_radio_levels_there() ? "LEFT/RIGHT: volume  SELECT: levels"
+                                       : "UP/DOWN: move  LEFT/RIGHT: volume";
     }
     if (sel == row_sound(r)) {
         return "UP/DOWN: move  SELECT: sound on/off";
@@ -381,6 +399,13 @@ static const char *hint(void *st)
     return "UP/DOWN: move  SELECT: play";
 }
 
+/* A dial turn changes the tab: the levels view closes, its values stay. */
+static void leave(void *st)
+{
+    (void)st;
+    dx_radio_levels_close();
+}
+
 const dx_screen_t dx_screen_radio = {
-    "RADIO", NULL, NULL, event, NULL, draw, hint, NULL,
+    "RADIO", NULL, leave, event, NULL, draw, hint, NULL,
 };
