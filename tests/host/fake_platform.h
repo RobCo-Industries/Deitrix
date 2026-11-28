@@ -27,6 +27,7 @@
 #define FAKE_HANDLES    8
 #define FAKE_MAX_SET_TIMES 16
 #define FAKE_ARGS_SIZE  100
+#define FAKE_MAX_LEVEL_SETS 64
 
 /* A file on the fake card. data NULL: every byte is `fill`. */
 typedef struct fake_file {
@@ -61,6 +62,15 @@ typedef struct fake_audio {
 } fake_audio_t;
 
 #define FAKE_KIND_NONE 0xFFu
+
+/* One level set that worked: which level, the new value, and
+ * fake.audio_count at the call, so a test tells a set from a sound
+ * after it. */
+typedef struct fake_level_set {
+    uint32_t which;
+    uint32_t level;
+    int audio_at;
+} fake_level_set_t;
 
 typedef struct fake_text {
     int32_t x, y;
@@ -145,6 +155,20 @@ typedef struct fake_platform {
     uint32_t au_bytes;
     int seq_count;       /* play_seq calls */
     uint32_t seq_ms;     /* the length of the last sequence */
+    /* The levels of ABI 1.6, by kind; volume is the master. Each is
+     * 100 at reset. While level_rc is not 0, a read and a set return it
+     * and change nothing. The calls answer DX_ENOSYS below DX_ABI_1_6. */
+    uint32_t levels[4];
+    int32_t level_rc;
+    fake_level_set_t level_sets[FAKE_MAX_LEVEL_SETS]; /* past the cap: dropped */
+    int level_set_count;
+    int level_calls;     /* every call of the three, on every kernel */
+    /* The store: the next store_fail stores return store_rc. A store that
+     * works copies the four levels by kind, then the master. */
+    int store_fail;
+    int32_t store_rc;
+    uint32_t stored[5];
+    int store_count;
     dx_sysinfo_t sysinfo;
     int sysinfo_fail;    /* dx_plat_sysinfo fails while set */
     /* set_time: the result to give, the calls. A result of 0 or DX_EIO

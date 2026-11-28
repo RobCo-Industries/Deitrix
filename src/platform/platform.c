@@ -33,6 +33,7 @@ _Static_assert(DX_SAMPLE_MAX == PIP_SAMPLE_MAX, "sample size");
 _Static_assert(DX_SOUND_RADIO == PIP_SND_RADIO && DX_SOUND_SFX == PIP_SND_SFX &&
                    DX_SOUND_RECORDINGS == PIP_SND_RECORDINGS && DX_SOUND_GAMES == PIP_SND_GAMES,
                "sound kinds");
+_Static_assert(DX_LEVEL_MASTER == PIP_LEVEL_MASTER, "master level");
 
 /* 1 when Pip-OS has ABI 1.6 or later, so sound_kind and sound_level
  * exist. Set once in pip_main. */
@@ -259,6 +260,21 @@ int32_t dx_plat_master(void)
     return has_levels ? pip_sound_level(PIP_LEVEL_MASTER, PIP_LEVEL_ASK) : -1;
 }
 
+int32_t dx_plat_level(uint32_t which)
+{
+    return has_levels ? pip_sound_level(which, PIP_LEVEL_ASK) : DX_ENOSYS;
+}
+
+int32_t dx_plat_level_set(uint32_t which, uint32_t level)
+{
+    return has_levels ? pip_sound_level(which, level) : DX_ENOSYS;
+}
+
+int32_t dx_plat_levels_store(void)
+{
+    return has_levels ? pip_sound_store() : DX_ENOSYS;
+}
+
 int32_t dx_plat_sample_rate(uint32_t hz)
 {
     return pip_sample_rate(hz);
@@ -300,6 +316,7 @@ _Static_assert(DX_EPERM == -PIP_EPERM && DX_ENOENT == -PIP_ENOENT && DX_EIO == -
                "errors");
 _Static_assert(DX_EFAULT == -PIP_EFAULT && DX_EINVAL == -PIP_EINVAL &&
                    DX_ENOEXEC == -PIP_ENOEXEC, "errors");
+_Static_assert(DX_ENOSPC == -PIP_ENOSPC && DX_ENOSYS == -PIP_ENOSYS, "errors");
 _Static_assert(DX_HOLO_GAME == PIP_HOLO_GAME && DX_HOLO_UTILITY == PIP_HOLO_UTILITY &&
                    DX_HOLO_DATA == PIP_HOLO_DATA, "holotape kinds");
 _Static_assert(DX_HOLO_MAX == PIP_HOLO_ENUM_MAX, "holotape count");

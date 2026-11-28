@@ -83,6 +83,8 @@ void dx_plat_log(const char *text);
 #define DX_SOUND_SFX        1u
 #define DX_SOUND_RECORDINGS 2u
 #define DX_SOUND_GAMES      3u
+/* The master, as a `which` of the level calls only. It is not a kind. */
+#define DX_LEVEL_MASTER     4u
 
 /* Starts a square-wave tone of `kind`. It plays in the background. */
 void dx_plat_tone(uint32_t kind, uint32_t freq_hz, uint32_t duration_ms);
@@ -155,6 +157,18 @@ int32_t dx_plat_volume(uint32_t level);
  * before ABI 1.6, where only dx_plat_volume reaches the level. */
 int32_t dx_plat_master(void);
 
+/*
+ * The five levels of ABI 1.6. `which` is a DX_SOUND_* kind or
+ * DX_LEVEL_MASTER. dx_plat_level reads a level, 0 to 100.
+ * dx_plat_level_set sets one and returns the level before.
+ * dx_plat_levels_store writes the master and the four levels to the
+ * boot card and returns 0. Each returns a negative kernel code on an
+ * error, and DX_ENOSYS before ABI 1.6, where it calls nothing.
+ */
+int32_t dx_plat_level(uint32_t which);
+int32_t dx_plat_level_set(uint32_t which, uint32_t level);
+int32_t dx_plat_levels_store(void);
+
 /* The rates of dx_plat_sample_rate, in Hz. Every image starts at 8000. */
 #define DX_RATE_LO 8000u
 #define DX_RATE_HI 37500u
@@ -202,6 +216,8 @@ int dx_plat_sysinfo(dx_sysinfo_t *out);
 #define DX_EIO     (-5)
 #define DX_EFAULT  (-14)
 #define DX_EINVAL  (-22)
+#define DX_ENOSPC  (-28)
+#define DX_ENOSYS  (-38)
 #define DX_ENOEXEC (-40)
 #define DX_ENODEV  (-41)
 
