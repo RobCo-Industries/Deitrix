@@ -79,7 +79,7 @@ For other GCC-only warnings, CI is the check. If a GCC is installed, run `make C
 |---|---|
 | `test_check_content.py` | The sample tree passes; a table of broken trees, one per rule of [CONTENT.md](CONTENT.md), each with its message and line; the INI reader against `ini.c`'s rules; the line count against `dx_wrap`; `--help` exits 0 with the usage, bad arguments exit 2 |
 | `test_tun2notes.py` | The sample tunes stay inside `play_seq`'s limits and last 8 to 30 seconds; note names, lengths, dots, tempo, the repeat, every error; the WAV output |
-| `test_mkpcm.py` | Each track's SHA-256, its length, no clipping, the DC level, the loop joint, the command line; `--chunks` cuts each track into 32 files of 8000 bytes that join back to the track, its chunk size equals `DX_RADIO_CHUNK`, and a track of 12000 bytes fails and writes nothing |
+| `test_mkpcm.py` | Each track's SHA-256, its length, no clipping, the DC level, the loop joint, the command line; `--chunks` cuts each track into 32 files of 8000 bytes that join back to the track, its chunk size equals `DX_RADIO_CHUNK`, a track of 12000 bytes fails and writes nothing, a folder with Hearth only gives Hearth's chunks, and an empty folder fails with one line that names it |
 | `test_levels_preview.py` | Two chunks of Hearth from `--chunks` render with `audio_preview.py` to the right length, with no warning and not silent; a buffer that no chunk matches gives the tool's warning |
 
 To add one, write `tests/host/test_<name>.c` with `TEST(name) { CHECK(...); }` from RobCo-Core's `rc_test.h`. `make test-host` finds it.

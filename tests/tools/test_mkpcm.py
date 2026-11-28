@@ -115,6 +115,26 @@ class Chunks(unittest.TestCase):
             self.assertEqual(len(r.stderr.strip().splitlines()), 1, r.stderr)
             self.assertEqual(os.listdir(d), [])
 
+    def test_absent_track_is_skipped(self):
+        with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(src, "HEARTH.PCM"), "wb") as f:
+                f.write(TRACKS["HEARTH"])
+            r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "mkpcm.py"), d,
+                                "--chunks", src], capture_output=True, env=minimal_env(), text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            files = sorted(os.listdir(d))
+            self.assertEqual(files, [f"HEARTH_{i:02d}.u8" for i in range(32)])
+
+    def test_no_track_fails_with_one_line(self):
+        with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as d:
+            r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "mkpcm.py"), d,
+                                "--chunks", src], capture_output=True, env=minimal_env(), text=True)
+            self.assertEqual(r.returncode, 1)
+            lines = r.stderr.strip().splitlines()
+            self.assertEqual(len(lines), 1, r.stderr)
+            self.assertIn(src, lines[0])
+            self.assertEqual(os.listdir(d), [])
+
 
 if __name__ == "__main__":
     unittest.main()

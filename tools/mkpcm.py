@@ -12,9 +12,10 @@
 The --chunks mode makes no track. It reads the tracks that exist in
 <dir> and writes each one as files of CHUNK bytes, the buffers Deitrix
 hands Pip-OS one at a time. RobCo-Core's tools/audio_preview.py finds a
-buffer by its bytes, so make levels-preview gives it these files. A
-track whose length is not a multiple of CHUNK fails the mode before it
-writes anything.
+buffer by its bytes, so make levels-preview gives it these files. It
+skips a track that is absent from <dir>, and fails when <dir> holds
+none. A track whose length is not a multiple of CHUNK fails the mode
+before it writes anything.
 
 Output: raw 8-bit unsigned mono at 8000 Hz, no header, as docs/CONTENT.md
 describes. The synthesis uses integers only, so the bytes are the same on
@@ -232,8 +233,14 @@ def main(argv=None):
         for name in TRACKS:
             if a.only and name != a.only:
                 continue
-            with open(os.path.join(a.chunks, name + ".PCM"), "rb") as f:
+            path = os.path.join(a.chunks, name + ".PCM")
+            if not os.path.isfile(path):
+                continue
+            with open(path, "rb") as f:
                 tracks[name] = f.read()
+        if not tracks:
+            print(f"mkpcm: no track in {a.chunks}", file=sys.stderr)
+            return 1
         try:
             write_chunks(tracks, a.outdir)
         except ValueError as e:
