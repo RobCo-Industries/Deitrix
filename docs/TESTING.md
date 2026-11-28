@@ -79,7 +79,8 @@ For other GCC-only warnings, CI is the check. If a GCC is installed, run `make C
 |---|---|
 | `test_check_content.py` | The sample tree passes; a table of broken trees, one per rule of [CONTENT.md](CONTENT.md), each with its message and line; the INI reader against `ini.c`'s rules; the line count against `dx_wrap`; `--help` exits 0 with the usage, bad arguments exit 2 |
 | `test_tun2notes.py` | The sample tunes stay inside `play_seq`'s limits and last 8 to 30 seconds; note names, lengths, dots, tempo, the repeat, every error; the WAV output |
-| `test_mkpcm.py` | Each track's SHA-256, its length, no clipping, the DC level, the loop joint, the command line |
+| `test_mkpcm.py` | Each track's SHA-256, its length, no clipping, the DC level, the loop joint, the command line; `--chunks` cuts each track into 32 files of 8000 bytes that join back to the track, its chunk size equals `DX_RADIO_CHUNK`, a track of 12000 bytes fails and writes nothing, a folder with Hearth only gives Hearth's chunks, and an empty folder fails with one line that names it |
+| `test_levels_preview.py` | Two chunks of Hearth from `--chunks` render with `audio_preview.py` to the right length, with no warning and not silent; a buffer that no chunk matches gives the tool's warning |
 
 To add one, write `tests/host/test_<name>.c` with `TEST(name) { CHECK(...); }` from RobCo-Core's `rc_test.h`. `make test-host` finds it.
 
@@ -268,6 +269,59 @@ The target then dumps the kernel's sound buffers with Pip-OS's `tools/sound_tabl
 The UI sounds play as heads over the hum, each with its rest queued behind. The station's start and stop play `tuner`, and the tape plays `tape_start` and `tape_stop`, all three plain. The kernel keeps only the newest sound request in one 10 ms tick, so each input waits for its sound before the next one. Each part ends with about half a second of the hum. The test fails when the session plays no tuner, tape start, tape stop or hum table, or no head and rest of mode, tab, scroll, select or highlight. The suite never collects it: it runs only with `--sfx-preview-log`.
 
 The target saves the log in `build/sfx_preview/serial.log`. It dumps the kernel's buffers into `build/sfx_preview/pcm/`, the weep into `build/sfx_preview/weep/` and Deitrix's tables, heads and rests with RobCo-Core's `tools/sfx_table.py --dump --bed hum` into `build/sfx_preview/sfx/`. Then `tools/audio_preview.py` writes `build/sfx_preview.wav`. The target fails when the log is missing, when the tool prints a warning or when the file is silent. Nothing commits the file.
+
+## The sound level previews
+
+`make levels-preview` writes seven WAV files into `build/levels_preview/`, to choose the default sound levels by ear. `make levels-preview-<name>` writes one of them. Each file is one session of `tests/test_levels_preview_log.py` in QEMU, on `raspi0` or on `BOARD`. The master is 80 in every file.
+
+| File | Radio tunes | Effects | Recordings | Games | Session |
+|---|---|---|---|---|---|
+| `levels-before.wav` | 100 | 100 | 100 | 100 | The level session |
+| `levels-default.wav` | 40 | 100 | 80 | 50 | The level session |
+| `levels-radio-30.wav` | 30 | 100 | 80 | 50 | The level session |
+| `levels-radio-50.wav` | 50 | 100 | 80 | 50 | The level session |
+| `levels-games-40.wav` | 40 | 100 | 80 | 40 | The level session |
+| `levels-games-70.wav` | 40 | 100 | 80 | 70 | The level session |
+| `levels-sweep.wav` | 100, then down to 0 and back | 100 | 100 | 100 | The sweep session |
+
+The numbers of `levels-default.wav` are candidates. The kernel's defaults are still 100. Nobody has heard these files on a device. They come from QEMU's audio trace and the tool's model of the pin.
+
+### How each session sets its levels
+
+The six level files write the four levels under `[audio]` of the card's `PIPOS.CFG`, after the lines of the boot sound preview. Every session writes all four, also at 100, so no file depends on a built-in default. This needs no input and no card write. The sweep changes the radio level in the levels view of RADIO, since only the ROM changes a level while a sound plays. Each session checks that the kernel's `ev=config` line shows the master and the four levels it wrote, and that no `ev=levels` line came.
+
+### The level session
+
+The card has a `DEITRIX.SAV` with "UI sounds" on `Full`, with no hum, so the quiet parts stay quiet. The session:
+
+- the boot, up to the weep
+- the dial to INV, RIGHT, SELECT and BACK, then the dial back to RADIO
+- DOWN and UP on RADIO
+- SELECT on Morning, a tune, for 5 s from its first note
+- the walk to Hearth, a recorded station, and SELECT, for 5 s from its first buffer
+- the dial to DATA and TAPES, then Culvert: level 1 solved with a pause of 0.3 s after each turn, then Quit
+
+Each input waits for its sound before the next one. The session then checks the trace:
+
+- at least 6 notes of the tune, each at the radio level
+- at least one buffer of the recording, each at the recordings level
+- in the tape, the tick of 900 Hz, the connect notes 1320 then 1760 Hz and the solved tune 784, 988 and 1175 Hz, each tone at the games level
+- every table at volume 80 with no gain, and the tables mode, tab, select, highlight, scroll, tape start, tape stop, the tuner twice and the weep
+- no `op=gain` line, no `deitrix: save PIPOS.SET` line and no exception
+
+### The sweep session
+
+The card has every level at 100 and "UI sounds" off. So the file holds the boot, then the tune and nothing else, and a click would stand out. Morning plays for 2 s. The session opens the levels view and walks the radio level from 100 to 0 and back to 100 in steps of 5, with 0.25 s after each step. It holds 6 s, so the autosave stores the levels and the kernel drops the clicks that write owes. Then it closes the view and stops the station.
+
+It checks the trace from the first step to the station's stop: all 40 steps came, the `op=gain` values follow the steps in order, at least 20 of them came, every audio line is a tone, a stop or a gain, no tone is a UI tone, one note plays under volume 80, and the last note before the stop is back at 80 with no gain. A step in a rest of the tune prints no `op=gain`, so fewer than 40 come. One run printed 37. A disk click may follow the station's stop. That is the device's own sound for the card write, after the checked part.
+
+### The goals
+
+`levels-preview-dumps` runs once per make run. It removes and writes four folders under `build/levels_preview/work/`: the kernel's buffers, the weep, Deitrix's tables and the radio tracks of `build/pcm/` cut by `tools/mkpcm.py --chunks` into the 8000-byte buffers Deitrix hands the kernel. The tool finds each buffer of a recording by its CRC.
+
+Each goal removes its old log, warnings and WAV first. It saves the log in `build/levels_preview/work/<name>.log` and renders it with RobCo-Core's [`tools/audio_preview.py`](https://github.com/RobCo-Industries/RobCo-Core/blob/245590ed9c7f3db92ea98c4d66e01d5e7ca98500/tools/audio_preview.py) into `build/levels_preview/levels-<name>.wav`. It fails when a check of the session fails, when the log is missing, when the tool prints a warning and when the file is silent. A missing chunk is a warning, so it fails the goal.
+
+One session took 36 to 41 s on `raspi0`, and one goal 43 to 48 s with its render. All seven take about 6 minutes. Nothing commits the files, and the suite never collects the session: it runs only with `--levels-preview-log` and `--levels-preview`. No other goal runs these.
 
 ## Real hardware
 
