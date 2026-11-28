@@ -9,6 +9,7 @@
 #include <robco/crc32.h>
 
 #include "content.h"
+#include "app.h"
 #include "fake_platform.h"
 #include "screens/radio_screen.h"
 #include "screens/screens.h"
@@ -1053,4 +1054,51 @@ TEST(levels_other_changes_store_nothing)
         CHECK_INT(fake.store_count, 0);
         CHECK_INT(count_in_log("deitrix: save PIPOS.SET"), 0);
     }
+}
+
+/* The master at start, as dx_main runs it: the kernel started at
+ * `kernel`, the save holds `saved`. Returns the stores after the quiet
+ * time. */
+static int start_with(uint32_t abi, uint32_t kernel, uint8_t saved)
+{
+    dx_settings_t saved_settings;
+    uint8_t buf[DX_SETTINGS_SIZE];
+    int32_t volume;
+
+    fake_reset();
+    fake.sysinfo.abi_version = abi;
+    dx_settings_defaults(&saved_settings, saved);
+    dx_settings_encode(&saved_settings, buf);
+    fake_put_save(DX_SETTINGS_NAME, buf, DX_SETTINGS_SIZE);
+    fake.volume = kernel;
+    dx_content_load();
+    volume = dx_start_volume();
+    dx_content_load_saves(volume < 0 ? 100 : (uint8_t)volume);
+    CHECK_INT(dx_content_settings()->volume, saved);
+    dx_autosave_attach(dx_content_settings(), dx_content_items());
+    dx_service_autosave.init(fake.ticks);
+    dx_start_levels(volume);
+    run_ticks(DX_SAVE_QUIET_MS + 1000);
+    return fake.store_count;
+}
+
+TEST(start_stores_a_saved_master_that_differs)
+{
+    CHECK_INT(start_with(DX_ABI_1_6, 80, 40), 1);
+    CHECK_INT(fake.stored[4], 40);
+    CHECK_INT(fake.volume, 40);
+    CHECK_INT(count_in_log("deitrix: save PIPOS.SET ok\n"), 1);
+}
+
+TEST(start_stores_nothing_when_they_agree)
+{
+    CHECK_INT(start_with(DX_ABI_1_6, 60, 60), 0);
+    CHECK_INT(count_in_log("deitrix: save PIPOS.SET"), 0);
+}
+
+TEST(start_stores_nothing_before_1_6)
+{
+    CHECK_INT(start_with(DX_ABI_1_5, 80, 40), 0);
+    CHECK_INT(count_in_log("deitrix: save PIPOS.SET"), 0);
+    CHECK_INT(fake.level_calls, 0);
 }

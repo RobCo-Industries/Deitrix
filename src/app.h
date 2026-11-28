@@ -92,6 +92,13 @@ void dx_app_route(dx_app_t *app, const dx_ui_event_t *ev);
  * nothing. Before, it reads it with dx_plat_volume(100). */
 int32_t dx_start_volume(void);
 
+/* The master Pip-OS started at, from dx_start_volume, against the one
+ * the save holds. When it is 0 or more and differs, counts one change
+ * of the levels, so the autosave stores the saved master once. Call it
+ * after the services start: the autosave's init forgets earlier
+ * changes. Before ABI 1.6 the count does nothing. */
+void dx_start_levels(int32_t start_master);
+
 /* Runs dx_app_step forever over dx_rom_screens. */
 void dx_main(void) __attribute__((noreturn));
 
