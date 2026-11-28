@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -75,6 +76,44 @@ class Cli(unittest.TestCase):
                            capture_output=True, env=minimal_env(), text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.split(), [n + ".PCM" for n in TRACKS])
+
+
+class Chunks(unittest.TestCase):
+    def test_chunk_is_the_rom_buffer(self):
+        with open(os.path.join(ROOT, "src", "services", "services.h"), encoding="ascii") as f:
+            got = re.search(r"#define DX_RADIO_CHUNK +(\d+)u", f.read())
+        self.assertIsNotNone(got)
+        self.assertEqual(mkpcm.CHUNK, int(got.group(1)))
+
+    def test_tracks_cut_and_join(self):
+        with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as d:
+            for name, data in TRACKS.items():
+                with open(os.path.join(src, name + ".PCM"), "wb") as f:
+                    f.write(data)
+            r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "mkpcm.py"), d,
+                                "--chunks", src], capture_output=True, env=minimal_env(), text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            for name, data in TRACKS.items():
+                files = sorted(f for f in os.listdir(d) if f.startswith(name + "_"))
+                self.assertEqual(len(files), 32, name)
+                joined = b""
+                for fname in files:
+                    with open(os.path.join(d, fname), "rb") as f:
+                        part = f.read()
+                    self.assertEqual(len(part), mkpcm.CHUNK, fname)
+                    joined += part
+                self.assertEqual(joined, data, name)
+
+    def test_odd_length_fails_and_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(src, "HEARTH.PCM"), "wb") as f:
+                f.write(bytes(12000))
+            r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "mkpcm.py"), d,
+                                "--chunks", src, "--only", "HEARTH"],
+                               capture_output=True, env=minimal_env(), text=True)
+            self.assertEqual(r.returncode, 1)
+            self.assertEqual(len(r.stderr.strip().splitlines()), 1, r.stderr)
+            self.assertEqual(os.listdir(d), [])
 
 
 if __name__ == "__main__":

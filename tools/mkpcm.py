@@ -5,6 +5,16 @@
     tools/mkpcm.py <outdir> --wav         also write HEARTH.WAV and DRIFT.WAV
     tools/mkpcm.py <outdir> --only HEARTH one track only
     tools/mkpcm.py --list                 print the file names, one per line
+    tools/mkpcm.py <outdir> --chunks <dir>
+                                          cut each <NAME>.PCM of <dir> into
+                                          <NAME>_00.u8, <NAME>_01.u8, ...
+
+The --chunks mode makes no track. It reads the tracks that exist in
+<dir> and writes each one as files of CHUNK bytes, the buffers Deitrix
+hands Pip-OS one at a time. RobCo-Core's tools/audio_preview.py finds a
+buffer by its bytes, so make levels-preview gives it these files. A
+track whose length is not a multiple of CHUNK fails the mode before it
+writes anything.
 
 Output: raw 8-bit unsigned mono at 8000 Hz, no header, as docs/CONTENT.md
 describes. The synthesis uses integers only, so the bytes are the same on
@@ -170,6 +180,29 @@ def drift():
 
 TRACKS = {"HEARTH": hearth, "DRIFT": drift}
 
+# DX_RADIO_CHUNK of src/services/services.h: the bytes of one buffer of a
+# recorded station. tests/tools/test_mkpcm.py checks that they agree.
+CHUNK = 8000
+
+
+def chunks(name, data):
+    """[(file name, bytes)] of a track cut into CHUNK bytes, in order."""
+    if not data or len(data) % CHUNK:
+        raise ValueError(f"{name}: {len(data)} bytes is not a multiple of {CHUNK}")
+    return [(f"{name}_{i:02d}.u8", data[at:at + CHUNK])
+            for i, at in enumerate(range(0, len(data), CHUNK))]
+
+
+def write_chunks(tracks, outdir):
+    """Writes the chunks of {name: bytes} into outdir. Checks every track
+    first, so a bad one writes nothing. Returns the file names."""
+    files = [f for name, data in tracks.items() for f in chunks(name, data)]
+    os.makedirs(outdir, exist_ok=True)
+    for fname, data in files:
+        with open(os.path.join(outdir, fname), "wb") as f:
+            f.write(data)
+    return [fname for fname, _ in files]
+
 
 def write_wav(path, data):
     with wave.open(path, "wb") as w:
@@ -185,6 +218,8 @@ def main(argv=None):
     ap.add_argument("--list", action="store_true", help="print the .PCM names and exit")
     ap.add_argument("--wav", action="store_true", help="also write <NAME>.WAV")
     ap.add_argument("--only", choices=sorted(TRACKS), help="one track only")
+    ap.add_argument("--chunks", metavar="DIR",
+                    help="cut the .PCM tracks of DIR into %d-byte .u8 files in outdir" % CHUNK)
     a = ap.parse_args(argv)
     if a.list:
         for name in TRACKS:
@@ -192,6 +227,19 @@ def main(argv=None):
         return 0
     if a.outdir is None:
         ap.error("outdir is required")
+    if a.chunks is not None:
+        tracks = {}
+        for name in TRACKS:
+            if a.only and name != a.only:
+                continue
+            with open(os.path.join(a.chunks, name + ".PCM"), "rb") as f:
+                tracks[name] = f.read()
+        try:
+            write_chunks(tracks, a.outdir)
+        except ValueError as e:
+            print(f"mkpcm: {e}", file=sys.stderr)
+            return 1
+        return 0
     os.makedirs(a.outdir, exist_ok=True)
     for name, fn in TRACKS.items():
         if a.only and name != a.only:
