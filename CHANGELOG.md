@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 ### Changed
 
 - `make check-workflows` runs RobCo-Core's workflow guard on `.github/workflows/`. `check-pins` runs it first, so CI runs it too.
+- Pip-OS moves to `f92311d`, with RobCo-Core `245590e` inside it. The kernel reports ABI 1.6 and gives each play the gain of its kind from a master and four sound levels, all at 100 unless set. The ROM declares ABI 1.6. STAT's ABOUT page shows ABI 1.6, so its golden moves. The CI workflow pins RobCo-Core `245590e`. The docs link the new commits.
 - Pip-OS moves to `d6a1495`, with RobCo-Core `300e5a3` still inside it. The move brings only Pip-OS's workflow changes. The doc links follow.
 - Pip-OS moves to `084590e`, with RobCo-Core `300e5a3` inside it. The sound table generator takes `--bed` for sounds over a loop. The CI workflow pins RobCo-Core `300e5a3`. The docs link the new commits.
 - `make boot-sound` renders the log with RobCo-Core's `tools/audio_preview.py`, since Pip-OS removed its `tools/boot_sound.py`. The WAV keeps the same bytes.
