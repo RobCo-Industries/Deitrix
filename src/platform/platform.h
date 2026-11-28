@@ -151,6 +151,9 @@ void dx_plat_audio_stop(void);
 int dx_plat_audio_status(void);
 /* Sets the level, 0 to 100. Returns the previous one, or -1. */
 int32_t dx_plat_volume(uint32_t level);
+/* Reads the master level, 0 to 100, and sets nothing. A negative value
+ * before ABI 1.6, where only dx_plat_volume reaches the level. */
+int32_t dx_plat_master(void);
 
 /* The rates of dx_plat_sample_rate, in Hz. Every image starts at 8000. */
 #define DX_RATE_LO 8000u

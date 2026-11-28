@@ -87,6 +87,11 @@ void dx_app_step(dx_app_t *app);
  * see ui/latch.h. */
 void dx_app_route(dx_app_t *app, const dx_ui_event_t *ev);
 
+/* The master level Pip-OS has at start, 0 to 100, or a negative value
+ * when it cannot be read. From ABI 1.6 it reads the level and sets
+ * nothing. Before, it reads it with dx_plat_volume(100). */
+int32_t dx_start_volume(void);
+
 /* Runs dx_app_step forever over dx_rom_screens. */
 void dx_main(void) __attribute__((noreturn));
 

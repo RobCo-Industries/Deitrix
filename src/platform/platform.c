@@ -254,6 +254,11 @@ int32_t dx_plat_volume(uint32_t level)
     return prev < 0 ? -1 : prev;
 }
 
+int32_t dx_plat_master(void)
+{
+    return has_levels ? pip_sound_level(PIP_LEVEL_MASTER, PIP_LEVEL_ASK) : -1;
+}
+
 int32_t dx_plat_sample_rate(uint32_t hz)
 {
     return pip_sample_rate(hz);

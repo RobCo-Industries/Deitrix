@@ -956,6 +956,12 @@ int32_t dx_plat_volume(uint32_t level)
     return (int32_t)prev;
 }
 
+/* Answers by the fake kernel's ABI, and logs nothing. */
+int32_t dx_plat_master(void)
+{
+    return fake.sysinfo.abi_version >= DX_ABI_1_6 ? (int32_t)fake.volume : -1;
+}
+
 int32_t dx_plat_sample_rate(uint32_t hz)
 {
     uint32_t prev = fake.rate;

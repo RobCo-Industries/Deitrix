@@ -4,6 +4,7 @@
 
 #include <string.h>
 
+#include "app.h"
 #include "fake_platform.h"
 #include "services/services.h"
 #include "services/sfx_table.h"
@@ -238,4 +239,28 @@ TEST(fake_refuses_an_unknown_kind)
     CHECK_INT(fake.audio[1].kind, DX_SOUND_GAMES);
     dx_plat_audio_stop();
     CHECK_INT(fake.audio[2].kind, FAKE_KIND_NONE);
+}
+
+/* ---- The master at start ------------------------------------------------ */
+
+TEST(start_volume_reads_the_master_on_1_6)
+{
+    fake_reset();
+    fake.sysinfo.abi_version = DX_ABI_1_6;
+    fake.volume = 70;
+    CHECK_INT(dx_start_volume(), 70);
+    CHECK_INT(fake.audio_count, 0);
+    CHECK_INT(fake.volume, 70);
+}
+
+TEST(start_volume_sets_100_to_read_before_1_6)
+{
+    fake_reset();
+    fake.sysinfo.abi_version = DX_ABI_1_5;
+    fake.volume = 70;
+    CHECK_INT(dx_start_volume(), 70);
+    CHECK_INT(fake.audio_count, 1);
+    CHECK_INT(fake.audio[0].op, FAKE_AU_VOLUME);
+    CHECK_INT(fake.audio[0].n, 100);
+    CHECK_INT(fake.volume, 100);
 }
