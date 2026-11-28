@@ -56,6 +56,8 @@ The sample content of the card: `PIPBOY/DATA/` with the profile, items, notes, m
 
 `platform.h` declares `dx_gfx_t`, a table of drawing functions: `clear`, `line`, `rect`, `text`, `polyline`, `arc`, `blit1`, `clip` and `present`. Each call takes its own colour, so no drawing state carries over between calls. `platform.c` maps each one to the Pip-OS call that does it: it sets the colour with `set_color`, then draws. `blit1` fills a background rectangle first when one is given, because `blit_1bpp` draws set bits only. Arguments outside the kernel's limits draw nothing. `DX_COLOR_NONE` is a transparent text background.
 
+Every platform call that starts a sound takes its kind first: `DX_SOUND_RADIO`, `DX_SOUND_SFX`, `DX_SOUND_RECORDINGS` or `DX_SOUND_GAMES`, the values of Pip-OS's `PIP_SND_*`. These are `dx_plat_tone`, `dx_plat_play_seq`, `dx_plat_sample` and `dx_plat_sample_queue`. So no sound starts without a kind. `pip_main()` reads `abi_version` once. On 1.6 or later each of the four calls sets the kind with `sound_kind`, starts the sound, and sets the kind before back when the first call returned 0 or more. A play keeps the kind it started with, so the kind in force is sfx again whenever a platform call returns. No code above `platform.c` holds a kind. On an older Pip-OS the calls only start the sound. A failed kind call never stops the sound. A queued sample that joins a play keeps that play's kind. `dx_plat_master()` reads the master level with `sound_level` and sets nothing. Before 1.6 it returns a negative value.
+
 The host fake gives a recorder instead. Each call becomes one line of a draw list, for example `text 8 4 "STAT" fg none s1`. Colours that match the theme print as `fg`, `dim`, `faint` or `bg`.
 
 ### The theme
@@ -74,7 +76,7 @@ The navigation rule:
 
 A screen that keeps a depth tests `dx_ui_is_back()`. It is true for `DX_UI_BACK` and for LEFT, repeats too. So a device with a Back button and the QEMU console behave the same. On the console, Backspace or a lone Escape is Back, and LEFT works too.
 
-The SDK seals the ROM for ABI 1.5, the version its headers implement, since Deitrix calls `holo_eject_event` as 1.4 defines it and `sample_rate`, new in 1.5. The loader checks only the major version, so the ROM still runs on a 1.0 to 1.3 Pip-OS. A 1.0 or 1.1 Pip-OS never sends button 6, and LEFT is the only way back there. Deitrix reads `abi_version` from `sys_info` before it trusts a newer field: `hw_flags` only from 1.3, the slot only from 1.4, `sample_rate` and `PIP_HW_AUDIO_MID` only from 1.5. On an older Pip-OS it has no slot and behaves as before.
+The SDK seals the ROM for ABI 1.6, the version its headers implement. Deitrix calls `holo_eject_event` as 1.4 defines it, `sample_rate`, new in 1.5, and `sound_kind` and `sound_level`, new in 1.6. The loader checks only the major version, so the ROM still runs on a 1.0 to 1.3 Pip-OS. A 1.0 or 1.1 Pip-OS never sends button 6, and LEFT is the only way back there. Deitrix reads `abi_version` from `sys_info` before it trusts a newer field: `hw_flags` only from 1.3, the slot only from 1.4, `sample_rate` and `PIP_HW_AUDIO_MID` only from 1.5, `sound_kind` and `sound_level` only from 1.6. On an older Pip-OS it has no slot, plays every sound at the one volume and behaves as before.
 
 A `PIP_EV_TAPE` event, new in 1.4, is not a key. The shell does not route it: it only wakes the services, and the tape slot service asks Pip-OS what changed.
 
@@ -129,6 +131,8 @@ The footer names the keys that do something in the current state. Every hint fol
 | RADIO | UI sounds | `UP/DOWN: move  SELECT: sound on/off` |
 
 ### Sounds
+
+Every sound in this section is sfx: the key tones, the weep, the tables and the hum. Pip-OS plays it at its sfx level.
 
 `dx_ui_sound()` plays a short tone through the platform: MOVE, SELECT, BACK or DENY. It plays nothing when the owner turned UI sounds off in the settings, or while the radio plays. `dx_ui_sound_for()` picks it: MOVE for a tab change or a handled key that changed the screen, SELECT or BACK when the screen handled one, and DENY for UP, DOWN, SELECT or BACK that the screen ignored on a fresh press. Repeats never deny. `DX_UI_SOUND` in `ui.h` turns every tone off when set to 0.
 
@@ -307,7 +311,7 @@ deitrix: load DEITRIX.SAV ok tab=4 volume=80 sound=1 station=1
 
 1. The app shell: the drawing table and the theme, then the screen table check.
 2. The content, as above.
-3. The saves, on top of the content. The volume default is the level Pip-OS had at start. The volume and the UI sound setting apply at once.
+3. The saves, on top of the content. The volume default is the level Pip-OS had at start. `dx_start_volume()` reads it. On ABI 1.6 it reads the master with `sound_level` and sets nothing. Before 1.6 it reads it with `volume(100)`, the only way there. The volume and the UI sound setting apply at once.
 4. The services: the radio, the hum, the autosave, the uptime and the tape slot.
 5. The tab from the settings. Then the first frame and `deitrix: ready`.
 
@@ -321,6 +325,7 @@ A service asks for a redraw the way a screen does: `tick` sets `DX_UI_DIRTY` in 
 
 The radio plays whatever tab is shown. Its states are off, playing a tune and playing a PCM track. The screen calls `dx_radio_play`, `dx_radio_stop`, `dx_radio_current`, `dx_radio_failed` and `dx_radio_set_volume`. `dx_radio_failed` gives the station an error stopped: its file was missing or could not be opened, read or played. A start or a stop clears it.
 
+- A tune plays as radio, and a PCM track as a recording. Pip-OS plays each at the level of its kind. `TUNE_SOUND` and `PCM_SOUND` in `radio.c` name the two kinds.
 - A tune goes to `play_seq` in one call. The service wakes when the tune's length has passed. If `audio_status` says the sound still plays, it checks again every 50 ms. Then it starts the tune again.
 - A PCM track streams from a file handle kept open. Chunks are 8000 bytes, 1000 ms each at 8000 Hz. The first goes to `sample`, the rest to `sample_queue`. One chunk plays, one waits in Pip-OS and one waits in the ROM's buffer. File handles cannot seek, so at the end of a looping track the ROM closes the file, opens it again and fills the rest of the chunk from the first byte. Every chunk is whole, so the joint has no gap.
 - While a track streams, the service wakes every 250 ms, a quarter of a chunk. `sample_queue` takes a chunk only once the one before starts to play. So the slot opens at most 250 ms before the service fills it, and at least 750 ms of sound are still queued. In the steady state a wake reads at most one chunk from the card.

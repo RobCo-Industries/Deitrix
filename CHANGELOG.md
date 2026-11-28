@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dei
 
 ### Changed
 
+- Deitrix tells Pip-OS the kind of each sound on ABI 1.6: a tune is radio, a recorded station is a recording, and every other sound is an effect. Pip-OS plays each kind at its own level. Every platform call that starts a sound takes a kind. At start Deitrix reads the master with `sound_level` and sets nothing. On an older Pip-OS it behaves as before.
 - `make check-workflows` runs RobCo-Core's workflow guard on `.github/workflows/`. `check-pins` runs it first, so CI runs it too.
 - Pip-OS moves to `f92311d`, with RobCo-Core `245590e` inside it. The kernel reports ABI 1.6 and gives each play the gain of its kind from a master and four sound levels, all at 100 unless set. The ROM declares ABI 1.6. STAT's ABOUT page shows ABI 1.6, so its golden moves. The CI workflow pins RobCo-Core `245590e`. The docs link the new commits.
 - Pip-OS moves to `d6a1495`, with RobCo-Core `300e5a3` still inside it. The move brings only Pip-OS's workflow changes. The doc links follow.
