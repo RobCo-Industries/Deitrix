@@ -24,6 +24,10 @@
 #                             the weep, what the audio pin would play
 #   make sfx-preview          drive a session with "UI sounds" on Full + hum
 #                             in QEMU and write build/sfx_preview.wav
+#   make levels-preview       drive seven sessions at set sound levels in
+#                             QEMU and write build/levels_preview/levels-*.wav
+#   make levels-preview-<name>  one of them: before, default, radio-30,
+#                             radio-50, games-40, games-70 or sweep
 #   make sdimage              build/pipos/sd.img: the Pip-OS kernel, its sample
 #                             PIPOS.CFG, ROM1.ROM and the card tree
 #                             (CARD_NOTE=<file> adds PIPBOY/VERSIONS.TXT)
@@ -310,6 +314,54 @@ sfx-preview: sdimage venv
 	$(PYTHON) -I -c 'import sys, wave; w = wave.open(sys.argv[1]); \
 		sys.exit("sfx-preview: the file is silent" if not any(w.readframes(w.getnframes())) else 0)' \
 		$(BUILD)/sfx_preview.wav
+
+# ---- Sound level previews ---------------------------------------------
+
+# `make levels-preview` writes seven WAV files into build/levels_preview/,
+# one session each, to choose the sound levels by ear. Each session of
+# tests/test_levels_preview_log.py boots the card of make sdimage with the
+# master at 80 and four levels in its PIPOS.CFG. Six play the level
+# session: the boot, keys on Full, Morning, Hearth and Culvert solved. The
+# sweep plays Morning while the radio level walks down to 0 and back.
+# levels-preview-dumps writes the sample files once: the kernel's buffers,
+# the weep, Deitrix's tables and the radio tracks cut into the ROM's
+# buffers. A goal fails on a missing log, on any warning of the tool and
+# on a silent file. See docs/TESTING.md.
+LEVELS_PREVIEW_DIR   := $(BUILD)/levels_preview
+LEVELS_PREVIEW_WORK  := $(LEVELS_PREVIEW_DIR)/work
+LEVELS_PREVIEW_DUMPS := pcm weep sfx chunks
+LEVELS_PREVIEW_NAMES := before default radio-30 radio-50 games-40 games-70 sweep
+LEVELS_PREVIEW_GOALS := $(addprefix levels-preview-,$(LEVELS_PREVIEW_NAMES))
+
+.PHONY: levels-preview levels-preview-dumps $(LEVELS_PREVIEW_GOALS)
+levels-preview: $(LEVELS_PREVIEW_GOALS)
+
+levels-preview-dumps: sdimage
+	@mkdir -p $(LEVELS_PREVIEW_WORK)
+	@rm -rf $(addprefix $(LEVELS_PREVIEW_WORK)/,$(LEVELS_PREVIEW_DUMPS))
+	$(PYTHON) -I $(PIP_OS)/tools/sound_table.py --dump $(LEVELS_PREVIEW_WORK)/pcm
+	$(PYTHON) -I tools/mkweep.py --dump $(LEVELS_PREVIEW_WORK)/weep
+	$(PYTHON) -I $(SFX_TOOL) $(SFX_MODEL) --dump $(LEVELS_PREVIEW_WORK)/sfx --bed $(SFX_BED)
+	$(PYTHON) -I tools/mkpcm.py $(LEVELS_PREVIEW_WORK)/chunks --chunks $(PCM_DIR)
+
+$(LEVELS_PREVIEW_GOALS): levels-preview-%: sdimage venv $(CV_SOLVE) levels-preview-dumps
+	@rm -f $(LEVELS_PREVIEW_WORK)/$*.log $(LEVELS_PREVIEW_WORK)/$*.warnings.txt \
+		$(LEVELS_PREVIEW_DIR)/levels-$*.wav
+	$(VENV)/bin/pytest tests/test_levels_preview_log.py -q --tb=short --board $(BOOT_SOUND_BOARD) \
+		--build-dir $(BUILD) --levels-preview-log $(LEVELS_PREVIEW_WORK)/$*.log --levels-preview $*
+	@test -s $(LEVELS_PREVIEW_WORK)/$*.log || { \
+		echo "levels-preview-$*: the session did not run, so there is no log. Check that QEMU and mtools are installed." >&2; \
+		exit 1; }
+	$(PYTHON) -I $(ROBCO_CORE)/tools/audio_preview.py $(LEVELS_PREVIEW_WORK)/$*.log \
+		$(LEVELS_PREVIEW_DIR)/levels-$*.wav $(addprefix --pcm $(LEVELS_PREVIEW_WORK)/,$(LEVELS_PREVIEW_DUMPS)) \
+		2> $(LEVELS_PREVIEW_WORK)/$*.warnings.txt || { cat $(LEVELS_PREVIEW_WORK)/$*.warnings.txt >&2; exit 1; }
+	@if test -s $(LEVELS_PREVIEW_WORK)/$*.warnings.txt; then \
+		cat $(LEVELS_PREVIEW_WORK)/$*.warnings.txt >&2; \
+		echo "levels-preview-$*: the tool warned, so the file misses sounds." >&2; \
+		exit 1; fi
+	$(PYTHON) -I -c 'import sys, wave; w = wave.open(sys.argv[1]); \
+		sys.exit("levels-preview: the file is silent" if not any(w.readframes(w.getnframes())) else 0)' \
+		$(LEVELS_PREVIEW_DIR)/levels-$*.wav
 
 # ---- Checks and tests ------------------------------------------------------
 
