@@ -256,7 +256,17 @@ def test_radio_no_file(board, kernel_image, card, tmp_path, need_mtools):
         wait_ready(vm)
         to_radio(vm)
         shot(vm, tmp_path, "radio_empty")
-        key(vm, "select", "idle")
+        # SELECT on the Volume row opens the levels view. The card keeps
+        # its stock levels, so the line is read by its form.
+        before = len(key_lines(vm))
+        press(vm, "select")
+        deadline = time.monotonic() + TIMEOUT
+        while len(key_lines(vm)) <= before:
+            assert time.monotonic() < deadline, vm.serial
+            time.sleep(0.05)
+        opened = key_lines(vm)[before]
+        assert re.fullmatch(r"levels radio=\d+ sfx=\d+ recordings=\d+ games=\d+", opened), opened
+        key(vm, "select", "levels closed")
         key(vm, "up", "end row=0")
         key(vm, "down", "row=1")
         key(vm, "select", "sound=0")
