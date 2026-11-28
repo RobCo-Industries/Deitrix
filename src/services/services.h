@@ -88,6 +88,11 @@ void dx_autosave_attach(dx_settings_t *settings, dx_items_t *items);
  * gave up. Returns 0 when every save is on the card. */
 int dx_autosave_flush(uint32_t now_ms);
 
+/* Counts one change of the device's sound levels, the master included.
+ * The service then stores them with dx_plat_levels_store under the rules
+ * of a save. Does nothing before ABI 1.6. */
+void dx_autosave_note_levels(void);
+
 /* 1 while the service plans to write a change. 0 after it gave up. */
 int dx_autosave_pending(void);
 

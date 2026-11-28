@@ -1,5 +1,6 @@
 /* The radio and autosave services against the fake audio, card and clock. */
 #include "rc_test.h"
+#include "tfmt.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,7 +8,10 @@
 
 #include <robco/crc32.h>
 
+#include "content.h"
 #include "fake_platform.h"
+#include "screens/radio_screen.h"
+#include "screens/screens.h"
 #include "services/services.h"
 
 #define CHECK_INT(a, b) CHECK_EQ((int64_t)(a), (int64_t)(b))
@@ -814,4 +818,239 @@ TEST(uptime_across_one_and_two_wraps)
     CHECK_INT(dx_uptime_s(900, NULL), 4294968);
     CHECK_INT(dx_uptime_s(2000, NULL), 4294969);
     CHECK_INT(flags, 0);
+}
+
+/* ---- The stored sound levels ------------------------------------------- */
+
+/* save_setup on a fake kernel of ABI 1.6. */
+static void levels_setup(void)
+{
+    save_setup();
+    fake.sysinfo.abi_version = DX_ABI_1_6;
+}
+
+static int stores_tried(void)
+{
+    return count_in_log("deitrix: save PIPOS.SET ");
+}
+
+TEST(levels_store_after_the_quiet_time)
+{
+    uint32_t t0, wake;
+
+    levels_setup();
+    t0 = fake.ticks;
+    dx_autosave_note_levels();
+    wake = dx_service_autosave.tick(fake.ticks, &svc_flags);
+    CHECK_INT(dx_ticks_since(t0, wake), DX_SAVE_QUIET_MS);
+    CHECK_INT(dx_autosave_pending(), 1);
+    fake.ticks += DX_SAVE_QUIET_MS - 1;
+    CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), wake);
+    CHECK_INT(fake.store_count, 0);
+    fake.ticks += 1;
+    CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), 0);
+    CHECK_INT(fake.store_count, 1);
+    CHECK_INT(fake.save_writes, 0); /* the two saves had no change */
+    CHECK(strstr(fake.log, "deitrix: save PIPOS.SET ok\n") != NULL);
+    CHECK_INT(dx_autosave_pending(), 0);
+    CHECK_INT(dx_autosave_unsaved(), 0);
+}
+
+TEST(levels_burst_stores_once)
+{
+    int i;
+
+    levels_setup();
+    /* Twenty steps 100 ms apart, then quiet: one store. */
+    for (i = 0; i < 20; i++) {
+        dx_autosave_note_levels();
+        dx_service_autosave.tick(fake.ticks, &svc_flags);
+        fake.ticks += 100;
+    }
+    run_ticks(DX_SAVE_QUIET_MS + 1000);
+    CHECK_INT(fake.store_count, 1);
+    CHECK_INT(stores_tried(), 1);
+}
+
+TEST(levels_steps_that_go_on_store_at_the_max)
+{
+    uint32_t t0;
+    int i;
+
+    levels_setup();
+    t0 = fake.ticks;
+    for (i = 0; i < 40 && fake.store_count == 0; i++) {
+        dx_autosave_note_levels();
+        dx_service_autosave.tick(fake.ticks, &svc_flags);
+        if (fake.store_count == 0) {
+            fake.ticks += 500;
+        }
+    }
+    CHECK_INT(fake.store_count, 1);
+    CHECK_INT(dx_ticks_since(t0, fake.ticks), DX_SAVE_MAX_MS);
+}
+
+/* A store that fails retries as a save does, with the code in its line. */
+static void store_fails_with(int32_t rc)
+{
+    char want[48];
+    uint32_t t0;
+    int tries;
+
+    levels_setup();
+    tfmt(want, sizeof(want), "deitrix: save PIPOS.SET failed rc=%d\n", (int)rc);
+    fake.store_fail = 1000000;
+    fake.store_rc = rc;
+    t0 = fake.ticks;
+    dx_autosave_note_levels();
+    /* The first try and three retries, 5 s apart, then the give-up. */
+    CHECK_INT(run_saves(t0, DX_SAVE_MARK_MS - 1, 500), 0);
+    CHECK_INT(count_in_log(want), 2); /* at 2 s and 7 s */
+    CHECK_INT(dx_autosave_marked(), 0);
+    CHECK_INT(run_saves(t0, DX_SAVE_MARK_MS + 1, 1), 1);
+    CHECK_INT(dx_autosave_marked(), 1);
+    run_ticks(60000);
+    CHECK_INT(count_in_log(want), 1 + DX_SAVE_RETRIES);
+    CHECK_INT(count_in_log("deitrix: save gave up\n"), 1);
+    CHECK_INT(dx_autosave_pending(), 0);
+    CHECK_INT(dx_autosave_unsaved(), 1);
+    CHECK_INT(fake.store_count, 0);
+    /* A flush tries once. */
+    CHECK_INT(dx_autosave_flush(fake.ticks), 1);
+    CHECK_INT(count_in_log(want), 2 + DX_SAVE_RETRIES);
+    /* A new step starts a fresh round. */
+    dx_autosave_note_levels();
+    CHECK(dx_service_autosave.tick(fake.ticks, &svc_flags) != 0);
+    CHECK_INT(dx_autosave_pending(), 1);
+    run_ticks(DX_SAVE_QUIET_MS + DX_SAVE_RETRIES * DX_SAVE_RETRY_MS + 1000);
+    tries = count_in_log(want);
+    CHECK_INT(tries, 2 + 2 * DX_SAVE_RETRIES + 1);
+    /* The card heals: the next step stores and the mark goes. */
+    fake.store_fail = 0;
+    dx_autosave_note_levels();
+    t0 = fake.ticks;
+    CHECK_INT(run_saves(t0, DX_SAVE_QUIET_MS + 1, 1000), 1);
+    CHECK_INT(fake.store_count, 1);
+    CHECK_INT(dx_autosave_unsaved(), 0);
+    CHECK_INT(dx_autosave_marked(), 0);
+}
+
+TEST(levels_store_fails_on_a_card_error)
+{
+    store_fails_with(DX_EIO);
+}
+
+TEST(levels_store_fails_on_a_full_card)
+{
+    store_fails_with(DX_ENOSPC);
+}
+
+/* A failing store leaves the two saves alone, and they come first. */
+TEST(levels_store_failing_leaves_the_saves)
+{
+    const char *at_save, *at_store;
+
+    levels_setup();
+    fake.store_fail = 1000000;
+    fake.store_rc = DX_EIO;
+    dx_settings_set_tab(&settings, 1);
+    dx_items_add(&items, 0, 2);
+    dx_autosave_note_levels();
+    run_ticks(DX_SAVE_QUIET_MS + DX_SAVE_RETRIES * DX_SAVE_RETRY_MS + 1000);
+    CHECK_INT(count_in_log("deitrix: save DEITRIX.SAV ok\n"), 1);
+    CHECK_INT(count_in_log("deitrix: save INV.SAV ok\n"), 1);
+    CHECK_INT(count_in_log("deitrix: save PIPOS.SET failed rc=-5\n"), 1 + DX_SAVE_RETRIES);
+    at_save = strstr(fake.log, "deitrix: save INV.SAV ok\n");
+    at_store = strstr(fake.log, "deitrix: save PIPOS.SET failed");
+    CHECK(at_save != NULL && at_store != NULL && at_save < at_store);
+    CHECK_INT(fake.save_writes, 2);
+    CHECK_INT(dx_autosave_unsaved(), 1);
+    fake.store_fail = 0;
+}
+
+/* Before ABI 1.6 a level change counts nothing and calls nothing. */
+TEST(levels_nothing_before_1_6)
+{
+    save_setup();
+    fake.sysinfo.abi_version = DX_ABI_1_5;
+    dx_autosave_note_levels();
+    CHECK_INT(dx_service_autosave.tick(fake.ticks, &svc_flags), 0);
+    run_ticks(DX_SAVE_MAX_MS + 1000);
+    CHECK_INT(fake.level_calls, 0);
+    CHECK_INT(dx_autosave_unsaved(), 0);
+    CHECK_INT(dx_autosave_flush(fake.ticks), 0);
+    CHECK_INT(fake.level_calls, 0);
+}
+
+/* The Volume row of RADIO, with no station, on a fake of `abi`. */
+static void master_setup(uint32_t abi)
+{
+    fake_reset();
+    fake.sysinfo.abi_version = abi;
+    dx_ui_sound_block(0);
+    dx_content_load();
+    dx_content_load_saves(80);
+    dx_radio_attach(dx_content_radio());
+    dx_radio_screen_reset();
+    dx_autosave_attach(dx_content_settings(), dx_content_items());
+    dx_service_autosave.init(fake.ticks);
+}
+
+static unsigned master_key(int type)
+{
+    dx_ui_event_t ev = { type, 0, 0 };
+
+    return dx_screen_radio.event(dx_screen_radio.st, &ev);
+}
+
+TEST(levels_master_change_stores_on_1_6)
+{
+    master_setup(DX_ABI_1_6);
+    master_key(DX_UI_LEFT);
+    CHECK_INT(dx_content_settings()->volume, 70);
+    run_ticks(DX_SAVE_QUIET_MS + 1000);
+    CHECK(fake_find_save("DEITRIX") != NULL);
+    CHECK_INT(fake.store_count, 1);
+    CHECK_INT(fake.stored[4], 70);
+    CHECK_INT(stores_tried(), 1);
+}
+
+TEST(levels_master_change_saves_only_on_1_5)
+{
+    master_setup(DX_ABI_1_5);
+    master_key(DX_UI_LEFT);
+    run_ticks(DX_SAVE_QUIET_MS + 1000);
+    CHECK(fake_find_save("DEITRIX") != NULL);
+    CHECK_INT(fake.level_calls, 0);
+    CHECK_INT(stores_tried(), 0);
+}
+
+/* A tab change, a station and the UI sounds setting ask for no store. */
+TEST(levels_other_changes_store_nothing)
+{
+    static const uint32_t abis[] = { 0, DX_ABI_1_5, DX_ABI_1_6 };
+    size_t i;
+
+    for (i = 0; i < sizeof(abis) / sizeof(abis[0]); i++) {
+        save_setup();
+        fake.sysinfo.abi_version = abis[i];
+        dx_settings_set_tab(&settings, 2);
+        dx_settings_set_station(&settings, 3);
+        dx_settings_set_ui_sound(&settings, DX_UI_SOUND_OFF);
+        run_ticks(DX_SAVE_MAX_MS + 1000);
+        CHECK(fake_find_save("DEITRIX") != NULL);
+        CHECK_INT(fake.level_calls, 0);
+        CHECK_INT(count_in_log("deitrix: save PIPOS.SET"), 0);
+        setup(40000, 1);
+        fake.sysinfo.abi_version = abis[i];
+        dx_service_autosave.init(fake.ticks);
+        CHECK_INT(dx_radio_play(0, fake.ticks), 0);
+        run_for(3000, dx_service_radio.tick(fake.ticks, &svc_flags));
+        CHECK_INT(dx_radio_play(1, fake.ticks), 0);
+        run_for(3000, dx_service_radio.tick(fake.ticks, &svc_flags));
+        run_ticks(DX_SAVE_MAX_MS + 1000);
+        CHECK_INT(fake.level_calls, 0);
+        CHECK_INT(fake.store_count, 0);
+        CHECK_INT(count_in_log("deitrix: save PIPOS.SET"), 0);
+    }
 }

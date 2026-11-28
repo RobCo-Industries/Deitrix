@@ -163,6 +163,7 @@ static unsigned volume_key(const dx_ui_event_t *ev)
         return DX_UI_HANDLED;
     }
     dx_radio_set_volume(v);
+    dx_autosave_note_levels(); /* PIPOS.SET holds the master too */
     log_line("volume=", v);
     return DX_UI_HANDLED | DX_UI_DIRTY;
 }
